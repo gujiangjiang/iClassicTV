@@ -1,0 +1,488 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 46;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		48042F422F97E3530038A1DF /* Channel.m in Sources */ = {isa = PBXBuildFile; fileRef = 48042F412F97E3530038A1DF /* Channel.m */; };
+		48042F452F97E3710038A1DF /* M3UParser.m in Sources */ = {isa = PBXBuildFile; fileRef = 48042F442F97E3710038A1DF /* M3UParser.m */; };
+		48042F4B2F97E3930038A1DF /* ChannelListViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 48042F4A2F97E3930038A1DF /* ChannelListViewController.m */; };
+		48042F4E2F97E3A70038A1DF /* ImportViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 48042F4D2F97E3A70038A1DF /* ImportViewController.m */; };
+		48042F512F97E4940038A1DF /* GroupListViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 48042F502F97E4940038A1DF /* GroupListViewController.m */; };
+		48D63F292F97DE1F002AD06E /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 48D63F282F97DE1F002AD06E /* Foundation.framework */; };
+		48D63F2B2F97DE1F002AD06E /* CoreGraphics.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 48D63F2A2F97DE1F002AD06E /* CoreGraphics.framework */; };
+		48D63F2D2F97DE1F002AD06E /* UIKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 48D63F2C2F97DE1F002AD06E /* UIKit.framework */; };
+		48D63F332F97DE1F002AD06E /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = 48D63F312F97DE1F002AD06E /* InfoPlist.strings */; };
+		48D63F352F97DE1F002AD06E /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = 48D63F342F97DE1F002AD06E /* main.m */; };
+		48D63F392F97DE1F002AD06E /* AppDelegate.m in Sources */ = {isa = PBXBuildFile; fileRef = 48D63F382F97DE1F002AD06E /* AppDelegate.m */; };
+		48D63F3B2F97DE1F002AD06E /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 48D63F3A2F97DE1F002AD06E /* Images.xcassets */; };
+		48D63F422F97DE1F002AD06E /* XCTest.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 48D63F412F97DE1F002AD06E /* XCTest.framework */; };
+		48D63F432F97DE1F002AD06E /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 48D63F282F97DE1F002AD06E /* Foundation.framework */; };
+		48D63F442F97DE1F002AD06E /* UIKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 48D63F2C2F97DE1F002AD06E /* UIKit.framework */; };
+		48D63F4C2F97DE1F002AD06E /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = 48D63F4A2F97DE1F002AD06E /* InfoPlist.strings */; };
+		48D63F4E2F97DE1F002AD06E /* iClassicTVTests.m in Sources */ = {isa = PBXBuildFile; fileRef = 48D63F4D2F97DE1F002AD06E /* iClassicTVTests.m */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		48D63F452F97DE1F002AD06E /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 48D63F1D2F97DE1F002AD06E /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 48D63F242F97DE1F002AD06E;
+			remoteInfo = iClassicTV;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		48042F402F97E3530038A1DF /* Channel.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Channel.h; sourceTree = "<group>"; };
+		48042F412F97E3530038A1DF /* Channel.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = Channel.m; sourceTree = "<group>"; };
+		48042F432F97E3710038A1DF /* M3UParser.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = M3UParser.h; sourceTree = "<group>"; };
+		48042F442F97E3710038A1DF /* M3UParser.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = M3UParser.m; sourceTree = "<group>"; };
+		48042F492F97E3930038A1DF /* ChannelListViewController.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ChannelListViewController.h; sourceTree = "<group>"; };
+		48042F4A2F97E3930038A1DF /* ChannelListViewController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = ChannelListViewController.m; sourceTree = "<group>"; };
+		48042F4C2F97E3A70038A1DF /* ImportViewController.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ImportViewController.h; sourceTree = "<group>"; };
+		48042F4D2F97E3A70038A1DF /* ImportViewController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = ImportViewController.m; sourceTree = "<group>"; };
+		48042F4F2F97E4940038A1DF /* GroupListViewController.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = GroupListViewController.h; sourceTree = "<group>"; };
+		48042F502F97E4940038A1DF /* GroupListViewController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = GroupListViewController.m; sourceTree = "<group>"; };
+		48D63F252F97DE1F002AD06E /* iClassicTV.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = iClassicTV.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		48D63F282F97DE1F002AD06E /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = System/Library/Frameworks/Foundation.framework; sourceTree = SDKROOT; };
+		48D63F2A2F97DE1F002AD06E /* CoreGraphics.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreGraphics.framework; path = System/Library/Frameworks/CoreGraphics.framework; sourceTree = SDKROOT; };
+		48D63F2C2F97DE1F002AD06E /* UIKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = UIKit.framework; path = System/Library/Frameworks/UIKit.framework; sourceTree = SDKROOT; };
+		48D63F302F97DE1F002AD06E /* iClassicTV-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "iClassicTV-Info.plist"; sourceTree = "<group>"; };
+		48D63F322F97DE1F002AD06E /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/InfoPlist.strings; sourceTree = "<group>"; };
+		48D63F342F97DE1F002AD06E /* main.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = main.m; sourceTree = "<group>"; };
+		48D63F362F97DE1F002AD06E /* iClassicTV-Prefix.pch */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "iClassicTV-Prefix.pch"; sourceTree = "<group>"; };
+		48D63F372F97DE1F002AD06E /* AppDelegate.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = AppDelegate.h; sourceTree = "<group>"; };
+		48D63F382F97DE1F002AD06E /* AppDelegate.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = AppDelegate.m; sourceTree = "<group>"; };
+		48D63F3A2F97DE1F002AD06E /* Images.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Images.xcassets; sourceTree = "<group>"; };
+		48D63F402F97DE1F002AD06E /* iClassicTVTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = iClassicTVTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		48D63F412F97DE1F002AD06E /* XCTest.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = XCTest.framework; path = Library/Frameworks/XCTest.framework; sourceTree = DEVELOPER_DIR; };
+		48D63F492F97DE1F002AD06E /* iClassicTVTests-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "iClassicTVTests-Info.plist"; sourceTree = "<group>"; };
+		48D63F4B2F97DE1F002AD06E /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/InfoPlist.strings; sourceTree = "<group>"; };
+		48D63F4D2F97DE1F002AD06E /* iClassicTVTests.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = iClassicTVTests.m; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		48D63F222F97DE1F002AD06E /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				48D63F2B2F97DE1F002AD06E /* CoreGraphics.framework in Frameworks */,
+				48D63F2D2F97DE1F002AD06E /* UIKit.framework in Frameworks */,
+				48D63F292F97DE1F002AD06E /* Foundation.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		48D63F3D2F97DE1F002AD06E /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				48D63F422F97DE1F002AD06E /* XCTest.framework in Frameworks */,
+				48D63F442F97DE1F002AD06E /* UIKit.framework in Frameworks */,
+				48D63F432F97DE1F002AD06E /* Foundation.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		48D63F1C2F97DE1F002AD06E = {
+			isa = PBXGroup;
+			children = (
+				48D63F2E2F97DE1F002AD06E /* iClassicTV */,
+				48D63F472F97DE1F002AD06E /* iClassicTVTests */,
+				48D63F272F97DE1F002AD06E /* Frameworks */,
+				48D63F262F97DE1F002AD06E /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		48D63F262F97DE1F002AD06E /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				48D63F252F97DE1F002AD06E /* iClassicTV.app */,
+				48D63F402F97DE1F002AD06E /* iClassicTVTests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		48D63F272F97DE1F002AD06E /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				48D63F282F97DE1F002AD06E /* Foundation.framework */,
+				48D63F2A2F97DE1F002AD06E /* CoreGraphics.framework */,
+				48D63F2C2F97DE1F002AD06E /* UIKit.framework */,
+				48D63F412F97DE1F002AD06E /* XCTest.framework */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		48D63F2E2F97DE1F002AD06E /* iClassicTV */ = {
+			isa = PBXGroup;
+			children = (
+				48D63F372F97DE1F002AD06E /* AppDelegate.h */,
+				48D63F382F97DE1F002AD06E /* AppDelegate.m */,
+				48D63F3A2F97DE1F002AD06E /* Images.xcassets */,
+				48D63F2F2F97DE1F002AD06E /* Supporting Files */,
+				48042F402F97E3530038A1DF /* Channel.h */,
+				48042F412F97E3530038A1DF /* Channel.m */,
+				48042F432F97E3710038A1DF /* M3UParser.h */,
+				48042F442F97E3710038A1DF /* M3UParser.m */,
+				48042F4F2F97E4940038A1DF /* GroupListViewController.h */,
+				48042F502F97E4940038A1DF /* GroupListViewController.m */,
+				48042F492F97E3930038A1DF /* ChannelListViewController.h */,
+				48042F4A2F97E3930038A1DF /* ChannelListViewController.m */,
+				48042F4C2F97E3A70038A1DF /* ImportViewController.h */,
+				48042F4D2F97E3A70038A1DF /* ImportViewController.m */,
+			);
+			path = iClassicTV;
+			sourceTree = "<group>";
+		};
+		48D63F2F2F97DE1F002AD06E /* Supporting Files */ = {
+			isa = PBXGroup;
+			children = (
+				48D63F302F97DE1F002AD06E /* iClassicTV-Info.plist */,
+				48D63F312F97DE1F002AD06E /* InfoPlist.strings */,
+				48D63F342F97DE1F002AD06E /* main.m */,
+				48D63F362F97DE1F002AD06E /* iClassicTV-Prefix.pch */,
+			);
+			name = "Supporting Files";
+			sourceTree = "<group>";
+		};
+		48D63F472F97DE1F002AD06E /* iClassicTVTests */ = {
+			isa = PBXGroup;
+			children = (
+				48D63F4D2F97DE1F002AD06E /* iClassicTVTests.m */,
+				48D63F482F97DE1F002AD06E /* Supporting Files */,
+			);
+			path = iClassicTVTests;
+			sourceTree = "<group>";
+		};
+		48D63F482F97DE1F002AD06E /* Supporting Files */ = {
+			isa = PBXGroup;
+			children = (
+				48D63F492F97DE1F002AD06E /* iClassicTVTests-Info.plist */,
+				48D63F4A2F97DE1F002AD06E /* InfoPlist.strings */,
+			);
+			name = "Supporting Files";
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		48D63F242F97DE1F002AD06E /* iClassicTV */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 48D63F512F97DE1F002AD06E /* Build configuration list for PBXNativeTarget "iClassicTV" */;
+			buildPhases = (
+				48D63F212F97DE1F002AD06E /* Sources */,
+				48D63F222F97DE1F002AD06E /* Frameworks */,
+				48D63F232F97DE1F002AD06E /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = iClassicTV;
+			productName = iClassicTV;
+			productReference = 48D63F252F97DE1F002AD06E /* iClassicTV.app */;
+			productType = "com.apple.product-type.application";
+		};
+		48D63F3F2F97DE1F002AD06E /* iClassicTVTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 48D63F542F97DE1F002AD06E /* Build configuration list for PBXNativeTarget "iClassicTVTests" */;
+			buildPhases = (
+				48D63F3C2F97DE1F002AD06E /* Sources */,
+				48D63F3D2F97DE1F002AD06E /* Frameworks */,
+				48D63F3E2F97DE1F002AD06E /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				48D63F462F97DE1F002AD06E /* PBXTargetDependency */,
+			);
+			name = iClassicTVTests;
+			productName = iClassicTVTests;
+			productReference = 48D63F402F97DE1F002AD06E /* iClassicTVTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		48D63F1D2F97DE1F002AD06E /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				LastUpgradeCheck = 0510;
+				ORGANIZATIONNAME = gujiangjiang;
+				TargetAttributes = {
+					48D63F3F2F97DE1F002AD06E = {
+						TestTargetID = 48D63F242F97DE1F002AD06E;
+					};
+				};
+			};
+			buildConfigurationList = 48D63F202F97DE1F002AD06E /* Build configuration list for PBXProject "iClassicTV" */;
+			compatibilityVersion = "Xcode 3.2";
+			developmentRegion = English;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+			);
+			mainGroup = 48D63F1C2F97DE1F002AD06E;
+			productRefGroup = 48D63F262F97DE1F002AD06E /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				48D63F242F97DE1F002AD06E /* iClassicTV */,
+				48D63F3F2F97DE1F002AD06E /* iClassicTVTests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		48D63F232F97DE1F002AD06E /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				48D63F332F97DE1F002AD06E /* InfoPlist.strings in Resources */,
+				48D63F3B2F97DE1F002AD06E /* Images.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		48D63F3E2F97DE1F002AD06E /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				48D63F4C2F97DE1F002AD06E /* InfoPlist.strings in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		48D63F212F97DE1F002AD06E /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				48042F4E2F97E3A70038A1DF /* ImportViewController.m in Sources */,
+				48042F4B2F97E3930038A1DF /* ChannelListViewController.m in Sources */,
+				48042F452F97E3710038A1DF /* M3UParser.m in Sources */,
+				48D63F392F97DE1F002AD06E /* AppDelegate.m in Sources */,
+				48042F512F97E4940038A1DF /* GroupListViewController.m in Sources */,
+				48042F422F97E3530038A1DF /* Channel.m in Sources */,
+				48D63F352F97DE1F002AD06E /* main.m in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		48D63F3C2F97DE1F002AD06E /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				48D63F4E2F97DE1F002AD06E /* iClassicTVTests.m in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		48D63F462F97DE1F002AD06E /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 48D63F242F97DE1F002AD06E /* iClassicTV */;
+			targetProxy = 48D63F452F97DE1F002AD06E /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin PBXVariantGroup section */
+		48D63F312F97DE1F002AD06E /* InfoPlist.strings */ = {
+			isa = PBXVariantGroup;
+			children = (
+				48D63F322F97DE1F002AD06E /* en */,
+			);
+			name = InfoPlist.strings;
+			sourceTree = "<group>";
+		};
+		48D63F4A2F97DE1F002AD06E /* InfoPlist.strings */ = {
+			isa = PBXVariantGroup;
+			children = (
+				48D63F4B2F97DE1F002AD06E /* en */,
+			);
+			name = InfoPlist.strings;
+			sourceTree = "<group>";
+		};
+/* End PBXVariantGroup section */
+
+/* Begin XCBuildConfiguration section */
+		48D63F4F2F97DE1F002AD06E /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Developer";
+				COPY_PHASE_STRIP = NO;
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 7.1;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		48D63F502F97DE1F002AD06E /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Developer";
+				COPY_PHASE_STRIP = YES;
+				ENABLE_NS_ASSERTIONS = NO;
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 7.1;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		48D63F522F97DE1F002AD06E /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_LAUNCHIMAGE_NAME = LaunchImage;
+				GCC_PRECOMPILE_PREFIX_HEADER = YES;
+				GCC_PREFIX_HEADER = "iClassicTV/iClassicTV-Prefix.pch";
+				INFOPLIST_FILE = "iClassicTV/iClassicTV-Info.plist";
+				IPHONEOS_DEPLOYMENT_TARGET = 6.0;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				WRAPPER_EXTENSION = app;
+			};
+			name = Debug;
+		};
+		48D63F532F97DE1F002AD06E /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_LAUNCHIMAGE_NAME = LaunchImage;
+				GCC_PRECOMPILE_PREFIX_HEADER = YES;
+				GCC_PREFIX_HEADER = "iClassicTV/iClassicTV-Prefix.pch";
+				INFOPLIST_FILE = "iClassicTV/iClassicTV-Info.plist";
+				IPHONEOS_DEPLOYMENT_TARGET = 6.0;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				WRAPPER_EXTENSION = app;
+			};
+			name = Release;
+		};
+		48D63F552F97DE1F002AD06E /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(BUILT_PRODUCTS_DIR)/iClassicTV.app/iClassicTV";
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(SDKROOT)/Developer/Library/Frameworks",
+					"$(inherited)",
+					"$(DEVELOPER_FRAMEWORKS_DIR)",
+				);
+				GCC_PRECOMPILE_PREFIX_HEADER = YES;
+				GCC_PREFIX_HEADER = "iClassicTV/iClassicTV-Prefix.pch";
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				INFOPLIST_FILE = "iClassicTVTests/iClassicTVTests-Info.plist";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				TEST_HOST = "$(BUNDLE_LOADER)";
+				WRAPPER_EXTENSION = xctest;
+			};
+			name = Debug;
+		};
+		48D63F562F97DE1F002AD06E /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(BUILT_PRODUCTS_DIR)/iClassicTV.app/iClassicTV";
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(SDKROOT)/Developer/Library/Frameworks",
+					"$(inherited)",
+					"$(DEVELOPER_FRAMEWORKS_DIR)",
+				);
+				GCC_PRECOMPILE_PREFIX_HEADER = YES;
+				GCC_PREFIX_HEADER = "iClassicTV/iClassicTV-Prefix.pch";
+				INFOPLIST_FILE = "iClassicTVTests/iClassicTVTests-Info.plist";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				TEST_HOST = "$(BUNDLE_LOADER)";
+				WRAPPER_EXTENSION = xctest;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		48D63F202F97DE1F002AD06E /* Build configuration list for PBXProject "iClassicTV" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				48D63F4F2F97DE1F002AD06E /* Debug */,
+				48D63F502F97DE1F002AD06E /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		48D63F512F97DE1F002AD06E /* Build configuration list for PBXNativeTarget "iClassicTV" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				48D63F522F97DE1F002AD06E /* Debug */,
+				48D63F532F97DE1F002AD06E /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		48D63F542F97DE1F002AD06E /* Build configuration list for PBXNativeTarget "iClassicTVTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				48D63F552F97DE1F002AD06E /* Debug */,
+				48D63F562F97DE1F002AD06E /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 48D63F1D2F97DE1F002AD06E /* Project object */;
+}
