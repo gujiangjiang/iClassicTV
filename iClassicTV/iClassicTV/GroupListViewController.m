@@ -16,36 +16,53 @@
 - (void)viewDidLoad {
     [super viewDidLoad];
     self.title = @"频道分组";
-    // 强制使用 iOS 6 原生的分组样式列表
     self.tableView = [[UITableView alloc] initWithFrame:self.view.bounds style:UITableViewStyleGrouped];
     
-    // 添加刷新通知监听
+    // iOS 6 风格：添加下拉刷新提示（虽然是手动点击，但增加反馈）
+    UIBarButtonItem *refreshBtn = [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemRefresh target:self action:@selector(loadDataFromUserDefaults)];
+    self.navigationItem.rightBarButtonItem = refreshBtn;
+    
     [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(loadDataFromUserDefaults) name:@"M3UDataUpdated" object:nil];
     [self loadDataFromUserDefaults];
 }
 
 - (void)loadDataFromUserDefaults {
     NSString *savedM3U = [[NSUserDefaults standardUserDefaults] objectForKey:@"ios6_iptv_m3u"];
-    if (savedM3U) {
-        // 使用多线程异步解析，防止卡顿
-        dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
-            self.allChannels = [M3UParser parseM3UString:savedM3U];
-            
-            NSMutableDictionary *dict = [NSMutableDictionary dictionary];
-            for (Channel *ch in self.allChannels) {
-                if (!dict[ch.group]) {
-                    dict[ch.group] = [NSMutableArray array];
-                }
-                [dict[ch.group] addObject:ch];
+    
+    // 显示网络活动指示器（状态栏小圈圈）
+    [[UIApplication sharedApplication] setNetworkActivityIndicatorVisible:YES];
+    
+    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
+        NSArray *parsedChannels = [M3UParser parseM3UString:savedM3U];
+        
+        NSMutableDictionary *dict = [NSMutableDictionary dictionary];
+        NSMutableArray *orderedGroupNames = [NSMutableArray array];
+        
+        for (Channel *ch in parsedChannels) {
+            // 核心修复：如果这个组名还没出现过，就按顺序记录它
+            if (!dict[ch.group]) {
+                dict[ch.group] = [NSMutableArray array];
+                [orderedGroupNames addObject:ch.group];
             }
+            [dict[ch.group] addObject:ch];
+        }
+        
+        dispatch_async(dispatch_get_main_queue(), ^{
+            self.allChannels = parsedChannels;
             self.groupedChannels = dict;
-            self.groupNames = [dict.allKeys sortedArrayUsingSelector:@selector(localizedStandardCompare:)];
+            self.groupNames = orderedGroupNames; // 这里的顺序现在完全等同于 M3U 里的出现顺序
             
-            dispatch_async(dispatch_get_main_queue(), ^{
-                [self.tableView reloadData];
-            });
+            [self.tableView reloadData];
+            [[UIApplication sharedApplication] setNetworkActivityIndicatorVisible:NO];
+            
+            // 如果列表为空，给出友好提示
+            if (self.groupNames.count == 0) {
+                self.title = @"请先导入源";
+            } else {
+                self.title = @"频道分组";
+            }
         });
-    }
+    });
 }
 
 - (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section {

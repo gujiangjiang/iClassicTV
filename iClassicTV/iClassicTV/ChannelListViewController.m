@@ -13,12 +13,12 @@
 @interface ChannelListViewController () <UIActionSheetDelegate>
 @property (nonatomic, strong) Channel *selectedChannel;
 @end
-
 @implementation ChannelListViewController
 
 - (void)viewDidLoad {
     [super viewDidLoad];
-    self.tableView.rowHeight = 50.0;
+    // 频道列表使用 Plain 样式更符合 iOS 6 习惯
+    self.tableView.separatorStyle = UITableViewCellSeparatorStyleSingleLine;
 }
 
 - (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section {
@@ -29,19 +29,28 @@
     static NSString *CellId = @"ChannelCell";
     UITableViewCell *cell = [tableView dequeueReusableCellWithIdentifier:CellId];
     if (!cell) {
+        // 使用 Subtitle 样式，可以显示“线路数量”或分辨率
         cell = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleSubtitle reuseIdentifier:CellId];
         cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
+        
+        // 优化：文字颜色
+        cell.textLabel.font = [UIFont boldSystemFontOfSize:16];
     }
     
     Channel *ch = self.channels[indexPath.row];
     cell.textLabel.text = ch.name;
     
-    if (ch.urls.count > 1) {
-        cell.detailTextLabel.text = [NSString stringWithFormat:@"📺 %lu 个备用源", (unsigned long)ch.urls.count];
-        cell.detailTextLabel.textColor = [UIColor colorWithRed:0.2 green:0.4 blue:0.8 alpha:1.0]; // 经典 iOS 蓝
+    // 针对你的 4K 需求进行 UI 优化
+    if ([ch.name rangeOfString:@"4K" options:NSCaseInsensitiveSearch].location != NSNotFound) {
+        cell.textLabel.textColor = [UIColor colorWithRed:0.8 green:0.0 blue:0.0 alpha:1.0]; // 红色高亮 4K
     } else {
-        cell.detailTextLabel.text = @"单线路";
-        cell.detailTextLabel.textColor = [UIColor grayColor];
+        cell.textLabel.textColor = [UIColor blackColor];
+    }
+    
+    if (ch.urls.count > 1) {
+        cell.detailTextLabel.text = [NSString stringWithFormat:@"包含 %lu 条线路", (unsigned long)ch.urls.count];
+    } else {
+        cell.detailTextLabel.text = @"标准线路";
     }
     
     return cell;
