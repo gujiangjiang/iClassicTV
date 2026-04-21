@@ -11,9 +11,13 @@
 @implementation Channel
 - (instancetype)init {
     self = [super init];
-    if (self) {
-        _urls = [NSMutableArray array];
-    }
+    if (self) { _urls = [NSMutableArray array]; }
     return self;
+}
+
+- (NSString *)persistenceKey {
+    // 优先使用 tvgName，其次使用频道名，确保记忆的准确性
+    NSString *identifier = (self.tvgName.length > 0) ? self.tvgName : self.name;
+    return [NSString stringWithFormat:@"SourcePref_%@_%@", self.group, identifier];
 }
 @end

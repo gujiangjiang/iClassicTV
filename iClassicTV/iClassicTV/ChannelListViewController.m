@@ -13,12 +13,12 @@
 @interface ChannelListViewController () <UIActionSheetDelegate>
 @property (nonatomic, strong) Channel *selectedChannel;
 @end
+
 @implementation ChannelListViewController
 
 - (void)viewDidLoad {
     [super viewDidLoad];
-    // 频道列表使用 Plain 样式更符合 iOS 6 习惯
-    self.tableView.separatorStyle = UITableViewCellSeparatorStyleSingleLine;
+    self.tableView.rowHeight = 55.0;
 }
 
 - (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section {
@@ -29,64 +29,85 @@
     static NSString *CellId = @"ChannelCell";
     UITableViewCell *cell = [tableView dequeueReusableCellWithIdentifier:CellId];
     if (!cell) {
-        // 使用 Subtitle 样式，可以显示“线路数量”或分辨率
         cell = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleSubtitle reuseIdentifier:CellId];
-        cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
-        
-        // 优化：文字颜色
-        cell.textLabel.font = [UIFont boldSystemFontOfSize:16];
     }
     
     Channel *ch = self.channels[indexPath.row];
     cell.textLabel.text = ch.name;
     
-    // 针对你的 4K 需求进行 UI 优化
-    if ([ch.name rangeOfString:@"4K" options:NSCaseInsensitiveSearch].location != NSNotFound) {
-        cell.textLabel.textColor = [UIColor colorWithRed:0.8 green:0.0 blue:0.0 alpha:1.0]; // 红色高亮 4K
-    } else {
-        cell.textLabel.textColor = [UIColor blackColor];
-    }
-    
+    // 如果有多源，显示蓝色信息按钮，否则不显示
     if (ch.urls.count > 1) {
-        cell.detailTextLabel.text = [NSString stringWithFormat:@"包含 %lu 条线路", (unsigned long)ch.urls.count];
+        cell.accessoryType = UITableViewCellAccessoryDetailDisclosureButton;
+        cell.detailTextLabel.text = [NSString stringWithFormat:@"📺 多线路支持 (%lu 条)", (unsigned long)ch.urls.count];
+        cell.detailTextLabel.textColor = [UIColor colorWithRed:0.0 green:0.5 blue:1.0 alpha:1.0];
     } else {
+        cell.accessoryType = UITableViewCellAccessoryNone;
         cell.detailTextLabel.text = @"标准线路";
+        cell.detailTextLabel.textColor = [UIColor grayColor];
     }
     
     return cell;
 }
 
+// 核心逻辑 A：直接点击列表项 -> 记忆播放
 - (void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath {
     [tableView deselectRowAtIndexPath:indexPath animated:YES];
+    Channel *ch = self.channels[indexPath.row];
+    
+    NSInteger savedIndex = [[NSUserDefaults standardUserDefaults] integerForKey:[ch persistenceKey]];
+    
+    if (savedIndex >= ch.urls.count) {
+        // 线路丢失回退机制
+        [self showToast:[NSString stringWithFormat:@"线路 %ld 已失效，回到默认线路", (long)savedIndex + 1]];
+        savedIndex = 0;
+        [[NSUserDefaults standardUserDefaults] setInteger:0 forKey:[ch persistenceKey]];
+    }
+    
+    [self playVideoWithURL:ch.urls[savedIndex] title:ch.name];
+}
+
+// 核心逻辑 B：点击右侧蓝色小箭头 -> 线路切换
+- (void)tableView:(UITableView *)tableView accessoryButtonTappedForRowWithIndexPath:(NSIndexPath *)indexPath {
     self.selectedChannel = self.channels[indexPath.row];
     
-    if (self.selectedChannel.urls.count > 1) {
-        // 多源合并优化：弹出原生底部菜单让用户选线路
-        UIActionSheet *sheet = [[UIActionSheet alloc] initWithTitle:[NSString stringWithFormat:@"选择 %@ 的播放线路", self.selectedChannel.name]
-                                                           delegate:self
-                                                  cancelButtonTitle:@"取消"
-                                             destructiveButtonTitle:nil
-                                                  otherButtonTitles:nil];
-        for (int i = 0; i < self.selectedChannel.urls.count; i++) {
-            [sheet addButtonWithTitle:[NSString stringWithFormat:@"线路 %d", i + 1]];
-        }
-        [sheet showInView:self.view];
-    } else {
-        [self playVideoWithURL:self.selectedChannel.urls[0]];
+    UIActionSheet *sheet = [[UIActionSheet alloc] initWithTitle:@"切换播放线路"
+                                                       delegate:self
+                                              cancelButtonTitle:@"取消"
+                                         destructiveButtonTitle:nil
+                                              otherButtonTitles:nil];
+    
+    NSInteger currentIndex = [[NSUserDefaults standardUserDefaults] integerForKey:[self.selectedChannel persistenceKey]];
+    
+    for (int i = 0; i < self.selectedChannel.urls.count; i++) {
+        NSString *title = (i == currentIndex) ? [NSString stringWithFormat:@"线路 %d (当前选择)", i+1] : [NSString stringWithFormat:@"线路 %d", i+1];
+        [sheet addButtonWithTitle:title];
     }
+    [sheet showInView:self.view];
 }
 
 - (void)actionSheet:(UIActionSheet *)actionSheet clickedButtonAtIndex:(NSInteger)buttonIndex {
     if (buttonIndex == actionSheet.cancelButtonIndex) return;
-    // 第一个按钮是取消，所以其他按钮的 index 要调整
-    NSInteger sourceIndex = buttonIndex - 1;
-    [self playVideoWithURL:self.selectedChannel.urls[sourceIndex]];
+    
+    NSInteger sourceIndex = buttonIndex - 1; // 减去第一个默认 index
+    [[NSUserDefaults standardUserDefaults] setInteger:sourceIndex forKey:[self.selectedChannel persistenceKey]];
+    [[NSUserDefaults standardUserDefaults] synchronize];
+    
+    [self.tableView reloadData]; // 刷新界面文字
+    [self playVideoWithURL:self.selectedChannel.urls[sourceIndex] title:self.selectedChannel.name];
 }
 
-- (void)playVideoWithURL:(NSString *)urlString {
+// 模拟 iOS 风格 Toast (使用带定时自动消失的 UIAlertView)
+- (void)showToast:(NSString *)message {
+    UIAlertView *toast = [[UIAlertView alloc] initWithTitle:nil message:message delegate:nil cancelButtonTitle:nil otherButtonTitles:nil];
+    [toast show];
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1.5 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+        [toast dismissWithClickedButtonIndex:0 animated:YES];
+    });
+}
+
+- (void)playVideoWithURL:(NSString *)urlString title:(NSString *)title {
     NSURL *url = [NSURL URLWithString:[urlString stringByAddingPercentEscapesUsingEncoding:NSUTF8StringEncoding]];
     MPMoviePlayerViewController *playerVC = [[MPMoviePlayerViewController alloc] initWithContentURL:url];
-    // 使用全屏模态弹出原生播放器
     [self presentMoviePlayerViewControllerAnimated:playerVC];
 }
 
