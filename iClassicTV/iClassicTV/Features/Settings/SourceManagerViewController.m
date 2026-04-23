@@ -8,8 +8,11 @@
 
 #import "SourceManagerViewController.h"
 #import "TextImportModalViewController.h"
-// 引入数据管理模块
-#import "AppDataManager.h"
+#import "AppDataManager.h" // 引入数据管理模块
+
+@interface SourceManagerViewController () <UIActionSheetDelegate, UIAlertViewDelegate>
+@property (nonatomic, strong) NSArray *scannedLocalFiles; // 用于临时存储扫描到的 iTunes 共享文件
+@end
 
 @implementation SourceManagerViewController
 
@@ -17,20 +20,19 @@
     [super viewDidLoad];
     self.title = @"我的直播源";
     
-    // 右上角添加 + 按钮，用于新增源
     UIBarButtonItem *addBtn = [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemAdd target:self action:@selector(showAddOptions)];
     self.navigationItem.rightBarButtonItem = addBtn;
 }
 
 - (void)viewWillAppear:(BOOL)animated {
     [super viewWillAppear:animated];
-    // 使用 AppDataManager 统一获取数据
+    // 统一通过 AppDataManager 获取数据
     self.sources = [[AppDataManager sharedManager] getAllSources];
     [self.tableView reloadData];
 }
 
 - (void)showAddOptions {
-    UIActionSheet *sheet = [[UIActionSheet alloc] initWithTitle:@"添加直播源" delegate:self cancelButtonTitle:@"取消" destructiveButtonTitle:nil otherButtonTitles:@"添加网络直播源", @"添加本地文本源", nil];
+    UIActionSheet *sheet = [[UIActionSheet alloc] initWithTitle:@"添加直播源" delegate:self cancelButtonTitle:@"取消" destructiveButtonTitle:nil otherButtonTitles:@"添加网络直播源", @"添加本地文本源", @"从 iTunes 共享导入", nil];
     sheet.tag = 101;
     [sheet showInView:self.view];
 }
@@ -49,7 +51,6 @@
     NSDictionary *source = self.sources[indexPath.row];
     cell.textLabel.text = source[@"name"];
     
-    // 标记当前正在使用的源
     NSDictionary *activeInfo = [[AppDataManager sharedManager] getActiveSourceInfo];
     if ([source[@"id"] isEqualToString:activeInfo[@"id"]]) {
         cell.accessoryType = UITableViewCellAccessoryCheckmark;
@@ -62,7 +63,7 @@
     if ([source[@"url"] length] > 0) {
         cell.detailTextLabel.text = source[@"url"];
     } else {
-        cell.detailTextLabel.text = @"本地文本导入";
+        cell.detailTextLabel.text = @"本地/外部导入源";
     }
     
     return cell;
@@ -75,7 +76,6 @@
     
     UIActionSheet *sheet = [[UIActionSheet alloc] initWithTitle:@"操作" delegate:self cancelButtonTitle:nil destructiveButtonTitle:@"删除" otherButtonTitles:@"设为当前源", @"重命名", nil];
     
-    // 只有网络源才显示刷新同步按钮
     if ([source[@"url"] length] > 0) {
         [sheet addButtonWithTitle:@"刷新同步"];
     }
@@ -102,39 +102,80 @@
             textVC.completionHandler = ^(NSString *text) {
                 self.tempM3UData = text;
                 self.tempURLString = @"";
-                [self showNamingAlertWithTag:204];
+                [self showNamingAlertWithTag:204 presetName:nil];
             };
             UINavigationController *nav = [[UINavigationController alloc] initWithRootViewController:textVC];
             [self presentViewController:nav animated:YES completion:nil];
+        } else if (buttonIndex == 2) {
+            // 扫描 iTunes 共享目录中的 M3U 文件
+            NSString *docsPath = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES).firstObject;
+            NSArray *files = [[NSFileManager defaultManager] contentsOfDirectoryAtPath:docsPath error:nil];
+            NSMutableArray *m3uFiles = [NSMutableArray array];
+            for (NSString *file in files) {
+                NSString *ext = [[file lowercaseString] pathExtension];
+                if ([ext isEqualToString:@"m3u"] || [ext isEqualToString:@"m3u8"]) {
+                    [m3uFiles addObject:file];
+                }
+            }
+            
+            if (m3uFiles.count == 0) {
+                [self showToast:@"未找到任何 m3u 文件\n请先通过电脑 iTunes 拖入文件"];
+                return;
+            }
+            
+            self.scannedLocalFiles = m3uFiles;
+            UIActionSheet *fileSheet = [[UIActionSheet alloc] initWithTitle:@"请选择要导入的共享文件" delegate:self cancelButtonTitle:nil destructiveButtonTitle:nil otherButtonTitles:nil];
+            for (NSString *file in m3uFiles) {
+                [fileSheet addButtonWithTitle:file];
+            }
+            [fileSheet addButtonWithTitle:@"取消"];
+            fileSheet.cancelButtonIndex = fileSheet.numberOfButtons - 1;
+            fileSheet.tag = 102;
+            [fileSheet showInView:self.view];
         }
         return;
     }
     
-    // 处理单元格点击操作
+    // 处理从 iTunes 共享文件列表中的点击选择
+    if (actionSheet.tag == 102) {
+        NSString *fileName = self.scannedLocalFiles[buttonIndex];
+        NSString *docsPath = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES).firstObject;
+        NSString *filePath = [docsPath stringByAppendingPathComponent:fileName];
+        
+        NSError *error = nil;
+        NSString *content = [NSString stringWithContentsOfFile:filePath encoding:NSUTF8StringEncoding error:&error];
+        if (content && content.length > 0) {
+            self.tempM3UData = content;
+            self.tempURLString = @"";
+            [self showNamingAlertWithTag:204 presetName:[fileName stringByDeletingPathExtension]];
+        } else {
+            [self showToast:@"读取失败，请检查文件格式是否正确"];
+        }
+        return;
+    }
+    
+    // 处理单元格点击操作 (全部通过 AppDataManager 处理)
     if (actionSheet.tag == 100) {
         NSString *title = [actionSheet buttonTitleAtIndex:buttonIndex];
-        NSDictionary *source = self.sources[self.selectedIndexPath.row];
+        NSDictionary *sourceDict = self.sources[self.selectedIndexPath.row];
         
         if ([title isEqualToString:@"删除"]) {
             [[AppDataManager sharedManager] deleteSourceAtIndex:self.selectedIndexPath.row];
             self.sources = [[AppDataManager sharedManager] getAllSources];
             [self.tableView reloadData];
-            
         } else if ([title isEqualToString:@"设为当前源"]) {
-            [[AppDataManager sharedManager] setActiveSourceById:source[@"id"]];
+            [[AppDataManager sharedManager] setActiveSourceById:sourceDict[@"id"]];
             [self.tableView reloadData];
             [self showToast:@"已切换直播源"];
-            
         } else if ([title isEqualToString:@"重命名"]) {
             UIAlertView *alert = [[UIAlertView alloc] initWithTitle:@"重命名" message:@"请输入新的名称" delegate:self cancelButtonTitle:@"取消" otherButtonTitles:@"确定", nil];
             alert.alertViewStyle = UIAlertViewStylePlainTextInput;
             UITextField *tf = [alert textFieldAtIndex:0];
-            tf.text = source[@"name"];
+            tf.text = sourceDict[@"name"];
             alert.tag = 301;
             [alert show];
-            
         } else if ([title isEqualToString:@"刷新同步"]) {
-            [self refreshSource:source atIndex:self.selectedIndexPath.row];
+            [self refreshSource:sourceDict atIndex:self.selectedIndexPath.row];
         }
     }
 }
@@ -169,7 +210,7 @@
                 if (m3uData) {
                     self.tempM3UData = m3uData;
                     self.tempURLString = urlStr;
-                    [self showNamingAlertWithTag:203];
+                    [self showNamingAlertWithTag:203 presetName:nil];
                 } else {
                     [self showToast:@"下载失败，请检查网络"];
                 }
@@ -179,6 +220,7 @@
         NSString *name = [alertView textFieldAtIndex:0].text;
         if (name.length == 0) name = @"未命名直播源";
         
+        // 统一调用 AppDataManager 新增源
         [[AppDataManager sharedManager] addSourceWithName:name content:self.tempM3UData url:self.tempURLString];
         [self showToast:@"直播源已成功保存！"];
         
@@ -187,13 +229,17 @@
     }
 }
 
-- (void)showNamingAlertWithTag:(NSInteger)tag {
+- (void)showNamingAlertWithTag:(NSInteger)tag presetName:(NSString *)presetName {
     UIAlertView *nameAlert = [[UIAlertView alloc] initWithTitle:@"保存直播源" message:@"请为该直播源命名" delegate:self cancelButtonTitle:@"取消" otherButtonTitles:@"保存", nil];
     nameAlert.alertViewStyle = UIAlertViewStylePlainTextInput;
     
-    NSDateFormatter *df = [[NSDateFormatter alloc] init];
-    [df setDateFormat:@"yyyy-MM-dd HH:mm:ss"];
-    [nameAlert textFieldAtIndex:0].text = [df stringFromDate:[NSDate date]];
+    if (presetName && presetName.length > 0) {
+        [nameAlert textFieldAtIndex:0].text = presetName;
+    } else {
+        NSDateFormatter *df = [[NSDateFormatter alloc] init];
+        [df setDateFormat:@"yyyy-MM-dd HH:mm:ss"];
+        [nameAlert textFieldAtIndex:0].text = [df stringFromDate:[NSDate date]];
+    }
     
     nameAlert.tag = tag;
     [nameAlert show];
