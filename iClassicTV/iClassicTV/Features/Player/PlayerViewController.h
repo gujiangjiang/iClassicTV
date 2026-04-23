@@ -15,7 +15,7 @@
 @property (nonatomic, copy) NSString *videoURLString;
 // 接收外部传入的频道名称，用于在播放器顶部显示
 @property (nonatomic, copy) NSString *channelTitle;
-// 新增：接收外部传入的频道 Logo 图片，用于在锁屏界面显示
+// 接收外部传入的频道 Logo 图片，用于在锁屏界面显示
 @property (nonatomic, strong) UIImage *channelLogo;
 
 @end
