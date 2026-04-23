@@ -19,7 +19,9 @@
         self.edgesForExtendedLayout = UIRectEdgeNone;
     }
     
-    UITextView *textView = [[UITextView alloc] initWithFrame:CGRectMake(20, 20, self.view.frame.size.width - 40, 250)];
+    // 修复：将固定的高度 250 改为自适应当前视图高度，防止在小屏幕设备（如 iPhone 4/4s）上文字被截断
+    UITextView *textView = [[UITextView alloc] initWithFrame:CGRectMake(20, 20, self.view.bounds.size.width - 40, self.view.bounds.size.height - 40)];
+    textView.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight; // 增加自动拉伸属性，适配屏幕尺寸变化
     textView.backgroundColor = [UIColor clearColor];
     textView.editable = NO;
     textView.font = [UIFont systemFontOfSize:15];
