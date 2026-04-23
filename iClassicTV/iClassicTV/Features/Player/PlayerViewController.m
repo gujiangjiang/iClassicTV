@@ -10,6 +10,8 @@
 #import <MediaPlayer/MediaPlayer.h>
 // 引入播放器配置管理模块，实现配置读取的解耦
 #import "PlayerConfigManager.h"
+// 引入动态图标绘制模块
+#import "UIImage+DynamicIcon.h"
 
 @interface PlayerViewController ()
 @property (nonatomic, strong) MPMoviePlayerController *player;
@@ -130,7 +132,8 @@
     self.lockBtn.backgroundColor = [UIColor colorWithWhite:0.0 alpha:0.3];
     self.lockBtn.layer.cornerRadius = 20;
     self.lockBtn.alpha = 0.6; // 默认半透明
-    [self.lockBtn setImage:[self generateLockIcon:NO] forState:UIControlStateNormal];
+    // 优化：调用模块化绘图代码
+    [self.lockBtn setImage:[UIImage dynamicLockIconWithState:NO] forState:UIControlStateNormal];
     [self.lockBtn addTarget:self action:@selector(toggleLock) forControlEvents:UIControlEventTouchUpInside];
     [self.view addSubview:self.lockBtn];
     
@@ -156,53 +159,19 @@
     [self startAutoHideTimer];
 }
 
+// 优化：移除了冗余的 generateLockIcon 绘制代码，已提取至 UIImage+DynamicIcon.m
+
 #pragma mark - 锁定逻辑
 
 // 切换锁定状态
 - (void)toggleLock {
     self.isLocked = !self.isLocked;
-    [self.lockBtn setImage:[self generateLockIcon:self.isLocked] forState:UIControlStateNormal];
+    // 优化：调用模块化绘图代码
+    [self.lockBtn setImage:[UIImage dynamicLockIconWithState:self.isLocked] forState:UIControlStateNormal];
     
     // 锁定后显示反馈并开启自动隐藏计时器
     [self setControlsHidden:NO];
     [self startAutoHideTimer];
-}
-
-// 动态绘制锁头图标
-- (UIImage *)generateLockIcon:(BOOL)locked {
-    CGSize size = CGSizeMake(30, 30);
-    UIGraphicsBeginImageContextWithOptions(size, NO, 0.0);
-    
-    // 修复：移除未使用的变量 CGContextRef ctx = UIGraphicsGetCurrentContext();
-    
-    [[UIColor whiteColor] setStroke];
-    [[UIColor whiteColor] setFill];
-    
-    // 锁身 (底部矩形)
-    UIBezierPath *body = [UIBezierPath bezierPathWithRoundedRect:CGRectMake(7, 14, 16, 11) cornerRadius:2];
-    [body fill];
-    
-    // 锁环 (顶部 U 型)
-    UIBezierPath *shackle = [UIBezierPath bezierPath];
-    if (locked) {
-        // 闭合状态
-        [shackle moveToPoint:CGPointMake(10, 14)];
-        [shackle addLineToPoint:CGPointMake(10, 9)];
-        [shackle addArcWithCenter:CGPointMake(15, 9) radius:5 startAngle:M_PI endAngle:0 clockwise:YES];
-        [shackle addLineToPoint:CGPointMake(20, 14)];
-    } else {
-        // 开启状态 (向上偏移并断开)
-        [shackle moveToPoint:CGPointMake(10, 10)];
-        [shackle addLineToPoint:CGPointMake(10, 5)];
-        [shackle addArcWithCenter:CGPointMake(15, 5) radius:5 startAngle:M_PI endAngle:0 clockwise:YES];
-        [shackle addLineToPoint:CGPointMake(20, 8)];
-    }
-    shackle.lineWidth = 2.5;
-    [shackle stroke];
-    
-    UIImage *img = UIGraphicsGetImageFromCurrentImageContext();
-    UIGraphicsEndImageContext();
-    return img;
 }
 
 #pragma mark - 播放状态与反馈逻辑

@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		482FAB212F9A857900B4F9D8 /* UIImage+DynamicIcon.m in Sources */ = {isa = PBXBuildFile; fileRef = 482FAB202F9A857900B4F9D8 /* UIImage+DynamicIcon.m */; };
 		48317BA02F9A78E9002489FE /* AppDelegate.m in Sources */ = {isa = PBXBuildFile; fileRef = 48317B752F9A78E9002489FE /* AppDelegate.m */; };
 		48317BA12F9A78E9002489FE /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = 48317B762F9A78E9002489FE /* main.m */; };
 		48317BA22F9A78E9002489FE /* M3UParser.m in Sources */ = {isa = PBXBuildFile; fileRef = 48317B792F9A78E9002489FE /* M3UParser.m */; };
@@ -46,6 +47,8 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		482FAB1F2F9A856A00B4F9D8 /* UIImage+DynamicIcon.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "UIImage+DynamicIcon.h"; sourceTree = "<group>"; };
+		482FAB202F9A857900B4F9D8 /* UIImage+DynamicIcon.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = "UIImage+DynamicIcon.m"; sourceTree = "<group>"; };
 		48317B742F9A78E9002489FE /* AppDelegate.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = AppDelegate.h; sourceTree = "<group>"; };
 		48317B752F9A78E9002489FE /* AppDelegate.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = AppDelegate.m; sourceTree = "<group>"; };
 		48317B762F9A78E9002489FE /* main.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = main.m; sourceTree = "<group>"; };
@@ -215,6 +218,8 @@
 				48317B972F9A78E9002489FE /* ToastHelper.m */,
 				48317B982F9A78E9002489FE /* UIImage+LogoHelper.h */,
 				48317B992F9A78E9002489FE /* UIImage+LogoHelper.m */,
+				482FAB1F2F9A856A00B4F9D8 /* UIImage+DynamicIcon.h */,
+				482FAB202F9A857900B4F9D8 /* UIImage+DynamicIcon.m */,
 			);
 			path = Modules;
 			sourceTree = "<group>";
@@ -384,6 +389,7 @@
 				48317BA62F9A78E9002489FE /* AboutViewController.m in Sources */,
 				48317BA32F9A78E9002489FE /* ChannelListViewController.m in Sources */,
 				48317BA92F9A78E9002489FE /* TextImportModalViewController.m in Sources */,
+				482FAB212F9A857900B4F9D8 /* UIImage+DynamicIcon.m in Sources */,
 				48317BA82F9A78E9002489FE /* SourceManagerViewController.m in Sources */,
 				48317BAF2F9A78E9002489FE /* UIImage+LogoHelper.m in Sources */,
 				48317BAC2F9A78E9002489FE /* PlayerConfigManager.m in Sources */,
