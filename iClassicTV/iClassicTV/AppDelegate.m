@@ -18,7 +18,8 @@
     // 3. 初始化设置页
     SettingsViewController *settingsVC = [[SettingsViewController alloc] init];
     UINavigationController *nav2 = [[UINavigationController alloc] initWithRootViewController:settingsVC];
-    nav2.tabBarItem = [[UITabBarItem alloc] initWithTitle:@"Setting" image:[self generateSettingsIcon] tag:1];
+    // 修复：将默认初始化的标题由 "Setting" 改为 "设置"，避免首次进入显示英文，点击后才变中文的Bug
+    nav2.tabBarItem = [[UITabBarItem alloc] initWithTitle:@"设置" image:[self generateSettingsIcon] tag:1];
     
     // 4. 组装底部 TabBar
     self.tabBarController = [[UITabBarController alloc] init];
