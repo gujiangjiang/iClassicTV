@@ -15,6 +15,7 @@
 @property (nonatomic, strong) UIView *bottomBar;
 @property (nonatomic, strong) UIButton *playBtn;
 @property (nonatomic, strong) UISlider *progressBar;
+@property (nonatomic, strong) UIButton *fullBtn; // 新增：将全屏按钮设为全局属性，以便随时修改文字
 @property (nonatomic, strong) NSTimer *timer;
 
 @property (nonatomic, assign) BOOL isControlsHidden;
@@ -85,14 +86,15 @@
     [self.progressBar addTarget:self action:@selector(sliderValueChanged:) forControlEvents:UIControlEventValueChanged];
     [self.bottomBar addSubview:self.progressBar];
     
-    UIButton *fullBtn = [UIButton buttonWithType:UIButtonTypeCustom];
-    fullBtn.frame = CGRectMake(self.view.bounds.size.width - 60, 5, 50, 40);
-    [fullBtn setTitle:@"全屏" forState:UIControlStateNormal];
-    [fullBtn setTitleColor:[UIColor whiteColor] forState:UIControlStateNormal];
-    fullBtn.titleLabel.font = [UIFont systemFontOfSize:14];
-    fullBtn.autoresizingMask = UIViewAutoresizingFlexibleLeftMargin;
-    [fullBtn addTarget:self action:@selector(toggleFullscreenAction) forControlEvents:UIControlEventTouchUpInside]; // 统一调用 Action
-    [self.bottomBar addSubview:fullBtn];
+    // 修改：使用 self.fullBtn 替代局部的 fullBtn 变量
+    self.fullBtn = [UIButton buttonWithType:UIButtonTypeCustom];
+    self.fullBtn.frame = CGRectMake(self.view.bounds.size.width - 60, 5, 50, 40);
+    [self.fullBtn setTitle:@"全屏" forState:UIControlStateNormal];
+    [self.fullBtn setTitleColor:[UIColor whiteColor] forState:UIControlStateNormal];
+    self.fullBtn.titleLabel.font = [UIFont systemFontOfSize:14];
+    self.fullBtn.autoresizingMask = UIViewAutoresizingFlexibleLeftMargin;
+    [self.fullBtn addTarget:self action:@selector(toggleFullscreenAction) forControlEvents:UIControlEventTouchUpInside]; // 统一调用 Action
+    [self.bottomBar addSubview:self.fullBtn];
     
     // 4. 添加手势控制
     UITapGestureRecognizer *doubleTap = [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(handleDoubleTap:)];
@@ -141,10 +143,12 @@
     if (self.isFullscreen) {
         // 正在全屏 -> 退出全屏，恢复原始方向
         self.isFullscreen = NO;
+        [self.fullBtn setTitle:@"全屏" forState:UIControlStateNormal]; // 状态更新：显示全屏
         [self forceRotateToOrientation:self.originalOrientation];
     } else {
         // 不在全屏 -> 进入全屏
         self.isFullscreen = YES;
+        [self.fullBtn setTitle:@"退出全屏" forState:UIControlStateNormal]; // 状态更新：显示退出全屏
         
         // 记录进入全屏前一刻的方向
         self.originalOrientation = [UIApplication sharedApplication].statusBarOrientation;
