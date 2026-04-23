@@ -42,8 +42,12 @@
     self.view.backgroundColor = [UIColor blackColor];
     
     self.isFullscreen = NO;
-    self.isLocked = NO; // 初始为未锁定
+    self.isLocked = NO;
     self.originalOrientation = [UIApplication sharedApplication].statusBarOrientation;
+    
+    // 新增：向系统注册，准备接收远程控制事件（锁屏控件、耳机线控）
+    [[UIApplication sharedApplication] beginReceivingRemoteControlEvents];
+    [self becomeFirstResponder];
     
     // 1. 初始化 iOS 原生解码内核播放器
     NSURL *url = [NSURL URLWithString:[self.videoURLString stringByAddingPercentEscapesUsingEncoding:NSUTF8StringEncoding]];
@@ -53,7 +57,7 @@
     self.player.controlStyle = MPMovieControlStyleNone;
     [self.view addSubview:self.player.view];
     
-    // 1.5 状态反馈提示层 (放在视频之上，手势拦截层之下)
+    // 1.5 状态反馈提示层
     self.statusLabel = [[UILabel alloc] initWithFrame:CGRectMake(0, 0, 280, 100)];
     self.statusLabel.center = CGPointMake(self.view.bounds.size.width / 2, self.view.bounds.size.height / 2);
     self.statusLabel.autoresizingMask = UIViewAutoresizingFlexibleTopMargin | UIViewAutoresizingFlexibleBottomMargin | UIViewAutoresizingFlexibleLeftMargin | UIViewAutoresizingFlexibleRightMargin;
@@ -125,14 +129,13 @@
     [self.fullBtn addTarget:self action:@selector(toggleFullscreenAction) forControlEvents:UIControlEventTouchUpInside];
     [self.bottomBar addSubview:self.fullBtn];
     
-    // 3.5 左侧锁定按钮 (放在最上层，确保锁定状态也能点击)
+    // 3.5 左侧锁定按钮
     self.lockBtn = [UIButton buttonWithType:UIButtonTypeCustom];
     self.lockBtn.frame = CGRectMake(20, (self.view.bounds.size.height - 40) / 2, 40, 40);
     self.lockBtn.autoresizingMask = UIViewAutoresizingFlexibleTopMargin | UIViewAutoresizingFlexibleBottomMargin | UIViewAutoresizingFlexibleRightMargin;
     self.lockBtn.backgroundColor = [UIColor colorWithWhite:0.0 alpha:0.3];
     self.lockBtn.layer.cornerRadius = 20;
-    self.lockBtn.alpha = 0.6; // 默认半透明
-    // 优化：调用模块化绘图代码
+    self.lockBtn.alpha = 0.6;
     [self.lockBtn setImage:[UIImage dynamicLockIconWithState:NO] forState:UIControlStateNormal];
     [self.lockBtn addTarget:self action:@selector(toggleLock) forControlEvents:UIControlEventTouchUpInside];
     [self.view addSubview:self.lockBtn];
@@ -147,7 +150,7 @@
     [singleTap requireGestureRecognizerToFail:doubleTap];
     [self.gestureCatcherView addGestureRecognizer:singleTap];
     
-    // 5. 监听播放与缓冲状态
+    // 5. 监听状态
     [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(playbackStateChanged) name:MPMoviePlayerPlaybackStateDidChangeNotification object:self.player];
     [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(loadStateChanged) name:MPMoviePlayerLoadStateDidChangeNotification object:self.player];
     [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(mediaTypesAvailable) name:MPMovieMediaTypesAvailableNotification object:self.player];
@@ -155,21 +158,61 @@
     
     [self.player play];
     [self startTimer];
-    
     [self startAutoHideTimer];
+    
+    // 新增：推送到锁屏面板
+    [self updateNowPlayingInfo];
 }
 
-// 优化：移除了冗余的 generateLockIcon 绘制代码，已提取至 UIImage+DynamicIcon.m
+#pragma mark - 新增：锁屏控制支持
+
+// 允许成为第一响应者，才能截获系统控制事件
+- (BOOL)canBecomeFirstResponder {
+    return YES;
+}
+
+// 接收锁屏面板或耳机的线控指令
+- (void)remoteControlReceivedWithEvent:(UIEvent *)event {
+    if (event.type == UIEventTypeRemoteControl) {
+        switch (event.subtype) {
+            case UIEventSubtypeRemoteControlPlay:
+                [self.player play];
+                break;
+            case UIEventSubtypeRemoteControlPause:
+                [self.player pause];
+                break;
+            case UIEventSubtypeRemoteControlTogglePlayPause:
+                [self togglePlay];
+                break;
+            default:
+                break;
+        }
+    }
+}
+
+// 更新系统锁屏的“正在播放”卡片信息
+- (void)updateNowPlayingInfo {
+    if (NSClassFromString(@"MPNowPlayingInfoCenter")) {
+        NSMutableDictionary *info = [NSMutableDictionary dictionary];
+        
+        // 1. 设置正在播放的频道名称
+        [info setObject:(self.channelTitle ?: @"未知频道") forKey:MPMediaItemPropertyTitle];
+        
+        // 2. 如果存在 Logo，将其作为专辑封面展示
+        if (self.channelLogo) {
+            MPMediaItemArtwork *artwork = [[MPMediaItemArtwork alloc] initWithImage:self.channelLogo];
+            [info setObject:artwork forKey:MPMediaItemPropertyArtwork];
+        }
+        
+        [[MPNowPlayingInfoCenter defaultCenter] setNowPlayingInfo:info];
+    }
+}
 
 #pragma mark - 锁定逻辑
 
-// 切换锁定状态
 - (void)toggleLock {
     self.isLocked = !self.isLocked;
-    // 优化：调用模块化绘图代码
     [self.lockBtn setImage:[UIImage dynamicLockIconWithState:self.isLocked] forState:UIControlStateNormal];
-    
-    // 锁定后显示反馈并开启自动隐藏计时器
     [self setControlsHidden:NO];
     [self startAutoHideTimer];
 }
@@ -240,19 +283,16 @@
     
     [UIView animateWithDuration:0.3 animations:^{
         if (self.isLocked) {
-            // 锁定状态：强制隐藏顶部和底部栏，只显示/隐藏锁定按钮
             self.topBar.alpha = 0.0;
             self.bottomBar.alpha = 0.0;
             self.lockBtn.alpha = hidden ? 0.0 : 0.6;
         } else {
-            // 未锁定状态：显示/隐藏所有控件
             self.topBar.alpha = hidden ? 0.0 : 1.0;
             self.bottomBar.alpha = hidden ? 0.0 : 1.0;
             self.lockBtn.alpha = hidden ? 0.0 : 0.6;
         }
     }];
     
-    // 锁定状态下，禁用顶部和底部的交互
     self.topBar.userInteractionEnabled = !self.isLocked && !hidden;
     self.bottomBar.userInteractionEnabled = !self.isLocked && !hidden;
     
@@ -276,7 +316,7 @@
 }
 
 - (void)handleDoubleTap:(UITapGestureRecognizer *)sender {
-    if (self.isLocked) return; // 锁定状态屏蔽双击
+    if (self.isLocked) return;
     [self toggleFullscreenAction];
 }
 
@@ -317,7 +357,7 @@
 }
 
 - (void)sliderValueChanged:(UISlider *)slider {
-    if (self.isLocked) return; // 锁定状态禁止调节进度
+    if (self.isLocked) return;
     [self startAutoHideTimer];
     if (self.player.duration > 0 && !isnan(self.player.duration)) {
         self.player.currentPlaybackTime = slider.value * self.player.duration;
@@ -347,6 +387,13 @@
 
 - (void)closePlayer {
     [self cancelAutoHideTimer];
+    
+    // 新增：关闭播放器时，注销接收线控和锁屏事件，并清空锁屏上的封面和文字
+    [[UIApplication sharedApplication] endReceivingRemoteControlEvents];
+    [self resignFirstResponder];
+    if (NSClassFromString(@"MPNowPlayingInfoCenter")) {
+        [[MPNowPlayingInfoCenter defaultCenter] setNowPlayingInfo:nil];
+    }
     
     if (![self respondsToSelector:@selector(setNeedsStatusBarAppearanceUpdate)]) {
         [[UIApplication sharedApplication] setStatusBarHidden:NO withAnimation:UIStatusBarAnimationNone];

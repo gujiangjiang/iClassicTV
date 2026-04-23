@@ -113,7 +113,11 @@
         savedIndex = 0;
         [[NSUserDefaults standardUserDefaults] setInteger:0 forKey:[ch persistenceKey]];
     }
-    [self playVideoWithURL:ch.urls[savedIndex] title:ch.name];
+    
+    // 优化：从缓存中获取对应的 Logo 图片传递给播放器
+    NSString *logoKey = ch.logo.length > 0 ? ch.logo : ch.name;
+    UIImage *cachedLogo = [self.imageCache objectForKey:logoKey];
+    [self playVideoWithURL:ch.urls[savedIndex] title:ch.name logo:cachedLogo];
 }
 
 - (void)tableView:(UITableView *)tableView accessoryButtonTappedForRowWithIndexPath:(NSIndexPath *)indexPath {
@@ -134,10 +138,15 @@
     [[NSUserDefaults standardUserDefaults] setInteger:sourceIndex forKey:[self.selectedChannel persistenceKey]];
     [[NSUserDefaults standardUserDefaults] synchronize];
     [self.tableView reloadData];
-    [self playVideoWithURL:self.selectedChannel.urls[sourceIndex] title:self.selectedChannel.name];
+    
+    // 优化：从缓存中获取对应的 Logo 图片传递给播放器
+    NSString *logoKey = self.selectedChannel.logo.length > 0 ? self.selectedChannel.logo : self.selectedChannel.name;
+    UIImage *cachedLogo = [self.imageCache objectForKey:logoKey];
+    [self playVideoWithURL:self.selectedChannel.urls[sourceIndex] title:self.selectedChannel.name logo:cachedLogo];
 }
 
-- (void)playVideoWithURL:(NSString *)urlString title:(NSString *)title {
+// 优化：方法签名增加 logo 参数
+- (void)playVideoWithURL:(NSString *)urlString title:(NSString *)title logo:(UIImage *)logo {
     // 调用配置模块读取偏好
     NSInteger playerPref = [PlayerConfigManager preferredPlayerType];
     
@@ -154,6 +163,8 @@
         PlayerViewController *playerVC = [[PlayerViewController alloc] init];
         playerVC.videoURLString = urlString;
         playerVC.channelTitle = title;
+        // 传入 Logo
+        playerVC.channelLogo = logo;
         playerVC.modalTransitionStyle = UIModalTransitionStyleCoverVertical;
         [self presentViewController:playerVC animated:YES completion:nil];
     }
