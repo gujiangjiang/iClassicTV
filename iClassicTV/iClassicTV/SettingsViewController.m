@@ -35,177 +35,13 @@ static void addNewSource(NSString *sourceName, NSString *m3uData, NSString *urlS
     [[NSNotificationCenter defaultCenter] postNotificationName:@"M3UDataUpdated" object:nil];
 }
 
-
-#pragma mark - 网络导入子页面
-// =========================================================
-@interface WebImportViewController : UIViewController <UIAlertViewDelegate>
-@property (nonatomic, strong) UITextField *urlField;
-@property (nonatomic, copy) NSString *tempM3UData;   // 临时存放下载的数据，等待用户确认名称
-@property (nonatomic, copy) NSString *tempURLString; // 临时存放 URL
-@end
-
-@implementation WebImportViewController
-- (void)viewDidLoad {
-    [super viewDidLoad];
-    self.title = @"添加网络直播源";
-    self.view.backgroundColor = [UIColor groupTableViewBackgroundColor];
-    
-    if ([self respondsToSelector:@selector(setEdgesForExtendedLayout:)]) {
-        self.edgesForExtendedLayout = UIRectEdgeNone;
-    }
-    
-    CGFloat width = self.view.frame.size.width;
-    
-    self.urlField = [[UITextField alloc] initWithFrame:CGRectMake(20, 20, width - 40, 40)];
-    self.urlField.borderStyle = UITextBorderStyleRoundedRect;
-    self.urlField.placeholder = @"输入 M3U 网址 (http://...)";
-    self.urlField.backgroundColor = [UIColor whiteColor];
-    [self.view addSubview:self.urlField];
-    
-    UIButton *btnLoad = [UIButton buttonWithType:UIButtonTypeRoundedRect];
-    btnLoad.frame = CGRectMake(20, 75, width - 40, 40);
-    [btnLoad setTitle:@"下载并配置" forState:UIControlStateNormal];
-    [btnLoad addTarget:self action:@selector(loadRemoteM3U) forControlEvents:UIControlEventTouchUpInside];
-    [self.view addSubview:btnLoad];
-}
-
-- (void)loadRemoteM3U {
-    [self.urlField resignFirstResponder];
-    NSURL *url = [NSURL URLWithString:self.urlField.text];
-    if (!url) {
-        UIAlertView *alert = [[UIAlertView alloc] initWithTitle:@"提示" message:@"网址无效" delegate:nil cancelButtonTitle:@"确定" otherButtonTitles:nil];
-        [alert show];
-        return;
-    }
-    
-    UIAlertView *hud = [[UIAlertView alloc] initWithTitle:@"下载中..." message:@"请稍候\n\n" delegate:nil cancelButtonTitle:nil otherButtonTitles:nil];
-    [hud show];
-    
-    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
-        NSError *error = nil;
-        NSString *m3uData = [NSString stringWithContentsOfURL:url encoding:NSUTF8StringEncoding error:&error];
-        
-        dispatch_async(dispatch_get_main_queue(), ^{
-            [hud dismissWithClickedButtonIndex:0 animated:YES];
-            if (m3uData) {
-                self.tempM3UData = m3uData;
-                self.tempURLString = url.absoluteString;
-                
-                // 下载成功后，弹出命名输入框
-                UIAlertView *nameAlert = [[UIAlertView alloc] initWithTitle:@"保存直播源" message:@"下载成功，请为该直播源命名" delegate:self cancelButtonTitle:@"取消" otherButtonTitles:@"保存", nil];
-                nameAlert.alertViewStyle = UIAlertViewStylePlainTextInput;
-                
-                NSDateFormatter *df = [[NSDateFormatter alloc] init];
-                [df setDateFormat:@"yyyy-MM-dd HH:mm:ss"];
-                [nameAlert textFieldAtIndex:0].text = [df stringFromDate:[NSDate date]];
-                
-                [nameAlert show];
-            } else {
-                UIAlertView *alert = [[UIAlertView alloc] initWithTitle:@"错误" message:@"下载失败，请检查网络或网址" delegate:nil cancelButtonTitle:@"确定" otherButtonTitles:nil];
-                [alert show];
-            }
-        });
-    });
-}
-
-// 处理命名弹窗回调
-- (void)alertView:(UIAlertView *)alertView clickedButtonAtIndex:(NSInteger)buttonIndex {
-    if (buttonIndex != alertView.cancelButtonIndex) {
-        NSString *name = [alertView textFieldAtIndex:0].text;
-        if (name.length == 0) name = @"未命名直播源";
-        
-        addNewSource(name, self.tempM3UData, self.tempURLString);
-        
-        UIAlertView *successAlert = [[UIAlertView alloc] initWithTitle:@"成功" message:@"网络直播源已保存！" delegate:nil cancelButtonTitle:@"确定" otherButtonTitles:nil];
-        [successAlert show];
-        [self.navigationController popViewControllerAnimated:YES];
-    }
-}
-@end
-
-
-#pragma mark - 文本导入子页面
-// =========================================================
-@interface TextImportViewController : UIViewController <UIAlertViewDelegate>
-@property (nonatomic, strong) UITextView *m3uTextView;
-@property (nonatomic, copy) NSString *tempM3UData; // 临时存放文本
-@end
-
-@implementation TextImportViewController
-- (void)viewDidLoad {
-    [super viewDidLoad];
-    self.title = @"添加本地直播源";
-    self.view.backgroundColor = [UIColor groupTableViewBackgroundColor];
-    
-    if ([self respondsToSelector:@selector(setEdgesForExtendedLayout:)]) {
-        self.edgesForExtendedLayout = UIRectEdgeNone;
-    }
-    
-    CGFloat width = self.view.frame.size.width;
-    
-    UILabel *label2 = [[UILabel alloc] initWithFrame:CGRectMake(20, 15, width - 40, 20)];
-    label2.text = @"请粘贴 M3U 文本内容：";
-    label2.font = [UIFont boldSystemFontOfSize:14];
-    label2.backgroundColor = [UIColor clearColor];
-    [self.view addSubview:label2];
-    
-    self.m3uTextView = [[UITextView alloc] initWithFrame:CGRectMake(20, 40, width - 40, 150)];
-    self.m3uTextView.layer.cornerRadius = 5.0;
-    self.m3uTextView.layer.borderColor = [UIColor lightGrayColor].CGColor;
-    self.m3uTextView.layer.borderWidth = 1.0;
-    [self.view addSubview:self.m3uTextView];
-    
-    UIButton *btnManual = [UIButton buttonWithType:UIButtonTypeRoundedRect];
-    btnManual.frame = CGRectMake(20, 200, width - 40, 40);
-    [btnManual setTitle:@"配置该文本源" forState:UIControlStateNormal];
-    [btnManual addTarget:self action:@selector(loadManualM3U) forControlEvents:UIControlEventTouchUpInside];
-    [self.view addSubview:btnManual];
-}
-
-- (void)loadManualM3U {
-    [self.m3uTextView resignFirstResponder];
-    NSString *m3uData = self.m3uTextView.text;
-    
-    if (m3uData.length == 0) {
-        UIAlertView *alert = [[UIAlertView alloc] initWithTitle:@"提示" message:@"请先粘贴内容" delegate:nil cancelButtonTitle:@"确定" otherButtonTitles:nil];
-        [alert show];
-        return;
-    }
-    
-    self.tempM3UData = m3uData;
-    
-    // 弹出命名输入框
-    UIAlertView *nameAlert = [[UIAlertView alloc] initWithTitle:@"保存直播源" message:@"请为该本地直播源命名" delegate:self cancelButtonTitle:@"取消" otherButtonTitles:@"保存", nil];
-    nameAlert.alertViewStyle = UIAlertViewStylePlainTextInput;
-    
-    NSDateFormatter *df = [[NSDateFormatter alloc] init];
-    [df setDateFormat:@"yyyy-MM-dd HH:mm:ss"];
-    [nameAlert textFieldAtIndex:0].text = [df stringFromDate:[NSDate date]];
-    
-    [nameAlert show];
-}
-
-// 处理命名弹窗回调
-- (void)alertView:(UIAlertView *)alertView clickedButtonAtIndex:(NSInteger)buttonIndex {
-    if (buttonIndex != alertView.cancelButtonIndex) {
-        NSString *name = [alertView textFieldAtIndex:0].text;
-        if (name.length == 0) name = @"未命名直播源";
-        
-        addNewSource(name, self.tempM3UData, nil);
-        
-        UIAlertView *successAlert = [[UIAlertView alloc] initWithTitle:@"成功" message:@"本地文本源已保存！" delegate:nil cancelButtonTitle:@"确定" otherButtonTitles:nil];
-        [successAlert show];
-        [self.navigationController popViewControllerAnimated:YES];
-    }
-}
-@end
-
-
 #pragma mark - 直播源管理子页面 (我的直播源)
 // =========================================================
 @interface SourceManagerViewController : UITableViewController <UIActionSheetDelegate, UIAlertViewDelegate>
 @property (nonatomic, strong) NSMutableArray *sources;
 @property (nonatomic, strong) NSIndexPath *selectedIndexPath;
+@property (nonatomic, copy) NSString *tempM3UData;   // 新增：用于弹窗间传递下载的数据或文本
+@property (nonatomic, copy) NSString *tempURLString; // 新增：用于弹窗间传递原始的 URL
 @end
 
 @implementation SourceManagerViewController
@@ -287,11 +123,16 @@ static void addNewSource(NSString *sourceName, NSString *m3uData, NSString *urlS
     // 针对 右上角 + 按钮 呼出的菜单
     if (actionSheet.tag == 101) {
         if (buttonIndex == 0) {
-            WebImportViewController *webVC = [[WebImportViewController alloc] init];
-            [self.navigationController pushViewController:webVC animated:YES];
+            UIAlertView *alert = [[UIAlertView alloc] initWithTitle:@"网络直播源" message:@"请输入 M3U 网址 (http://...)" delegate:self cancelButtonTitle:@"取消" otherButtonTitles:@"下载", nil];
+            alert.alertViewStyle = UIAlertViewStylePlainTextInput;
+            [alert textFieldAtIndex:0].keyboardType = UIKeyboardTypeURL;
+            alert.tag = 201; // 网络导入URL输入弹窗
+            [alert show];
         } else if (buttonIndex == 1) {
-            TextImportViewController *textVC = [[TextImportViewController alloc] init];
-            [self.navigationController pushViewController:textVC animated:YES];
+            UIAlertView *alert = [[UIAlertView alloc] initWithTitle:@"本地文本源" message:@"请在此处粘贴 M3U 文本内容" delegate:self cancelButtonTitle:@"取消" otherButtonTitles:@"下一步", nil];
+            alert.alertViewStyle = UIAlertViewStylePlainTextInput;
+            alert.tag = 202; // 文本导入输入弹窗
+            [alert show];
         }
         return;
     }
@@ -340,7 +181,9 @@ static void addNewSource(NSString *sourceName, NSString *m3uData, NSString *urlS
 }
 
 - (void)alertView:(UIAlertView *)alertView clickedButtonAtIndex:(NSInteger)buttonIndex {
-    if (alertView.tag == 301 && buttonIndex != alertView.cancelButtonIndex) {
+    if (buttonIndex == alertView.cancelButtonIndex) return;
+    
+    if (alertView.tag == 301) {
         UITextField *tf = [alertView textFieldAtIndex:0];
         if (tf.text.length > 0) {
             NSMutableDictionary *source = [self.sources[self.selectedIndexPath.row] mutableCopy];
@@ -356,7 +199,69 @@ static void addNewSource(NSString *sourceName, NSString *m3uData, NSString *urlS
                 [[NSNotificationCenter defaultCenter] postNotificationName:@"M3UDataUpdated" object:nil];
             }
         }
+    } else if (alertView.tag == 201) {
+        // 处理输入的网络URL
+        NSString *urlStr = [alertView textFieldAtIndex:0].text;
+        NSURL *url = [NSURL URLWithString:urlStr];
+        if (!url) {
+            [self showToast:@"网址无效"];
+            return;
+        }
+        
+        UIAlertView *hud = [[UIAlertView alloc] initWithTitle:@"下载中..." message:@"请稍候\n\n" delegate:nil cancelButtonTitle:nil otherButtonTitles:nil];
+        [hud show];
+        
+        dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
+            NSError *error = nil;
+            NSString *m3uData = [NSString stringWithContentsOfURL:url encoding:NSUTF8StringEncoding error:&error];
+            
+            dispatch_async(dispatch_get_main_queue(), ^{
+                [hud dismissWithClickedButtonIndex:0 animated:YES];
+                if (m3uData) {
+                    self.tempM3UData = m3uData;
+                    self.tempURLString = urlStr;
+                    [self showNamingAlertWithTag:203]; // 下载成功，弹出命名弹窗
+                } else {
+                    [self showToast:@"下载失败，请检查网络"];
+                }
+            });
+        });
+    } else if (alertView.tag == 202) {
+        // 处理粘贴的文本内容
+        NSString *m3uData = [alertView textFieldAtIndex:0].text;
+        if (m3uData.length == 0) {
+            [self showToast:@"内容不能为空"];
+            return;
+        }
+        self.tempM3UData = m3uData;
+        self.tempURLString = @"";
+        [self showNamingAlertWithTag:204]; // 数据接收成功，弹出命名弹窗
+    } else if (alertView.tag == 203 || alertView.tag == 204) {
+        // 保存新添加的直播源 (网络/文本 统一在此处处理)
+        NSString *name = [alertView textFieldAtIndex:0].text;
+        if (name.length == 0) name = @"未命名直播源";
+        
+        addNewSource(name, self.tempM3UData, self.tempURLString);
+        [self showToast:@"直播源已成功保存！"];
+        
+        // 重新读取并刷新列表
+        self.sources = [[[NSUserDefaults standardUserDefaults] objectForKey:@"ios6_iptv_sources"] mutableCopy] ?: [NSMutableArray array];
+        [self.tableView reloadData];
     }
+}
+
+// 新增辅助方法：显示给直播源命名的弹窗
+- (void)showNamingAlertWithTag:(NSInteger)tag {
+    UIAlertView *nameAlert = [[UIAlertView alloc] initWithTitle:@"保存直播源" message:@"请为该直播源命名" delegate:self cancelButtonTitle:@"取消" otherButtonTitles:@"保存", nil];
+    nameAlert.alertViewStyle = UIAlertViewStylePlainTextInput;
+    
+    // 默认提供一个以当前时间命名的预设
+    NSDateFormatter *df = [[NSDateFormatter alloc] init];
+    [df setDateFormat:@"yyyy-MM-dd HH:mm:ss"];
+    [nameAlert textFieldAtIndex:0].text = [df stringFromDate:[NSDate date]];
+    
+    nameAlert.tag = tag;
+    [nameAlert show];
 }
 
 - (void)refreshSource:(NSDictionary *)source atIndex:(NSInteger)index {
