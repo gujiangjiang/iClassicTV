@@ -12,16 +12,14 @@
     // 2. 初始化频道列表页 (带入原生分组样式)
     GroupListViewController *groupVC = [[GroupListViewController alloc] initWithStyle:UITableViewStyleGrouped];
     UINavigationController *nav1 = [[UINavigationController alloc] initWithRootViewController:groupVC];
-    // 使用系统的"书签"图标作为频道列表
-    nav1.tabBarItem = [[UITabBarItem alloc] initWithTabBarSystemItem:UITabBarSystemItemBookmarks tag:0];
-    nav1.tabBarItem.title = @"频道"; // 强制把名字改回"频道"
+    // 修复：不再使用系统内置样式，防止系统将其强制翻译成 Bookmarks
+    nav1.tabBarItem = [[UITabBarItem alloc] initWithTitle:@"Playing" image:nil tag:0];
     
     // 3. 初始化设置页 (原导入页，现已改为设置菜单)
     ImportViewController *importVC = [[ImportViewController alloc] init];
     UINavigationController *nav2 = [[UINavigationController alloc] initWithRootViewController:importVC];
-    // 使用系统的"更多"图标作为设置 (iOS 默认更多按钮适合做设置图标)
-    nav2.tabBarItem = [[UITabBarItem alloc] initWithTabBarSystemItem:UITabBarSystemItemMore tag:1];
-    nav2.tabBarItem.title = @"设置"; // 强制把名字改成"设置"
+    // 修复：不再使用系统内置样式，防止系统将其强制翻译成 More
+    nav2.tabBarItem = [[UITabBarItem alloc] initWithTitle:@"Setting" image:nil tag:1];
     
     // 4. 组装底部 TabBar
     self.tabBarController = [[UITabBarController alloc] init];
