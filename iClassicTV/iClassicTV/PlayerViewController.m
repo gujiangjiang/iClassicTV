@@ -130,7 +130,20 @@
 }
 
 - (void)toggleFullscreen {
-    // 调用系统原生的全屏功能，会自动横屏并接管手势
+    // 读取用户在设置中设定的全屏逻辑偏好
+    NSInteger orientationPref = [[NSUserDefaults standardUserDefaults] integerForKey:@"PlayerOrientationPref"];
+    
+    // 利用底层 API 强制向系统发送设备方向变更的通知，以此强制干预全屏的最终展现方向
+    if (orientationPref == 1) {
+        // 1 = 强制横屏
+        [[UIDevice currentDevice] setValue:[NSNumber numberWithInteger:UIInterfaceOrientationLandscapeRight] forKey:@"orientation"];
+    } else if (orientationPref == 2) {
+        // 2 = 强制竖屏
+        [[UIDevice currentDevice] setValue:[NSNumber numberWithInteger:UIInterfaceOrientationPortrait] forKey:@"orientation"];
+    }
+    // 0 = 跟随系统 (不做任何强制干预，由设备重力感应决定)
+    
+    // 调用系统原生的全屏功能，它会自动继承我们上面设定的设备方向
     self.player.controlStyle = MPMovieControlStyleFullscreen;
     [self.player setFullscreen:YES animated:YES];
 }

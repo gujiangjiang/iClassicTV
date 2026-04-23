@@ -1,6 +1,6 @@
 #import "AppDelegate.h"
 #import "GroupListViewController.h"
-#import "ImportViewController.h"
+#import "SettingsViewController.h" // 修改：引入新的设置页类名
 
 @implementation AppDelegate
 
@@ -15,9 +15,9 @@
     // 优化：使用动态代码绘制的图标，同时保持自定义文字
     nav1.tabBarItem = [[UITabBarItem alloc] initWithTitle:@"Playing" image:[self generatePlayIcon] tag:0];
     
-    // 3. 初始化设置页 (原导入页，现已改为设置菜单)
-    ImportViewController *importVC = [[ImportViewController alloc] init];
-    UINavigationController *nav2 = [[UINavigationController alloc] initWithRootViewController:importVC];
+    // 3. 初始化设置页 (已重命名为 SettingsViewController)
+    SettingsViewController *settingsVC = [[SettingsViewController alloc] init];
+    UINavigationController *nav2 = [[UINavigationController alloc] initWithRootViewController:settingsVC];
     // 优化：使用动态代码绘制的图标，同时保持自定义文字
     nav2.tabBarItem = [[UITabBarItem alloc] initWithTitle:@"Setting" image:[self generateSettingsIcon] tag:1];
     

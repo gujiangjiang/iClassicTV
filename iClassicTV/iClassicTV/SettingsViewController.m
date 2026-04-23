@@ -1,14 +1,14 @@
 //
-//  ImportViewController.m
+//  SettingsViewController.m
 //  iClassicTV
 //
 //  Created by gujiangjiang on 26-4-21.
 //  Copyright (c) 2026年 gujiangjiang. All rights reserved.
 //
 
-#import "ImportViewController.h"
+#import "SettingsViewController.h"
 
-#pragma mark - 新增：网络导入子页面
+#pragma mark - 网络导入子页面
 // =========================================================
 @interface WebImportViewController : UIViewController
 @property (nonatomic, strong) UITextField *urlField;
@@ -21,7 +21,7 @@
     self.title = @"网络导入";
     self.view.backgroundColor = [UIColor groupTableViewBackgroundColor];
     
-    // 【核心修复】：告诉 iOS 7 及以上系统，不要把内容画在导航栏下面！
+    // 告诉 iOS 7 及以上系统，不要把内容画在导航栏下面！
     if ([self respondsToSelector:@selector(setEdgesForExtendedLayout:)]) {
         self.edgesForExtendedLayout = UIRectEdgeNone;
     }
@@ -78,7 +78,7 @@
 @end
 
 
-#pragma mark - 新增：文本导入子页面
+#pragma mark - 文本导入子页面
 // =========================================================
 @interface TextImportViewController : UIViewController
 @property (nonatomic, strong) UITextView *m3uTextView;
@@ -91,7 +91,7 @@
     self.title = @"文本导入";
     self.view.backgroundColor = [UIColor groupTableViewBackgroundColor];
     
-    // 【核心修复】：告诉 iOS 7 及以上系统，不要把内容画在导航栏下面！
+    // 告诉 iOS 7 及以上系统，不要把内容画在导航栏下面！
     if ([self respondsToSelector:@selector(setEdgesForExtendedLayout:)]) {
         self.edgesForExtendedLayout = UIRectEdgeNone;
     }
@@ -140,7 +140,7 @@
 @end
 
 
-#pragma mark - 新增：关于软件子页面
+#pragma mark - 关于软件子页面
 // =========================================================
 @interface AboutViewController : UIViewController
 @end
@@ -151,7 +151,7 @@
     self.title = @"关于";
     self.view.backgroundColor = [UIColor groupTableViewBackgroundColor];
     
-    // 【核心修复】：告诉 iOS 7 及以上系统，不要把内容画在导航栏下面！
+    // 告诉 iOS 7 及以上系统，不要把内容画在导航栏下面！
     if ([self respondsToSelector:@selector(setEdgesForExtendedLayout:)]) {
         self.edgesForExtendedLayout = UIRectEdgeNone;
     }
@@ -166,13 +166,13 @@
 @end
 
 
-#pragma mark - 修改：设置主菜单 (原 ImportViewController)
+#pragma mark - 设置主菜单 (重命名为 SettingsViewController)
 // =========================================================
-@interface ImportViewController () <UIAlertViewDelegate>
+@interface SettingsViewController () <UIAlertViewDelegate, UIActionSheetDelegate>
 @property (nonatomic, strong) NSArray *sections;
 @end
 
-@implementation ImportViewController
+@implementation SettingsViewController
 
 // 覆盖默认初始化，确保使用 Grouped 样式的列表
 - (instancetype)init {
@@ -187,7 +187,7 @@
     // 构建设置菜单数据源
     self.sections = @[
                       @{@"title": @"直播源设置", @"rows": @[@"直播源网络导入", @"直播源文本导入", @"清空目前直播源"]},
-                      @{@"title": @"软件设置", @"rows": @[@"清空缓存 (记忆与偏好)"]},
+                      @{@"title": @"软件设置", @"rows": @[@"默认全屏逻辑", @"清空缓存 (记忆与偏好)"]},
                       @{@"title": @"关于", @"rows": @[@"关于 iClassicTV"]}
                       ];
 }
@@ -211,14 +211,20 @@
     static NSString *CellIdentifier = @"SettingsCell";
     UITableViewCell *cell = [tableView dequeueReusableCellWithIdentifier:CellIdentifier];
     if (!cell) {
-        cell = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleDefault reuseIdentifier:CellIdentifier];
+        // 使用 Value1 样式，右侧可以显示当前设置项的文字
+        cell = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleValue1 reuseIdentifier:CellIdentifier];
     }
     
     NSArray *rows = self.sections[indexPath.section][@"rows"];
     cell.textLabel.text = rows[indexPath.row];
+    cell.detailTextLabel.text = @""; // 避免 cell 复用导致文字残留
     
     // 针对具有破坏性操作的按钮进行标红，去掉箭头
-    if ((indexPath.section == 0 && indexPath.row == 2) || (indexPath.section == 1)) {
+    if (indexPath.section == 0 && indexPath.row == 2) {
+        cell.accessoryType = UITableViewCellAccessoryNone;
+        cell.textLabel.textAlignment = NSTextAlignmentCenter;
+        cell.textLabel.textColor = [UIColor redColor];
+    } else if (indexPath.section == 1 && indexPath.row == 1) { // 清空缓存
         cell.accessoryType = UITableViewCellAccessoryNone;
         cell.textLabel.textAlignment = NSTextAlignmentCenter;
         cell.textLabel.textColor = [UIColor redColor];
@@ -226,6 +232,18 @@
         cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
         cell.textLabel.textAlignment = NSTextAlignmentLeft;
         cell.textLabel.textColor = [UIColor blackColor];
+    }
+    
+    // 显示当前的“默认全屏逻辑”配置
+    if (indexPath.section == 1 && indexPath.row == 0) {
+        NSInteger pref = [[NSUserDefaults standardUserDefaults] integerForKey:@"PlayerOrientationPref"];
+        if (pref == 1) {
+            cell.detailTextLabel.text = @"横屏";
+        } else if (pref == 2) {
+            cell.detailTextLabel.text = @"竖屏";
+        } else {
+            cell.detailTextLabel.text = @"跟随系统";
+        }
     }
     
     return cell;
@@ -253,6 +271,11 @@
         }
     } else if (indexPath.section == 1) {
         if (indexPath.row == 0) {
+            // 弹出全屏逻辑选择菜单
+            UIActionSheet *sheet = [[UIActionSheet alloc] initWithTitle:@"默认全屏逻辑" delegate:self cancelButtonTitle:@"取消" destructiveButtonTitle:nil otherButtonTitles:@"跟随系统", @"横屏", @"竖屏", nil];
+            sheet.tag = 201;
+            [sheet showInView:self.view];
+        } else if (indexPath.row == 1) {
             // 弹出清空缓存确认框
             UIAlertView *alert = [[UIAlertView alloc] initWithTitle:@"清空缓存" message:@"确定要清空所有的线路记忆偏好吗？(图片缓存将在下次重启时自动清理)" delegate:self cancelButtonTitle:@"取消" otherButtonTitles:@"确定", nil];
             alert.tag = 102;
@@ -264,6 +287,17 @@
             AboutViewController *aboutVC = [[AboutViewController alloc] init];
             [self.navigationController pushViewController:aboutVC animated:YES];
         }
+    }
+}
+
+#pragma mark - UIActionSheet Delegate
+
+- (void)actionSheet:(UIActionSheet *)actionSheet clickedButtonAtIndex:(NSInteger)buttonIndex {
+    if (actionSheet.tag == 201 && buttonIndex != actionSheet.cancelButtonIndex) {
+        // buttonIndex 顺序：0=跟随系统, 1=横屏, 2=竖屏
+        [[NSUserDefaults standardUserDefaults] setInteger:buttonIndex forKey:@"PlayerOrientationPref"];
+        [[NSUserDefaults standardUserDefaults] synchronize];
+        [self.tableView reloadData]; // 刷新列表以显示最新的状态
     }
 }
 
