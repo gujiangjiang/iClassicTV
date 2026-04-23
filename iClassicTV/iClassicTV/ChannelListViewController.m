@@ -272,12 +272,33 @@
 }
 
 - (void)playVideoWithURL:(NSString *)urlString title:(NSString *)title {
-    // 优化：启动独立的播放器外观组件
-    PlayerViewController *playerVC = [[PlayerViewController alloc] init];
-    playerVC.videoURLString = urlString;
-    playerVC.channelTitle = title;
-    playerVC.modalTransitionStyle = UIModalTransitionStyleCrossDissolve; // 增加电影般的淡入淡出效果
-    [self presentViewController:playerVC animated:YES completion:nil];
+    // 读取用户的播放器偏好设置
+    NSInteger playerPref = [[NSUserDefaults standardUserDefaults] integerForKey:@"PlayerTypePref"];
+    
+    if (playerPref == 1) {
+        // 1. 使用 iOS 原生全屏播放器 (MPMoviePlayerViewController)
+        NSURL *url = [NSURL URLWithString:[urlString stringByAddingPercentEscapesUsingEncoding:NSUTF8StringEncoding]];
+        MPMoviePlayerViewController *playerVC = [[MPMoviePlayerViewController alloc] initWithContentURL:url];
+        
+        // 读取全屏逻辑偏好，尝试干预原生播放器的初始方向 (原生播放器对方向的控制较弱，这里尽量尝试)
+        NSInteger orientationPref = [[NSUserDefaults standardUserDefaults] integerForKey:@"PlayerOrientationPref"];
+        if (orientationPref == 1) {
+            [[UIDevice currentDevice] setValue:[NSNumber numberWithInteger:UIInterfaceOrientationLandscapeRight] forKey:@"orientation"];
+        } else if (orientationPref == 2) {
+            [[UIDevice currentDevice] setValue:[NSNumber numberWithInteger:UIInterfaceOrientationPortrait] forKey:@"orientation"];
+        }
+        
+        [self presentMoviePlayerViewControllerAnimated:playerVC];
+        [playerVC.moviePlayer play];
+        
+    } else {
+        // 0. (默认) 启动我们自己开发的独立播放器外观组件
+        PlayerViewController *playerVC = [[PlayerViewController alloc] init];
+        playerVC.videoURLString = urlString;
+        playerVC.channelTitle = title;
+        playerVC.modalTransitionStyle = UIModalTransitionStyleCrossDissolve; // 增加电影般的淡入淡出效果
+        [self presentViewController:playerVC animated:YES completion:nil];
+    }
 }
 
 @end

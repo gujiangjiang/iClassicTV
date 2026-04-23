@@ -184,10 +184,10 @@
     [super viewDidLoad];
     self.title = @"设置";
     
-    // 构建设置菜单数据源
+    // 构建设置菜单数据源 (新增 默认播放器 选项)
     self.sections = @[
                       @{@"title": @"直播源设置", @"rows": @[@"直播源网络导入", @"直播源文本导入", @"清空目前直播源"]},
-                      @{@"title": @"软件设置", @"rows": @[@"默认全屏逻辑", @"清空缓存 (记忆与偏好)"]},
+                      @{@"title": @"软件设置", @"rows": @[@"默认全屏逻辑", @"默认播放器", @"清空缓存 (记忆与偏好)"]},
                       @{@"title": @"关于", @"rows": @[@"关于 iClassicTV"]}
                       ];
 }
@@ -224,7 +224,7 @@
         cell.accessoryType = UITableViewCellAccessoryNone;
         cell.textLabel.textAlignment = NSTextAlignmentCenter;
         cell.textLabel.textColor = [UIColor redColor];
-    } else if (indexPath.section == 1 && indexPath.row == 1) { // 清空缓存
+    } else if (indexPath.section == 1 && indexPath.row == 2) { // 此时 清空缓存 变成了索引 2
         cell.accessoryType = UITableViewCellAccessoryNone;
         cell.textLabel.textAlignment = NSTextAlignmentCenter;
         cell.textLabel.textColor = [UIColor redColor];
@@ -243,6 +243,17 @@
             cell.detailTextLabel.text = @"竖屏";
         } else {
             cell.detailTextLabel.text = @"跟随系统";
+        }
+    }
+    
+    // 显示当前的“默认播放器”配置
+    if (indexPath.section == 1 && indexPath.row == 1) {
+        NSInteger playerPref = [[NSUserDefaults standardUserDefaults] integerForKey:@"PlayerTypePref"];
+        if (playerPref == 1) {
+            cell.detailTextLabel.text = @"iOS原生播放器";
+        } else {
+            // 0 代表默认值，即我们自己开发的播放器
+            cell.detailTextLabel.text = @"自定义播放器";
         }
     }
     
@@ -276,6 +287,11 @@
             sheet.tag = 201;
             [sheet showInView:self.view];
         } else if (indexPath.row == 1) {
+            // 弹出默认播放器选择菜单
+            UIActionSheet *sheet = [[UIActionSheet alloc] initWithTitle:@"默认播放器" delegate:self cancelButtonTitle:@"取消" destructiveButtonTitle:nil otherButtonTitles:@"自定义播放器 (推荐)", @"iOS原生播放器", nil];
+            sheet.tag = 202;
+            [sheet showInView:self.view];
+        } else if (indexPath.row == 2) {
             // 弹出清空缓存确认框
             UIAlertView *alert = [[UIAlertView alloc] initWithTitle:@"清空缓存" message:@"确定要清空所有的线路记忆偏好吗？(图片缓存将在下次重启时自动清理)" delegate:self cancelButtonTitle:@"取消" otherButtonTitles:@"确定", nil];
             alert.tag = 102;
@@ -294,10 +310,15 @@
 
 - (void)actionSheet:(UIActionSheet *)actionSheet clickedButtonAtIndex:(NSInteger)buttonIndex {
     if (actionSheet.tag == 201 && buttonIndex != actionSheet.cancelButtonIndex) {
-        // buttonIndex 顺序：0=跟随系统, 1=横屏, 2=竖屏
+        // 全屏逻辑：0=跟随系统, 1=横屏, 2=竖屏
         [[NSUserDefaults standardUserDefaults] setInteger:buttonIndex forKey:@"PlayerOrientationPref"];
         [[NSUserDefaults standardUserDefaults] synchronize];
         [self.tableView reloadData]; // 刷新列表以显示最新的状态
+    } else if (actionSheet.tag == 202 && buttonIndex != actionSheet.cancelButtonIndex) {
+        // 播放器选择：0=自定义播放器, 1=iOS原生播放器
+        [[NSUserDefaults standardUserDefaults] setInteger:buttonIndex forKey:@"PlayerTypePref"];
+        [[NSUserDefaults standardUserDefaults] synchronize];
+        [self.tableView reloadData];
     }
 }
 
