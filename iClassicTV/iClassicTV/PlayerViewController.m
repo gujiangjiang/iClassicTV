@@ -9,18 +9,19 @@
 #import "PlayerViewController.h"
 #import <MediaPlayer/MediaPlayer.h>
 
-@interface PlayerViewController () <UIGestureRecognizerDelegate> // 遵守手势协议
+@interface PlayerViewController () // 优化：移除了 UIGestureRecognizerDelegate，不再需要代理判断
 @property (nonatomic, strong) MPMoviePlayerController *player;
+@property (nonatomic, strong) UIView *gestureCatcherView; // 新增：独立的手势拦截层
 @property (nonatomic, strong) UIView *topBar;
 @property (nonatomic, strong) UIView *bottomBar;
 @property (nonatomic, strong) UIButton *playBtn;
 @property (nonatomic, strong) UISlider *progressBar;
-@property (nonatomic, strong) UIButton *fullBtn; // 新增：将全屏按钮设为全局属性，以便随时修改文字
+@property (nonatomic, strong) UIButton *fullBtn;
 @property (nonatomic, strong) NSTimer *timer;
 
 @property (nonatomic, assign) BOOL isControlsHidden;
-@property (nonatomic, assign) BOOL isFullscreen; // 记录当前是否处于我们自定义的全屏状态
-@property (nonatomic, assign) UIInterfaceOrientation originalOrientation; // 记录进入全屏前的方向
+@property (nonatomic, assign) BOOL isFullscreen;
+@property (nonatomic, assign) UIInterfaceOrientation originalOrientation;
 
 @end
 
@@ -32,7 +33,6 @@
     
     // 初始化状态
     self.isFullscreen = NO;
-    // 记录初始方向
     self.originalOrientation = [UIApplication sharedApplication].statusBarOrientation;
     
     // 1. 初始化 iOS 原生解码内核播放器
@@ -40,11 +40,17 @@
     self.player = [[MPMoviePlayerController alloc] initWithContentURL:url];
     self.player.view.frame = self.view.bounds;
     self.player.view.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
-    // 永远保持 None，拒绝系统UI的介入
     self.player.controlStyle = MPMovieControlStyleNone;
     [self.view addSubview:self.player.view];
     
-    // 2. 顶部导航栏 (包含返回按钮和频道名称)
+    // 1.5 新增核心：手势拦截层
+    // 把它盖在视频上面，彻底阻断 MPMoviePlayerController 偷吃我们的点击事件
+    self.gestureCatcherView = [[UIView alloc] initWithFrame:self.view.bounds];
+    self.gestureCatcherView.backgroundColor = [UIColor clearColor];
+    self.gestureCatcherView.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+    [self.view addSubview:self.gestureCatcherView];
+    
+    // 2. 顶部导航栏 (盖在拦截层上面)
     self.topBar = [[UIView alloc] initWithFrame:CGRectMake(0, 0, self.view.bounds.size.width, 44)];
     self.topBar.backgroundColor = [UIColor colorWithWhite:0.0 alpha:0.7];
     self.topBar.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleBottomMargin;
@@ -67,7 +73,7 @@
     titleLabel.autoresizingMask = UIViewAutoresizingFlexibleWidth;
     [self.topBar addSubview:titleLabel];
     
-    // 3. 底部控制栏 (包含播放/暂停、进度条、全屏按钮)
+    // 3. 底部控制栏 (盖在拦截层上面)
     self.bottomBar = [[UIView alloc] initWithFrame:CGRectMake(0, self.view.bounds.size.height - 50, self.view.bounds.size.width, 50)];
     self.bottomBar.backgroundColor = [UIColor colorWithWhite:0.0 alpha:0.7];
     self.bottomBar.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleTopMargin;
@@ -86,27 +92,24 @@
     [self.progressBar addTarget:self action:@selector(sliderValueChanged:) forControlEvents:UIControlEventValueChanged];
     [self.bottomBar addSubview:self.progressBar];
     
-    // 修改：使用 self.fullBtn 替代局部的 fullBtn 变量
     self.fullBtn = [UIButton buttonWithType:UIButtonTypeCustom];
     self.fullBtn.frame = CGRectMake(self.view.bounds.size.width - 60, 5, 50, 40);
     [self.fullBtn setTitle:@"全屏" forState:UIControlStateNormal];
     [self.fullBtn setTitleColor:[UIColor whiteColor] forState:UIControlStateNormal];
     self.fullBtn.titleLabel.font = [UIFont systemFontOfSize:14];
     self.fullBtn.autoresizingMask = UIViewAutoresizingFlexibleLeftMargin;
-    [self.fullBtn addTarget:self action:@selector(toggleFullscreenAction) forControlEvents:UIControlEventTouchUpInside]; // 统一调用 Action
+    [self.fullBtn addTarget:self action:@selector(toggleFullscreenAction) forControlEvents:UIControlEventTouchUpInside];
     [self.bottomBar addSubview:self.fullBtn];
     
-    // 4. 添加手势控制
+    // 4. 添加手势控制（修改：将手势全部添加到透明的 gestureCatcherView 上）
     UITapGestureRecognizer *doubleTap = [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(handleDoubleTap:)];
     doubleTap.numberOfTapsRequired = 2;
-    doubleTap.delegate = self;
-    [self.view addGestureRecognizer:doubleTap];
+    [self.gestureCatcherView addGestureRecognizer:doubleTap];
     
     UITapGestureRecognizer *singleTap = [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(handleSingleTap:)];
     singleTap.numberOfTapsRequired = 1;
-    singleTap.delegate = self;
-    [singleTap requireGestureRecognizerToFail:doubleTap]; // 关键：确保不冲突
-    [self.view addGestureRecognizer:singleTap];
+    [singleTap requireGestureRecognizerToFail:doubleTap]; // 等待双击判定失败后才触发单击
+    [self.gestureCatcherView addGestureRecognizer:singleTap];
     
     // 5. 监听播放状态
     [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(playbackStateChanged) name:MPMoviePlayerPlaybackStateDidChangeNotification object:self.player];
@@ -118,7 +121,6 @@
 #pragma mark - 交互逻辑
 
 - (void)handleSingleTap:(UITapGestureRecognizer *)sender {
-    // 强制每次单击都触发状态反转和动画
     self.isControlsHidden = !self.isControlsHidden;
     
     [UIView animateWithDuration:0.3 animations:^{
@@ -143,12 +145,12 @@
     if (self.isFullscreen) {
         // 正在全屏 -> 退出全屏，恢复原始方向
         self.isFullscreen = NO;
-        [self.fullBtn setTitle:@"全屏" forState:UIControlStateNormal]; // 状态更新：显示全屏
+        [self.fullBtn setTitle:@"全屏" forState:UIControlStateNormal];
         [self forceRotateToOrientation:self.originalOrientation];
     } else {
         // 不在全屏 -> 进入全屏
         self.isFullscreen = YES;
-        [self.fullBtn setTitle:@"退出全屏" forState:UIControlStateNormal]; // 状态更新：显示退出全屏
+        [self.fullBtn setTitle:@"退出全屏" forState:UIControlStateNormal];
         
         // 记录进入全屏前一刻的方向
         self.originalOrientation = [UIApplication sharedApplication].statusBarOrientation;
@@ -173,7 +175,6 @@
 // 强制旋转底层 Hack 方法
 - (void)forceRotateToOrientation:(UIInterfaceOrientation)orientation {
     // 先设为 Unknown 强制系统刷新布局状态，再设为目标方向
-    // 修复：使用 UIDeviceOrientationUnknown 解决未声明标识符的编译错误
     [[UIDevice currentDevice] setValue:[NSNumber numberWithInteger:UIDeviceOrientationUnknown] forKey:@"orientation"];
     [[UIDevice currentDevice] setValue:[NSNumber numberWithInteger:orientation] forKey:@"orientation"];
     
@@ -181,8 +182,6 @@
     [self.view setNeedsLayout];
     [self.view layoutIfNeeded];
 }
-
-// ... 保持原有控制逻辑不变 ...
 
 - (void)startTimer {
     self.timer = [NSTimer scheduledTimerWithTimeInterval:1.0 target:self selector:@selector(updateProgress) userInfo:nil repeats:YES];
@@ -235,15 +234,6 @@
     [self forceRotateToOrientation:UIInterfaceOrientationPortrait];
     
     [self dismissViewControllerAnimated:YES completion:nil];
-}
-
-// 手势代理：防止点击按钮时触发背景手势
-- (BOOL)gestureRecognizer:(UIGestureRecognizer *)gestureRecognizer shouldReceiveTouch:(UITouch *)touch {
-    // 如果点在控制栏上，不响应背景手势
-    if ([touch.view isDescendantOfView:self.topBar] || [touch.view isDescendantOfView:self.bottomBar]) {
-        return NO;
-    }
-    return YES;
 }
 
 // 允许旋转
