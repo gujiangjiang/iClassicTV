@@ -33,23 +33,10 @@
     // 优化：调用独立模块处理旧版数据无缝迁移，保持控制器代码简洁
     [[AppDataManager sharedManager] migrateLegacyDataIfNeeded];
     
-    NSUserDefaults *defs = [NSUserDefaults standardUserDefaults];
-    
-    // 读取多源数据
-    NSArray *sources = [defs objectForKey:@"ios6_iptv_sources"];
-    NSString *activeId = [defs objectForKey:@"ios6_iptv_active_source_id"];
-    
-    NSString *activeM3U = nil;
-    NSString *activeName = @"频道列表";
-    
-    // 找出当前选中的源并提取数据
-    for (NSDictionary *dict in sources) {
-        if ([dict[@"id"] isEqualToString:activeId]) {
-            activeM3U = dict[@"content"];
-            activeName = dict[@"name"];
-            break;
-        }
-    }
+    // 优化：直接通过 AppDataManager 获取当前激活源的数据，移除了冗余的循环遍历寻找逻辑
+    NSDictionary *activeSource = [[AppDataManager sharedManager] getActiveSourceInfo];
+    NSString *activeM3U = activeSource[@"content"];
+    NSString *activeName = activeSource[@"name"];
     
     // 显示网络活动指示器（状态栏小圈圈）
     [[UIApplication sharedApplication] setNetworkActivityIndicatorVisible:YES];

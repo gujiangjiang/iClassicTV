@@ -8,33 +8,8 @@
 
 #import "SourceManagerViewController.h"
 #import "TextImportModalViewController.h"
-
-#pragma mark - 内部工具方法：添加新的直播源 (修改为接收指定名称)
-// =========================================================
-static void addNewSource(NSString *sourceName, NSString *m3uData, NSString *urlString) {
-    NSUserDefaults *defs = [NSUserDefaults standardUserDefaults];
-    NSMutableArray *sources = [[defs objectForKey:@"ios6_iptv_sources"] mutableCopy] ?: [NSMutableArray array];
-    
-    NSString *sourceId = [[NSUUID UUID] UUIDString];
-    
-    NSDictionary *source = @{
-                             @"id": sourceId,
-                             @"name": sourceName ?: @"未命名直播源",
-                             @"content": m3uData ?: @"",
-                             @"url": urlString ?: @""
-                             };
-    
-    [sources addObject:source];
-    [defs setObject:sources forKey:@"ios6_iptv_sources"];
-    
-    // 如果这是唯一的一个源，则自动设为当前激活源
-    if (sources.count == 1) {
-        [defs setObject:sourceId forKey:@"ios6_iptv_active_source_id"];
-    }
-    
-    [defs synchronize];
-    [[NSNotificationCenter defaultCenter] postNotificationName:@"M3UDataUpdated" object:nil];
-}
+// 引入数据管理模块
+#import "AppDataManager.h"
 
 @implementation SourceManagerViewController
 
@@ -49,7 +24,8 @@ static void addNewSource(NSString *sourceName, NSString *m3uData, NSString *urlS
 
 - (void)viewWillAppear:(BOOL)animated {
     [super viewWillAppear:animated];
-    self.sources = [[[NSUserDefaults standardUserDefaults] objectForKey:@"ios6_iptv_sources"] mutableCopy] ?: [NSMutableArray array];
+    // 优化：使用 AppDataManager 统一获取数据
+    self.sources = [[AppDataManager sharedManager] getAllSources];
     [self.tableView reloadData];
 }
 
@@ -74,8 +50,8 @@ static void addNewSource(NSString *sourceName, NSString *m3uData, NSString *urlS
     cell.textLabel.text = source[@"name"];
     
     // 标记当前正在使用的源
-    NSString *activeId = [[NSUserDefaults standardUserDefaults] objectForKey:@"ios6_iptv_active_source_id"];
-    if ([source[@"id"] isEqualToString:activeId]) {
+    NSDictionary *activeInfo = [[AppDataManager sharedManager] getActiveSourceInfo];
+    if ([source[@"id"] isEqualToString:activeInfo[@"id"]]) {
         cell.accessoryType = UITableViewCellAccessoryCheckmark;
         cell.textLabel.textColor = [UIColor colorWithRed:0.0 green:0.5 blue:1.0 alpha:1.0];
     } else {
@@ -137,29 +113,16 @@ static void addNewSource(NSString *sourceName, NSString *m3uData, NSString *urlS
     // 针对 点击单元格 呼出的操作菜单
     if (actionSheet.tag == 100) {
         NSString *title = [actionSheet buttonTitleAtIndex:buttonIndex];
-        NSMutableDictionary *source = [self.sources[self.selectedIndexPath.row] mutableCopy];
+        NSDictionary *source = self.sources[self.selectedIndexPath.row];
         
-        NSUserDefaults *defs = [NSUserDefaults standardUserDefaults];
-        
+        // 优化：将 NSUserDefaults 操作替换为 AppDataManager 的模块化调用
         if ([title isEqualToString:@"删除"]) {
-            [self.sources removeObjectAtIndex:self.selectedIndexPath.row];
-            [defs setObject:self.sources forKey:@"ios6_iptv_sources"];
-            
-            if ([source[@"id"] isEqualToString:[defs objectForKey:@"ios6_iptv_active_source_id"]]) {
-                if (self.sources.count > 0) {
-                    [defs setObject:self.sources.firstObject[@"id"] forKey:@"ios6_iptv_active_source_id"];
-                } else {
-                    [defs removeObjectForKey:@"ios6_iptv_active_source_id"];
-                }
-                [[NSNotificationCenter defaultCenter] postNotificationName:@"M3UDataUpdated" object:nil];
-            }
-            [defs synchronize];
+            [[AppDataManager sharedManager] deleteSourceAtIndex:self.selectedIndexPath.row];
+            self.sources = [[AppDataManager sharedManager] getAllSources];
             [self.tableView reloadData];
             
         } else if ([title isEqualToString:@"设为当前源"]) {
-            [defs setObject:source[@"id"] forKey:@"ios6_iptv_active_source_id"];
-            [defs synchronize];
-            [[NSNotificationCenter defaultCenter] postNotificationName:@"M3UDataUpdated" object:nil];
+            [[AppDataManager sharedManager] setActiveSourceById:source[@"id"]];
             [self.tableView reloadData];
             [self showToast:@"已切换直播源"];
             
@@ -183,18 +146,10 @@ static void addNewSource(NSString *sourceName, NSString *m3uData, NSString *urlS
     if (alertView.tag == 301) {
         UITextField *tf = [alertView textFieldAtIndex:0];
         if (tf.text.length > 0) {
-            NSMutableDictionary *source = [self.sources[self.selectedIndexPath.row] mutableCopy];
-            source[@"name"] = tf.text;
-            self.sources[self.selectedIndexPath.row] = source;
-            
-            NSUserDefaults *defs = [NSUserDefaults standardUserDefaults];
-            [defs setObject:self.sources forKey:@"ios6_iptv_sources"];
-            [defs synchronize];
+            // 优化：通过 AppDataManager 更新数据
+            [[AppDataManager sharedManager] updateSourceNameAtIndex:self.selectedIndexPath.row withName:tf.text];
+            self.sources = [[AppDataManager sharedManager] getAllSources];
             [self.tableView reloadData];
-            
-            if ([source[@"id"] isEqualToString:[defs objectForKey:@"ios6_iptv_active_source_id"]]) {
-                [[NSNotificationCenter defaultCenter] postNotificationName:@"M3UDataUpdated" object:nil];
-            }
         }
     } else if (alertView.tag == 201) {
         // 处理输入的网络URL
@@ -228,11 +183,12 @@ static void addNewSource(NSString *sourceName, NSString *m3uData, NSString *urlS
         NSString *name = [alertView textFieldAtIndex:0].text;
         if (name.length == 0) name = @"未命名直播源";
         
-        addNewSource(name, self.tempM3UData, self.tempURLString);
+        // 优化：使用 AppDataManager 添加新源
+        [[AppDataManager sharedManager] addSourceWithName:name content:self.tempM3UData url:self.tempURLString];
         [self showToast:@"直播源已成功保存！"];
         
         // 重新读取并刷新列表
-        self.sources = [[[NSUserDefaults standardUserDefaults] objectForKey:@"ios6_iptv_sources"] mutableCopy] ?: [NSMutableArray array];
+        self.sources = [[AppDataManager sharedManager] getAllSources];
         [self.tableView reloadData];
     }
 }
@@ -264,16 +220,10 @@ static void addNewSource(NSString *sourceName, NSString *m3uData, NSString *urlS
         dispatch_async(dispatch_get_main_queue(), ^{
             [hud dismissWithClickedButtonIndex:0 animated:YES];
             if (m3uData) {
-                NSMutableDictionary *updatedSource = [source mutableCopy];
-                updatedSource[@"content"] = m3uData;
-                self.sources[index] = updatedSource;
+                // 优化：调用 AppDataManager 更新源内容
+                [[AppDataManager sharedManager] updateSourceContentAtIndex:index withContent:m3uData];
+                self.sources = [[AppDataManager sharedManager] getAllSources];
                 
-                [[NSUserDefaults standardUserDefaults] setObject:self.sources forKey:@"ios6_iptv_sources"];
-                [[NSUserDefaults standardUserDefaults] synchronize];
-                
-                if ([source[@"id"] isEqualToString:[[NSUserDefaults standardUserDefaults] objectForKey:@"ios6_iptv_active_source_id"]]) {
-                    [[NSNotificationCenter defaultCenter] postNotificationName:@"M3UDataUpdated" object:nil];
-                }
                 [self showToast:@"刷新同步成功"];
             } else {
                 UIAlertView *alert = [[UIAlertView alloc] initWithTitle:@"错误" message:@"刷新失败，请检查网络" delegate:nil cancelButtonTitle:@"确定" otherButtonTitles:nil];
