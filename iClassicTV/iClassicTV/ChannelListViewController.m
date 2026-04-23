@@ -296,7 +296,8 @@
         PlayerViewController *playerVC = [[PlayerViewController alloc] init];
         playerVC.videoURLString = urlString;
         playerVC.channelTitle = title;
-        playerVC.modalTransitionStyle = UIModalTransitionStyleCrossDissolve; // 增加电影般的淡入淡出效果
+        // 优化：恢复为 iOS 默认的底部弹出动画，与原生播放器体验保持一致
+        playerVC.modalTransitionStyle = UIModalTransitionStyleCoverVertical;
         [self presentViewController:playerVC animated:YES completion:nil];
     }
 }

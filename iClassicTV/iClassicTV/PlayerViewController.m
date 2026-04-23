@@ -178,9 +178,11 @@
     [[UIDevice currentDevice] setValue:[NSNumber numberWithInteger:UIDeviceOrientationUnknown] forKey:@"orientation"];
     [[UIDevice currentDevice] setValue:[NSNumber numberWithInteger:orientation] forKey:@"orientation"];
     
-    // 触发旋转后，手动修正一下控制栏的布局，防止横竖屏切换时控件位置错乱
-    [self.view setNeedsLayout];
-    [self.view layoutIfNeeded];
+    // 优化：加入动画区块，让横竖屏切换时控件位置和画面能够平滑过渡，而不是瞬间闪烁跳变
+    [UIView animateWithDuration:0.35 animations:^{
+        [self.view setNeedsLayout];
+        [self.view layoutIfNeeded];
+    }];
 }
 
 - (void)startTimer {
