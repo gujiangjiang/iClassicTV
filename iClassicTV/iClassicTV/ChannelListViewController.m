@@ -9,6 +9,7 @@
 #import "ChannelListViewController.h"
 #import "Channel.h"
 #import <MediaPlayer/MediaPlayer.h>
+#import "PlayerViewController.h" // 新增：引入独立的播放器组件
 
 // ================= 新增：iOS 6 专属 HTTPS 证书绕过 Hack =================
 // 由于 iOS 6 系统的根证书早已过期，且不支持许多现代 TLS 协议，
@@ -271,9 +272,12 @@
 }
 
 - (void)playVideoWithURL:(NSString *)urlString title:(NSString *)title {
-    NSURL *url = [NSURL URLWithString:[urlString stringByAddingPercentEscapesUsingEncoding:NSUTF8StringEncoding]];
-    MPMoviePlayerViewController *playerVC = [[MPMoviePlayerViewController alloc] initWithContentURL:url];
-    [self presentMoviePlayerViewControllerAnimated:playerVC];
+    // 优化：启动独立的播放器外观组件
+    PlayerViewController *playerVC = [[PlayerViewController alloc] init];
+    playerVC.videoURLString = urlString;
+    playerVC.channelTitle = title;
+    playerVC.modalTransitionStyle = UIModalTransitionStyleCrossDissolve; // 增加电影般的淡入淡出效果
+    [self presentViewController:playerVC animated:YES completion:nil];
 }
 
 @end
