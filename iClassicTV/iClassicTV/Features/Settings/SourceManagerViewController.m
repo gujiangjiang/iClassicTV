@@ -17,21 +17,21 @@
     [super viewDidLoad];
     self.title = @"我的直播源";
     
-    // 优化：右上角添加 + 按钮
+    // 右上角添加 + 按钮，用于新增源
     UIBarButtonItem *addBtn = [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemAdd target:self action:@selector(showAddOptions)];
     self.navigationItem.rightBarButtonItem = addBtn;
 }
 
 - (void)viewWillAppear:(BOOL)animated {
     [super viewWillAppear:animated];
-    // 优化：使用 AppDataManager 统一获取数据
+    // 使用 AppDataManager 统一获取数据
     self.sources = [[AppDataManager sharedManager] getAllSources];
     [self.tableView reloadData];
 }
 
 - (void)showAddOptions {
     UIActionSheet *sheet = [[UIActionSheet alloc] initWithTitle:@"添加直播源" delegate:self cancelButtonTitle:@"取消" destructiveButtonTitle:nil otherButtonTitles:@"添加网络直播源", @"添加本地文本源", nil];
-    sheet.tag = 101; // 利用 Tag 区分是“添加源菜单”还是“源操作菜单”
+    sheet.tag = 101;
     [sheet showInView:self.view];
 }
 
@@ -75,34 +75,34 @@
     
     UIActionSheet *sheet = [[UIActionSheet alloc] initWithTitle:@"操作" delegate:self cancelButtonTitle:nil destructiveButtonTitle:@"删除" otherButtonTitles:@"设为当前源", @"重命名", nil];
     
+    // 只有网络源才显示刷新同步按钮
     if ([source[@"url"] length] > 0) {
         [sheet addButtonWithTitle:@"刷新同步"];
     }
     [sheet addButtonWithTitle:@"取消"];
     sheet.cancelButtonIndex = sheet.numberOfButtons - 1;
     
-    sheet.tag = 100; // 操作菜单的 Tag
+    sheet.tag = 100;
     [sheet showInView:self.view];
 }
 
 - (void)actionSheet:(UIActionSheet *)actionSheet clickedButtonAtIndex:(NSInteger)buttonIndex {
     if (buttonIndex == actionSheet.cancelButtonIndex) return;
     
-    // 针对 右上角 + 按钮 呼出的菜单
+    // 处理添加按钮
     if (actionSheet.tag == 101) {
         if (buttonIndex == 0) {
             UIAlertView *alert = [[UIAlertView alloc] initWithTitle:@"网络直播源" message:@"请输入 M3U 网址 (http://...)" delegate:self cancelButtonTitle:@"取消" otherButtonTitles:@"下载", nil];
             alert.alertViewStyle = UIAlertViewStylePlainTextInput;
             [alert textFieldAtIndex:0].keyboardType = UIKeyboardTypeURL;
-            alert.tag = 201; // 网络导入URL输入弹窗
+            alert.tag = 201;
             [alert show];
         } else if (buttonIndex == 1) {
-            // 优化：不再使用单行 UIAlertView，改为弹出专门的多行文本编辑模态页面
             TextImportModalViewController *textVC = [[TextImportModalViewController alloc] init];
             textVC.completionHandler = ^(NSString *text) {
                 self.tempM3UData = text;
                 self.tempURLString = @"";
-                [self showNamingAlertWithTag:204]; // 数据接收成功，弹出命名弹窗
+                [self showNamingAlertWithTag:204];
             };
             UINavigationController *nav = [[UINavigationController alloc] initWithRootViewController:textVC];
             [self presentViewController:nav animated:YES completion:nil];
@@ -110,12 +110,11 @@
         return;
     }
     
-    // 针对 点击单元格 呼出的操作菜单
+    // 处理单元格点击操作
     if (actionSheet.tag == 100) {
         NSString *title = [actionSheet buttonTitleAtIndex:buttonIndex];
         NSDictionary *source = self.sources[self.selectedIndexPath.row];
         
-        // 优化：将 NSUserDefaults 操作替换为 AppDataManager 的模块化调用
         if ([title isEqualToString:@"删除"]) {
             [[AppDataManager sharedManager] deleteSourceAtIndex:self.selectedIndexPath.row];
             self.sources = [[AppDataManager sharedManager] getAllSources];
@@ -146,13 +145,11 @@
     if (alertView.tag == 301) {
         UITextField *tf = [alertView textFieldAtIndex:0];
         if (tf.text.length > 0) {
-            // 优化：通过 AppDataManager 更新数据
             [[AppDataManager sharedManager] updateSourceNameAtIndex:self.selectedIndexPath.row withName:tf.text];
             self.sources = [[AppDataManager sharedManager] getAllSources];
             [self.tableView reloadData];
         }
     } else if (alertView.tag == 201) {
-        // 处理输入的网络URL
         NSString *urlStr = [alertView textFieldAtIndex:0].text;
         NSURL *url = [NSURL URLWithString:urlStr];
         if (!url) {
@@ -172,33 +169,28 @@
                 if (m3uData) {
                     self.tempM3UData = m3uData;
                     self.tempURLString = urlStr;
-                    [self showNamingAlertWithTag:203]; // 下载成功，弹出命名弹窗
+                    [self showNamingAlertWithTag:203];
                 } else {
                     [self showToast:@"下载失败，请检查网络"];
                 }
             });
         });
     } else if (alertView.tag == 203 || alertView.tag == 204) {
-        // 保存新添加的直播源 (网络/文本 统一在此处处理)
         NSString *name = [alertView textFieldAtIndex:0].text;
         if (name.length == 0) name = @"未命名直播源";
         
-        // 优化：使用 AppDataManager 添加新源
         [[AppDataManager sharedManager] addSourceWithName:name content:self.tempM3UData url:self.tempURLString];
         [self showToast:@"直播源已成功保存！"];
         
-        // 重新读取并刷新列表
         self.sources = [[AppDataManager sharedManager] getAllSources];
         [self.tableView reloadData];
     }
 }
 
-// 新增辅助方法：显示给直播源命名的弹窗
 - (void)showNamingAlertWithTag:(NSInteger)tag {
     UIAlertView *nameAlert = [[UIAlertView alloc] initWithTitle:@"保存直播源" message:@"请为该直播源命名" delegate:self cancelButtonTitle:@"取消" otherButtonTitles:@"保存", nil];
     nameAlert.alertViewStyle = UIAlertViewStylePlainTextInput;
     
-    // 默认提供一个以当前时间命名的预设
     NSDateFormatter *df = [[NSDateFormatter alloc] init];
     [df setDateFormat:@"yyyy-MM-dd HH:mm:ss"];
     [nameAlert textFieldAtIndex:0].text = [df stringFromDate:[NSDate date]];
@@ -220,10 +212,8 @@
         dispatch_async(dispatch_get_main_queue(), ^{
             [hud dismissWithClickedButtonIndex:0 animated:YES];
             if (m3uData) {
-                // 优化：调用 AppDataManager 更新源内容
                 [[AppDataManager sharedManager] updateSourceContentAtIndex:index withContent:m3uData];
                 self.sources = [[AppDataManager sharedManager] getAllSources];
-                
                 [self showToast:@"刷新同步成功"];
             } else {
                 UIAlertView *alert = [[UIAlertView alloc] initWithTitle:@"错误" message:@"刷新失败，请检查网络" delegate:nil cancelButtonTitle:@"确定" otherButtonTitles:nil];

@@ -21,10 +21,7 @@
     self.navigationItem.title = @"加载中..."; // 优化：单独设置顶部导航栏的初始标题
     self.tableView = [[UITableView alloc] initWithFrame:self.view.bounds style:UITableViewStyleGrouped];
     
-    // iOS 6 风格：添加下拉刷新提示
-    UIBarButtonItem *refreshBtn = [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemRefresh target:self action:@selector(loadDataFromUserDefaults)];
-    self.navigationItem.rightBarButtonItem = refreshBtn;
-    
+    // 监听数据更新通知
     [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(loadDataFromUserDefaults) name:@"M3UDataUpdated" object:nil];
     [self loadDataFromUserDefaults];
 }
@@ -33,10 +30,20 @@
     // 优化：调用独立模块处理旧版数据无缝迁移，保持控制器代码简洁
     [[AppDataManager sharedManager] migrateLegacyDataIfNeeded];
     
-    // 优化：直接通过 AppDataManager 获取当前激活源的数据，移除了冗余的循环遍历寻找逻辑
+    // 优化：直接通过 AppDataManager 获取当前激活源的数据
     NSDictionary *activeSource = [[AppDataManager sharedManager] getActiveSourceInfo];
     NSString *activeM3U = activeSource[@"content"];
     NSString *activeName = activeSource[@"name"];
+    NSString *activeUrl = activeSource[@"url"];
+    
+    // 逻辑：只有当存在直播源列表，且当前激活的源是“网络源”时，才显示右上角的同步刷新按钮
+    NSArray *allSources = [[AppDataManager sharedManager] getAllSources];
+    if (allSources.count > 0 && activeUrl.length > 0) {
+        UIBarButtonItem *refreshBtn = [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemRefresh target:self action:@selector(refreshActiveSourceFromServer)];
+        self.navigationItem.rightBarButtonItem = refreshBtn;
+    } else {
+        self.navigationItem.rightBarButtonItem = nil; // 无源或本地源则隐藏按钮
+    }
     
     // 显示网络活动指示器（状态栏小圈圈）
     [[UIApplication sharedApplication] setNetworkActivityIndicatorVisible:YES];
@@ -67,11 +74,10 @@
             if (self.groupNames.count == 0) {
                 self.navigationItem.title = @"暂无可用直播源"; // 优化：修改无源时的标题更符合语境
                 
-                // 新增：构建好看的空白提示引导视图
+                // 构建好看的空白提示引导视图
                 UIView *emptyView = [[UIView alloc] initWithFrame:self.tableView.bounds];
                 emptyView.backgroundColor = [UIColor clearColor];
                 
-                // 使用 Label 构建多行居中的提示文字，Y轴减去120让视觉中心稍微偏上一点更美观
                 UILabel *tipsLabel = [[UILabel alloc] initWithFrame:CGRectMake(20, 0, self.tableView.bounds.size.width - 40, self.tableView.bounds.size.height - 120)];
                 tipsLabel.text = @"📺\n\n暂无可用直播源\n\n请点击底部【设置】->【我的直播源】进行添加";
                 tipsLabel.textColor = [UIColor grayColor];
@@ -82,11 +88,57 @@
                 
                 [emptyView addSubview:tipsLabel];
                 self.tableView.backgroundView = emptyView;
-                self.tableView.separatorStyle = UITableViewCellSeparatorStyleNone; // 无数据时隐藏多余的分割线，保持界面干净
+                self.tableView.separatorStyle = UITableViewCellSeparatorStyleNone;
             } else {
                 self.navigationItem.title = activeName;
-                self.tableView.backgroundView = nil; // 有数据时移除空白提示视图
-                self.tableView.separatorStyle = UITableViewCellSeparatorStyleSingleLine; // 恢复原生的分组分割线样式
+                self.tableView.backgroundView = nil;
+                self.tableView.separatorStyle = UITableViewCellSeparatorStyleSingleLine;
+            }
+        });
+    });
+}
+
+// 核心优化：执行真正的网络同步刷新
+- (void)refreshActiveSourceFromServer {
+    NSDictionary *activeSource = [[AppDataManager sharedManager] getActiveSourceInfo];
+    NSString *urlStr = activeSource[@"url"];
+    if (urlStr.length == 0) return;
+    
+    NSURL *url = [NSURL URLWithString:[urlStr stringByAddingPercentEscapesUsingEncoding:NSUTF8StringEncoding]];
+    if (!url) return;
+    
+    // 显示 iOS 6 风格的 HUD 提示
+    UIAlertView *hud = [[UIAlertView alloc] initWithTitle:@"正在同步..." message:@"正在从网络更新直播源内容\n\n" delegate:nil cancelButtonTitle:nil otherButtonTitles:nil];
+    [hud show];
+    
+    [[UIApplication sharedApplication] setNetworkActivityIndicatorVisible:YES];
+    
+    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
+        NSError *error = nil;
+        NSString *m3uData = [NSString stringWithContentsOfURL:url encoding:NSUTF8StringEncoding error:&error];
+        
+        dispatch_async(dispatch_get_main_queue(), ^{
+            [hud dismissWithClickedButtonIndex:0 animated:YES];
+            [[UIApplication sharedApplication] setNetworkActivityIndicatorVisible:NO];
+            
+            if (m3uData && m3uData.length > 0) {
+                // 查找当前源在列表中的索引并更新
+                NSMutableArray *sources = [[AppDataManager sharedManager] getAllSources];
+                NSInteger activeIndex = NSNotFound;
+                for (int i = 0; i < sources.count; i++) {
+                    if ([sources[i][@"id"] isEqualToString:activeSource[@"id"]]) {
+                        activeIndex = i;
+                        break;
+                    }
+                }
+                
+                if (activeIndex != NSNotFound) {
+                    [[AppDataManager sharedManager] updateSourceContentAtIndex:activeIndex withContent:m3uData];
+                    // 此处 update 方法内部会发出 M3UDataUpdated 通知，从而自动触发界面的 loadDataFromUserDefaults
+                }
+            } else {
+                UIAlertView *alert = [[UIAlertView alloc] initWithTitle:@"同步失败" message:@"无法连接到源地址，请检查网络或链接是否有效" delegate:nil cancelButtonTitle:@"确定" otherButtonTitles:nil];
+                [alert show];
             }
         });
     });
