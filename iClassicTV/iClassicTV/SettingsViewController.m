@@ -8,6 +8,216 @@
 
 #import "SettingsViewController.h"
 
+#pragma mark - 内部工具方法：添加新的直播源
+// =========================================================
+static void addNewSource(NSString *m3uData, NSString *urlString) {
+    NSUserDefaults *defs = [NSUserDefaults standardUserDefaults];
+    NSMutableArray *sources = [[defs objectForKey:@"ios6_iptv_sources"] mutableCopy] ?: [NSMutableArray array];
+    
+    // 生成默认名称 (当前日期时间)
+    NSDateFormatter *df = [[NSDateFormatter alloc] init];
+    [df setDateFormat:@"yyyy-MM-dd HH:mm:ss"];
+    NSString *defaultName = [df stringFromDate:[NSDate date]];
+    NSString *sourceId = [[NSUUID UUID] UUIDString];
+    
+    NSDictionary *source = @{
+                             @"id": sourceId,
+                             @"name": defaultName,
+                             @"content": m3uData,
+                             @"url": urlString ?: @""
+                             };
+    
+    [sources addObject:source];
+    [defs setObject:sources forKey:@"ios6_iptv_sources"];
+    
+    // 如果这是唯一的一个源，则自动设为当前激活源
+    if (sources.count == 1) {
+        [defs setObject:sourceId forKey:@"ios6_iptv_active_source_id"];
+    }
+    
+    [defs synchronize];
+    [[NSNotificationCenter defaultCenter] postNotificationName:@"M3UDataUpdated" object:nil];
+}
+
+
+#pragma mark - 直播源管理子页面 (多级菜单)
+// =========================================================
+@interface SourceManagerViewController : UITableViewController <UIActionSheetDelegate, UIAlertViewDelegate>
+@property (nonatomic, strong) NSMutableArray *sources;
+@property (nonatomic, strong) NSIndexPath *selectedIndexPath;
+@end
+
+@implementation SourceManagerViewController
+
+- (void)viewDidLoad {
+    [super viewDidLoad];
+    self.title = @"我的直播源";
+}
+
+- (void)viewWillAppear:(BOOL)animated {
+    [super viewWillAppear:animated];
+    self.sources = [[[NSUserDefaults standardUserDefaults] objectForKey:@"ios6_iptv_sources"] mutableCopy] ?: [NSMutableArray array];
+    [self.tableView reloadData];
+}
+
+- (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section {
+    return self.sources.count;
+}
+
+- (UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath {
+    static NSString *CellId = @"SourceCell";
+    UITableViewCell *cell = [tableView dequeueReusableCellWithIdentifier:CellId];
+    if (!cell) {
+        cell = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleSubtitle reuseIdentifier:CellId];
+    }
+    
+    NSDictionary *source = self.sources[indexPath.row];
+    cell.textLabel.text = source[@"name"];
+    
+    // 标记当前正在使用的源
+    NSString *activeId = [[NSUserDefaults standardUserDefaults] objectForKey:@"ios6_iptv_active_source_id"];
+    if ([source[@"id"] isEqualToString:activeId]) {
+        cell.accessoryType = UITableViewCellAccessoryCheckmark;
+        cell.textLabel.textColor = [UIColor colorWithRed:0.0 green:0.5 blue:1.0 alpha:1.0];
+    } else {
+        cell.accessoryType = UITableViewCellAccessoryNone;
+        cell.textLabel.textColor = [UIColor blackColor];
+    }
+    
+    // 副标题显示链接或类型
+    if ([source[@"url"] length] > 0) {
+        cell.detailTextLabel.text = source[@"url"];
+    } else {
+        cell.detailTextLabel.text = @"本地文本导入";
+    }
+    
+    return cell;
+}
+
+- (void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath {
+    [tableView deselectRowAtIndexPath:indexPath animated:YES];
+    self.selectedIndexPath = indexPath;
+    NSDictionary *source = self.sources[indexPath.row];
+    
+    // 动态构建 ActionSheet
+    UIActionSheet *sheet = [[UIActionSheet alloc] initWithTitle:@"操作" delegate:self cancelButtonTitle:nil destructiveButtonTitle:@"删除" otherButtonTitles:@"设为当前源", @"重命名", nil];
+    
+    // 如果是网络源，可以刷新
+    if ([source[@"url"] length] > 0) {
+        [sheet addButtonWithTitle:@"刷新同步"];
+    }
+    [sheet addButtonWithTitle:@"取消"];
+    sheet.cancelButtonIndex = sheet.numberOfButtons - 1; // 最后一个是取消按钮
+    
+    [sheet showInView:self.view];
+}
+
+- (void)actionSheet:(UIActionSheet *)actionSheet clickedButtonAtIndex:(NSInteger)buttonIndex {
+    if (buttonIndex == actionSheet.cancelButtonIndex) return;
+    NSString *title = [actionSheet buttonTitleAtIndex:buttonIndex];
+    NSMutableDictionary *source = [self.sources[self.selectedIndexPath.row] mutableCopy];
+    
+    NSUserDefaults *defs = [NSUserDefaults standardUserDefaults];
+    
+    if ([title isEqualToString:@"删除"]) {
+        [self.sources removeObjectAtIndex:self.selectedIndexPath.row];
+        [defs setObject:self.sources forKey:@"ios6_iptv_sources"];
+        
+        // 如果删除的是当前激活源，系统自动切到第一个
+        if ([source[@"id"] isEqualToString:[defs objectForKey:@"ios6_iptv_active_source_id"]]) {
+            if (self.sources.count > 0) {
+                [defs setObject:self.sources.firstObject[@"id"] forKey:@"ios6_iptv_active_source_id"];
+            } else {
+                [defs removeObjectForKey:@"ios6_iptv_active_source_id"];
+            }
+            [[NSNotificationCenter defaultCenter] postNotificationName:@"M3UDataUpdated" object:nil];
+        }
+        [defs synchronize];
+        [self.tableView reloadData];
+        
+    } else if ([title isEqualToString:@"设为当前源"]) {
+        [defs setObject:source[@"id"] forKey:@"ios6_iptv_active_source_id"];
+        [defs synchronize];
+        [[NSNotificationCenter defaultCenter] postNotificationName:@"M3UDataUpdated" object:nil];
+        [self.tableView reloadData];
+        [self showToast:@"已切换直播源"];
+        
+    } else if ([title isEqualToString:@"重命名"]) {
+        UIAlertView *alert = [[UIAlertView alloc] initWithTitle:@"重命名" message:@"请输入新的名称" delegate:self cancelButtonTitle:@"取消" otherButtonTitles:@"确定", nil];
+        alert.alertViewStyle = UIAlertViewStylePlainTextInput;
+        UITextField *tf = [alert textFieldAtIndex:0];
+        tf.text = source[@"name"];
+        alert.tag = 301;
+        [alert show];
+        
+    } else if ([title isEqualToString:@"刷新同步"]) {
+        [self refreshSource:source atIndex:self.selectedIndexPath.row];
+    }
+}
+
+- (void)alertView:(UIAlertView *)alertView clickedButtonAtIndex:(NSInteger)buttonIndex {
+    if (alertView.tag == 301 && buttonIndex != alertView.cancelButtonIndex) {
+        UITextField *tf = [alertView textFieldAtIndex:0];
+        if (tf.text.length > 0) {
+            NSMutableDictionary *source = [self.sources[self.selectedIndexPath.row] mutableCopy];
+            source[@"name"] = tf.text;
+            self.sources[self.selectedIndexPath.row] = source;
+            
+            NSUserDefaults *defs = [NSUserDefaults standardUserDefaults];
+            [defs setObject:self.sources forKey:@"ios6_iptv_sources"];
+            [defs synchronize];
+            [self.tableView reloadData];
+            
+            // 如果重命名的是当前激活的源，需要发通知告诉主页更新标题
+            if ([source[@"id"] isEqualToString:[defs objectForKey:@"ios6_iptv_active_source_id"]]) {
+                [[NSNotificationCenter defaultCenter] postNotificationName:@"M3UDataUpdated" object:nil];
+            }
+        }
+    }
+}
+
+- (void)refreshSource:(NSDictionary *)source atIndex:(NSInteger)index {
+    NSURL *url = [NSURL URLWithString:source[@"url"]];
+    if (!url) return;
+    
+    UIAlertView *hud = [[UIAlertView alloc] initWithTitle:@"刷新中..." message:@"请稍候\n\n" delegate:nil cancelButtonTitle:nil otherButtonTitles:nil];
+    [hud show];
+    
+    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
+        NSError *error = nil;
+        NSString *m3uData = [NSString stringWithContentsOfURL:url encoding:NSUTF8StringEncoding error:&error];
+        dispatch_async(dispatch_get_main_queue(), ^{
+            [hud dismissWithClickedButtonIndex:0 animated:YES];
+            if (m3uData) {
+                NSMutableDictionary *updatedSource = [source mutableCopy];
+                updatedSource[@"content"] = m3uData; // 覆盖旧数据
+                self.sources[index] = updatedSource;
+                
+                [[NSUserDefaults standardUserDefaults] setObject:self.sources forKey:@"ios6_iptv_sources"];
+                [[NSUserDefaults standardUserDefaults] synchronize];
+                
+                if ([source[@"id"] isEqualToString:[[NSUserDefaults standardUserDefaults] objectForKey:@"ios6_iptv_active_source_id"]]) {
+                    [[NSNotificationCenter defaultCenter] postNotificationName:@"M3UDataUpdated" object:nil];
+                }
+                [self showToast:@"刷新同步成功"];
+            } else {
+                UIAlertView *alert = [[UIAlertView alloc] initWithTitle:@"错误" message:@"刷新失败，请检查网络" delegate:nil cancelButtonTitle:@"确定" otherButtonTitles:nil];
+                [alert show];
+            }
+        });
+    });
+}
+
+- (void)showToast:(NSString *)message {
+    UIAlertView *toast = [[UIAlertView alloc] initWithTitle:nil message:message delegate:nil cancelButtonTitle:nil otherButtonTitles:nil];
+    [toast show];
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1.5 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+        [toast dismissWithClickedButtonIndex:0 animated:YES];
+    });
+}
+@end
+
+
 #pragma mark - 网络导入子页面
 // =========================================================
 @interface WebImportViewController : UIViewController
@@ -15,13 +225,11 @@
 @end
 
 @implementation WebImportViewController
-
 - (void)viewDidLoad {
     [super viewDidLoad];
     self.title = @"网络导入";
     self.view.backgroundColor = [UIColor groupTableViewBackgroundColor];
     
-    // 告诉 iOS 7 及以上系统，不要把内容画在导航栏下面！
     if ([self respondsToSelector:@selector(setEdgesForExtendedLayout:)]) {
         self.edgesForExtendedLayout = UIRectEdgeNone;
     }
@@ -48,7 +256,7 @@
 }
 
 - (void)loadRemoteM3U {
-    [self.urlField resignFirstResponder]; // 收起键盘
+    [self.urlField resignFirstResponder];
     NSURL *url = [NSURL URLWithString:self.urlField.text];
     if (!url) {
         UIAlertView *alert = [[UIAlertView alloc] initWithTitle:@"提示" message:@"网址无效" delegate:nil cancelButtonTitle:@"确定" otherButtonTitles:nil];
@@ -62,12 +270,10 @@
         
         dispatch_async(dispatch_get_main_queue(), ^{
             if (m3uData) {
-                [[NSUserDefaults standardUserDefaults] setObject:m3uData forKey:@"ios6_iptv_m3u"];
-                [[NSUserDefaults standardUserDefaults] synchronize];
-                [[NSNotificationCenter defaultCenter] postNotificationName:@"M3UDataUpdated" object:nil];
+                addNewSource(m3uData, url.absoluteString); // 调用统一写入方法
                 UIAlertView *alert = [[UIAlertView alloc] initWithTitle:@"成功" message:@"直播源已载入！" delegate:nil cancelButtonTitle:@"确定" otherButtonTitles:nil];
                 [alert show];
-                [self.navigationController popViewControllerAnimated:YES]; // 成功后返回上一级菜单
+                [self.navigationController popViewControllerAnimated:YES];
             } else {
                 UIAlertView *alert = [[UIAlertView alloc] initWithTitle:@"错误" message:@"下载失败，请检查网络或网址" delegate:nil cancelButtonTitle:@"确定" otherButtonTitles:nil];
                 [alert show];
@@ -85,13 +291,11 @@
 @end
 
 @implementation TextImportViewController
-
 - (void)viewDidLoad {
     [super viewDidLoad];
     self.title = @"文本导入";
     self.view.backgroundColor = [UIColor groupTableViewBackgroundColor];
     
-    // 告诉 iOS 7 及以上系统，不要把内容画在导航栏下面！
     if ([self respondsToSelector:@selector(setEdgesForExtendedLayout:)]) {
         self.edgesForExtendedLayout = UIRectEdgeNone;
     }
@@ -104,7 +308,6 @@
     label2.backgroundColor = [UIColor clearColor];
     [self.view addSubview:label2];
     
-    // 多行文本框
     self.m3uTextView = [[UITextView alloc] initWithFrame:CGRectMake(20, 40, width - 40, 150)];
     self.m3uTextView.layer.cornerRadius = 5.0;
     self.m3uTextView.layer.borderColor = [UIColor lightGrayColor].CGColor;
@@ -119,7 +322,7 @@
 }
 
 - (void)loadManualM3U {
-    [self.m3uTextView resignFirstResponder]; // 收起键盘
+    [self.m3uTextView resignFirstResponder];
     NSString *m3uData = self.m3uTextView.text;
     
     if (m3uData.length == 0) {
@@ -128,14 +331,10 @@
         return;
     }
     
-    // 保存并刷新
-    [[NSUserDefaults standardUserDefaults] setObject:m3uData forKey:@"ios6_iptv_m3u"];
-    [[NSUserDefaults standardUserDefaults] synchronize];
-    [[NSNotificationCenter defaultCenter] postNotificationName:@"M3UDataUpdated" object:nil];
-    
+    addNewSource(m3uData, nil); // 调用统一写入方法
     UIAlertView *alert = [[UIAlertView alloc] initWithTitle:@"成功" message:@"本地文本源已载入！" delegate:nil cancelButtonTitle:@"确定" otherButtonTitles:nil];
     [alert show];
-    [self.navigationController popViewControllerAnimated:YES]; // 成功后返回上一级菜单
+    [self.navigationController popViewControllerAnimated:YES];
 }
 @end
 
@@ -151,7 +350,6 @@
     self.title = @"关于";
     self.view.backgroundColor = [UIColor groupTableViewBackgroundColor];
     
-    // 告诉 iOS 7 及以上系统，不要把内容画在导航栏下面！
     if ([self respondsToSelector:@selector(setEdgesForExtendedLayout:)]) {
         self.edgesForExtendedLayout = UIRectEdgeNone;
     }
@@ -160,13 +358,13 @@
     textView.backgroundColor = [UIColor clearColor];
     textView.editable = NO;
     textView.font = [UIFont systemFontOfSize:15];
-    textView.text = @"iClassicTV (Native iOS 6 Edition)\n\n一款专为怀旧党和老旧 iOS 设备（如 iPhone 4/4s、iPad 2/3）打造的纯原生 IPTV / M3U 直播源播放器。\n\n• 纯正拟物化 UI\n• 硬件级解码播放\n• 智能线路记忆\n\n版本: 1.0\n作者: gujiangjiang\n开源协议: MIT License";
+    textView.text = @"iClassicTV (Native iOS 6 Edition)\n\n一款专为怀旧党和老旧 iOS 设备（如 iPhone 4/4s、iPad 2/3）打造的纯原生 IPTV / M3U 直播源播放器。\n\n• 纯正拟物化 UI\n• 硬件级解码播放\n• 智能多线路记忆\n• 强大的多源管理\n\n版本: 1.0\n作者: gujiangjiang\n开源协议: MIT License";
     [self.view addSubview:textView];
 }
 @end
 
 
-#pragma mark - 设置主菜单 (重命名为 SettingsViewController)
+#pragma mark - 设置主菜单 (SettingsViewController)
 // =========================================================
 @interface SettingsViewController () <UIAlertViewDelegate, UIActionSheetDelegate>
 @property (nonatomic, strong) NSArray *sections;
@@ -174,7 +372,6 @@
 
 @implementation SettingsViewController
 
-// 覆盖默认初始化，确保使用 Grouped 样式的列表
 - (instancetype)init {
     self = [super initWithStyle:UITableViewStyleGrouped];
     return self;
@@ -184,10 +381,10 @@
     [super viewDidLoad];
     self.title = @"设置";
     
-    // 构建设置菜单数据源 (新增 默认播放器 选项)
+    // 构建多级设置菜单数据源
     self.sections = @[
-                      @{@"title": @"直播源设置", @"rows": @[@"直播源网络导入", @"直播源文本导入", @"清空目前直播源"]},
-                      @{@"title": @"软件设置", @"rows": @[@"默认全屏逻辑", @"默认播放器", @"清空缓存 (记忆与偏好)"]},
+                      @{@"title": @"直播源设置", @"rows": @[@"我的直播源 (管理与切换)", @"添加网络直播源", @"添加本地文本源"]},
+                      @{@"title": @"软件设置", @"rows": @[@"默认全屏逻辑", @"默认播放器", @"清空所有直播源", @"清空缓存 (记忆与偏好)"]},
                       @{@"title": @"关于", @"rows": @[@"关于 iClassicTV"]}
                       ];
 }
@@ -211,20 +408,15 @@
     static NSString *CellIdentifier = @"SettingsCell";
     UITableViewCell *cell = [tableView dequeueReusableCellWithIdentifier:CellIdentifier];
     if (!cell) {
-        // 使用 Value1 样式，右侧可以显示当前设置项的文字
         cell = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleValue1 reuseIdentifier:CellIdentifier];
     }
     
     NSArray *rows = self.sections[indexPath.section][@"rows"];
     cell.textLabel.text = rows[indexPath.row];
-    cell.detailTextLabel.text = @""; // 避免 cell 复用导致文字残留
+    cell.detailTextLabel.text = @"";
     
-    // 针对具有破坏性操作的按钮进行标红，去掉箭头
-    if (indexPath.section == 0 && indexPath.row == 2) {
-        cell.accessoryType = UITableViewCellAccessoryNone;
-        cell.textLabel.textAlignment = NSTextAlignmentCenter;
-        cell.textLabel.textColor = [UIColor redColor];
-    } else if (indexPath.section == 1 && indexPath.row == 2) { // 此时 清空缓存 变成了索引 2
+    // 破坏性操作按钮标红
+    if (indexPath.section == 1 && (indexPath.row == 2 || indexPath.row == 3)) {
         cell.accessoryType = UITableViewCellAccessoryNone;
         cell.textLabel.textAlignment = NSTextAlignmentCenter;
         cell.textLabel.textColor = [UIColor redColor];
@@ -252,7 +444,6 @@
         if (playerPref == 1) {
             cell.detailTextLabel.text = @"iOS原生播放器";
         } else {
-            // 0 代表默认值，即我们自己开发的播放器
             cell.detailTextLabel.text = @"自定义播放器";
         }
     }
@@ -263,79 +454,73 @@
 #pragma mark - Table view delegate
 
 - (void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath {
-    [tableView deselectRowAtIndexPath:indexPath animated:YES]; // 取消选中状态
+    [tableView deselectRowAtIndexPath:indexPath animated:YES];
     
     if (indexPath.section == 0) {
         if (indexPath.row == 0) {
-            // 跳转网络导入
+            // 跳转新的直播源管理页面
+            SourceManagerViewController *smVC = [[SourceManagerViewController alloc] init];
+            [self.navigationController pushViewController:smVC animated:YES];
+        } else if (indexPath.row == 1) {
             WebImportViewController *webVC = [[WebImportViewController alloc] init];
             [self.navigationController pushViewController:webVC animated:YES];
-        } else if (indexPath.row == 1) {
-            // 跳转文本导入
+        } else if (indexPath.row == 2) {
             TextImportViewController *textVC = [[TextImportViewController alloc] init];
             [self.navigationController pushViewController:textVC animated:YES];
-        } else if (indexPath.row == 2) {
-            // 弹出清空直播源确认框
-            UIAlertView *alert = [[UIAlertView alloc] initWithTitle:@"警告" message:@"确定要清空所有的直播源吗？" delegate:self cancelButtonTitle:@"取消" otherButtonTitles:@"确定清空", nil];
-            alert.tag = 101; // 利用 tag 区分不同弹窗
-            [alert show];
         }
     } else if (indexPath.section == 1) {
         if (indexPath.row == 0) {
-            // 弹出全屏逻辑选择菜单
             UIActionSheet *sheet = [[UIActionSheet alloc] initWithTitle:@"默认全屏逻辑" delegate:self cancelButtonTitle:@"取消" destructiveButtonTitle:nil otherButtonTitles:@"跟随系统", @"横屏", @"竖屏", nil];
             sheet.tag = 201;
             [sheet showInView:self.view];
         } else if (indexPath.row == 1) {
-            // 弹出默认播放器选择菜单
             UIActionSheet *sheet = [[UIActionSheet alloc] initWithTitle:@"默认播放器" delegate:self cancelButtonTitle:@"取消" destructiveButtonTitle:nil otherButtonTitles:@"自定义播放器 (推荐)", @"iOS原生播放器", nil];
             sheet.tag = 202;
             [sheet showInView:self.view];
         } else if (indexPath.row == 2) {
-            // 弹出清空缓存确认框
-            UIAlertView *alert = [[UIAlertView alloc] initWithTitle:@"清空缓存" message:@"确定要清空所有的线路记忆偏好吗？(图片缓存将在下次重启时自动清理)" delegate:self cancelButtonTitle:@"取消" otherButtonTitles:@"确定", nil];
+            UIAlertView *alert = [[UIAlertView alloc] initWithTitle:@"警告" message:@"确定要清空所有的直播源吗？" delegate:self cancelButtonTitle:@"取消" otherButtonTitles:@"确定清空", nil];
+            alert.tag = 101;
+            [alert show];
+        } else if (indexPath.row == 3) {
+            UIAlertView *alert = [[UIAlertView alloc] initWithTitle:@"清空缓存" message:@"确定要清空所有的线路记忆偏好吗？" delegate:self cancelButtonTitle:@"取消" otherButtonTitles:@"确定", nil];
             alert.tag = 102;
             [alert show];
         }
     } else if (indexPath.section == 2) {
         if (indexPath.row == 0) {
-            // 跳转关于页面
             AboutViewController *aboutVC = [[AboutViewController alloc] init];
             [self.navigationController pushViewController:aboutVC animated:YES];
         }
     }
 }
 
-#pragma mark - UIActionSheet Delegate
+#pragma mark - 底部菜单及警告框代理
 
 - (void)actionSheet:(UIActionSheet *)actionSheet clickedButtonAtIndex:(NSInteger)buttonIndex {
     if (actionSheet.tag == 201 && buttonIndex != actionSheet.cancelButtonIndex) {
-        // 全屏逻辑：0=跟随系统, 1=横屏, 2=竖屏
         [[NSUserDefaults standardUserDefaults] setInteger:buttonIndex forKey:@"PlayerOrientationPref"];
         [[NSUserDefaults standardUserDefaults] synchronize];
-        [self.tableView reloadData]; // 刷新列表以显示最新的状态
+        [self.tableView reloadData];
     } else if (actionSheet.tag == 202 && buttonIndex != actionSheet.cancelButtonIndex) {
-        // 播放器选择：0=自定义播放器, 1=iOS原生播放器
         [[NSUserDefaults standardUserDefaults] setInteger:buttonIndex forKey:@"PlayerTypePref"];
         [[NSUserDefaults standardUserDefaults] synchronize];
         [self.tableView reloadData];
     }
 }
 
-#pragma mark - UIAlertView Delegate
-
 - (void)alertView:(UIAlertView *)alertView clickedButtonAtIndex:(NSInteger)buttonIndex {
     if (buttonIndex != alertView.cancelButtonIndex) {
         if (alertView.tag == 101) {
-            // 执行清空直播源操作
-            [[NSUserDefaults standardUserDefaults] removeObjectForKey:@"ios6_iptv_m3u"];
+            // 一键清空所有数据
+            [[NSUserDefaults standardUserDefaults] removeObjectForKey:@"ios6_iptv_sources"];
+            [[NSUserDefaults standardUserDefaults] removeObjectForKey:@"ios6_iptv_active_source_id"];
             [[NSUserDefaults standardUserDefaults] synchronize];
-            [[NSNotificationCenter defaultCenter] postNotificationName:@"M3UDataUpdated" object:nil]; // 发送更新通知，刷新首页列表
+            [[NSNotificationCenter defaultCenter] postNotificationName:@"M3UDataUpdated" object:nil];
             
-            UIAlertView *successAlert = [[UIAlertView alloc] initWithTitle:@"已清空" message:@"直播源已全部清空" delegate:nil cancelButtonTitle:@"确定" otherButtonTitles:nil];
+            UIAlertView *successAlert = [[UIAlertView alloc] initWithTitle:@"已清空" message:@"所有直播源已清空" delegate:nil cancelButtonTitle:@"确定" otherButtonTitles:nil];
             [successAlert show];
         } else if (alertView.tag == 102) {
-            // 执行清空缓存操作 (遍历 NSUserDefaults 中以 SourcePref_ 为前缀的线路记忆并删除)
+            // 清理缓存
             NSDictionary *defaultsDict = [[NSUserDefaults standardUserDefaults] dictionaryRepresentation];
             for (NSString *key in [defaultsDict allKeys]) {
                 if ([key hasPrefix:@"SourcePref_"]) {

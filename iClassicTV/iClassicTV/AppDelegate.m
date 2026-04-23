@@ -1,6 +1,6 @@
 #import "AppDelegate.h"
 #import "GroupListViewController.h"
-#import "SettingsViewController.h" // 修改：引入新的设置页类名
+#import "SettingsViewController.h"
 
 @implementation AppDelegate
 
@@ -12,22 +12,21 @@
     // 2. 初始化频道列表页 (带入原生分组样式)
     GroupListViewController *groupVC = [[GroupListViewController alloc] initWithStyle:UITableViewStyleGrouped];
     UINavigationController *nav1 = [[UINavigationController alloc] initWithRootViewController:groupVC];
-    // 优化：使用动态代码绘制的图标，同时保持自定义文字
-    nav1.tabBarItem = [[UITabBarItem alloc] initWithTitle:@"Playing" image:[self generatePlayIcon] tag:0];
+    // 优化：修改文字为 "频道列表"
+    nav1.tabBarItem = [[UITabBarItem alloc] initWithTitle:@"频道列表" image:[self generatePlayIcon] tag:0];
     
-    // 3. 初始化设置页 (已重命名为 SettingsViewController)
+    // 3. 初始化设置页
     SettingsViewController *settingsVC = [[SettingsViewController alloc] init];
     UINavigationController *nav2 = [[UINavigationController alloc] initWithRootViewController:settingsVC];
-    // 优化：使用动态代码绘制的图标，同时保持自定义文字
     nav2.tabBarItem = [[UITabBarItem alloc] initWithTitle:@"Setting" image:[self generateSettingsIcon] tag:1];
     
     // 4. 组装底部 TabBar
     self.tabBarController = [[UITabBarController alloc] init];
     self.tabBarController.viewControllers = @[nav1, nav2];
     
-    // 5. 将 TabBar 设置为窗口的根视图 (★★★★★ 解决白屏的关键所在)
+    // 5. 将 TabBar 设置为窗口的根视图
     self.window.rootViewController = self.tabBarController;
-    self.window.backgroundColor = [UIColor whiteColor]; // 给底层铺个白底
+    self.window.backgroundColor = [UIColor whiteColor];
     
     // 6. 激活并显示窗口
     [self.window makeKeyAndVisible];
@@ -40,7 +39,6 @@
 // 绘制“播放”图标 (经典播放三角形)
 - (UIImage *)generatePlayIcon {
     CGSize size = CGSizeMake(30, 30);
-    // 0.0 表示自动适配 Retina 屏幕的高分辨率
     UIGraphicsBeginImageContextWithOptions(size, NO, 0.0);
     
     UIBezierPath *path = [UIBezierPath bezierPath];
@@ -49,7 +47,6 @@
     [path addLineToPoint:CGPointMake(10, 24)];
     [path closePath];
     
-    // iOS 的 TabBar 会自动提取图片的 Alpha 通道（形状轮廓）并渲染为原生的高光/蓝色效果
     [[UIColor blackColor] setFill];
     [path fill];
     

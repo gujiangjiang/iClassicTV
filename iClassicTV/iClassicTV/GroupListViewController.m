@@ -1,5 +1,5 @@
 //
-//  GroupListViewControllerTableViewController.m
+//  GroupListViewController.m
 //  iClassicTV
 //
 //  Created by gujiangjiang on 26-4-21.
@@ -15,10 +15,10 @@
 
 - (void)viewDidLoad {
     [super viewDidLoad];
-    self.title = @"频道分组";
+    self.title = @"频道列表"; // 优化：默认标题改为频道列表
     self.tableView = [[UITableView alloc] initWithFrame:self.view.bounds style:UITableViewStyleGrouped];
     
-    // iOS 6 风格：添加下拉刷新提示（虽然是手动点击，但增加反馈）
+    // iOS 6 风格：添加下拉刷新提示
     UIBarButtonItem *refreshBtn = [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemRefresh target:self action:@selector(loadDataFromUserDefaults)];
     self.navigationItem.rightBarButtonItem = refreshBtn;
     
@@ -27,19 +27,46 @@
 }
 
 - (void)loadDataFromUserDefaults {
-    NSString *savedM3U = [[NSUserDefaults standardUserDefaults] objectForKey:@"ios6_iptv_m3u"];
+    NSUserDefaults *defs = [NSUserDefaults standardUserDefaults];
+    
+    // ================= 新增：数据迁移逻辑 (旧版单源无损迁移至新版多源架构) =================
+    NSString *legacyM3U = [defs objectForKey:@"ios6_iptv_m3u"];
+    if (legacyM3U) {
+        NSString *sourceId = [[NSUUID UUID] UUIDString];
+        NSDictionary *source = @{@"id": sourceId, @"name": @"默认直播源 (旧版)", @"content": legacyM3U, @"url": @""};
+        [defs setObject:@[source] forKey:@"ios6_iptv_sources"];
+        [defs setObject:sourceId forKey:@"ios6_iptv_active_source_id"];
+        [defs removeObjectForKey:@"ios6_iptv_m3u"]; // 销毁老旧存储，避免重复执行
+        [defs synchronize];
+    }
+    // ==============================================================================
+    
+    // 读取多源数据
+    NSArray *sources = [defs objectForKey:@"ios6_iptv_sources"];
+    NSString *activeId = [defs objectForKey:@"ios6_iptv_active_source_id"];
+    
+    NSString *activeM3U = nil;
+    NSString *activeName = @"频道列表";
+    
+    // 找出当前选中的源并提取数据
+    for (NSDictionary *dict in sources) {
+        if ([dict[@"id"] isEqualToString:activeId]) {
+            activeM3U = dict[@"content"];
+            activeName = dict[@"name"];
+            break;
+        }
+    }
     
     // 显示网络活动指示器（状态栏小圈圈）
     [[UIApplication sharedApplication] setNetworkActivityIndicatorVisible:YES];
     
     dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
-        NSArray *parsedChannels = [M3UParser parseM3UString:savedM3U];
+        NSArray *parsedChannels = [M3UParser parseM3UString:activeM3U]; // activeM3U 可能为空，解析器会返回空数组
         
         NSMutableDictionary *dict = [NSMutableDictionary dictionary];
         NSMutableArray *orderedGroupNames = [NSMutableArray array];
         
         for (Channel *ch in parsedChannels) {
-            // 核心修复：如果这个组名还没出现过，就按顺序记录它
             if (!dict[ch.group]) {
                 dict[ch.group] = [NSMutableArray array];
                 [orderedGroupNames addObject:ch.group];
@@ -50,16 +77,16 @@
         dispatch_async(dispatch_get_main_queue(), ^{
             self.allChannels = parsedChannels;
             self.groupedChannels = dict;
-            self.groupNames = orderedGroupNames; // 这里的顺序现在完全等同于 M3U 里的出现顺序
+            self.groupNames = orderedGroupNames;
             
             [self.tableView reloadData];
             [[UIApplication sharedApplication] setNetworkActivityIndicatorVisible:NO];
             
-            // 如果列表为空，给出友好提示
+            // 优化：动态显示源的名称，如果没有源则友好提示
             if (self.groupNames.count == 0) {
-                self.title = @"请先导入源";
+                self.title = @"请先添加直播源";
             } else {
-                self.title = @"频道分组";
+                self.title = activeName;
             }
         });
     });
@@ -74,7 +101,7 @@
     UITableViewCell *cell = [tableView dequeueReusableCellWithIdentifier:CellId];
     if (!cell) {
         cell = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleValue1 reuseIdentifier:CellId];
-        cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator; // 原生的右侧箭头 〉
+        cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
     }
     
     NSString *groupName = self.groupNames[indexPath.row];
@@ -94,7 +121,6 @@
     channelVC.channels = channelsInGroup;
     channelVC.title = groupName;
     
-    // 原生 UINavigationController 会自动处理推入和带尖角的返回按钮！
     [self.navigationController pushViewController:channelVC animated:YES];
 }
 
