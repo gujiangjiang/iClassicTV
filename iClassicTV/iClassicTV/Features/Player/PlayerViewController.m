@@ -8,6 +8,8 @@
 
 #import "PlayerViewController.h"
 #import <MediaPlayer/MediaPlayer.h>
+// 引入播放器配置管理模块，实现配置读取的解耦
+#import "PlayerConfigManager.h"
 
 @interface PlayerViewController ()
 @property (nonatomic, strong) MPMoviePlayerController *player;
@@ -250,16 +252,8 @@
         
         self.originalOrientation = [UIApplication sharedApplication].statusBarOrientation;
         
-        NSInteger orientationPref = [[NSUserDefaults standardUserDefaults] integerForKey:@"PlayerOrientationPref"];
-        UIInterfaceOrientation targetOrientation = UIInterfaceOrientationLandscapeRight;
-        
-        if (orientationPref == 1) {
-            targetOrientation = UIInterfaceOrientationLandscapeRight;
-        } else if (orientationPref == 2) {
-            targetOrientation = UIInterfaceOrientationPortrait;
-        } else {
-            targetOrientation = UIInterfaceOrientationLandscapeRight;
-        }
+        // 优化：调用播放器配置管理模块，直接获取偏好方向，使代码更加模块化
+        UIInterfaceOrientation targetOrientation = [PlayerConfigManager preferredInterfaceOrientation];
         
         [self forceRotateToOrientation:targetOrientation];
     }

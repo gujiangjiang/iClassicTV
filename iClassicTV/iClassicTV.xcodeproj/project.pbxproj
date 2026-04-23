@@ -7,22 +7,27 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		48042F422F97E3530038A1DF /* Channel.m in Sources */ = {isa = PBXBuildFile; fileRef = 48042F412F97E3530038A1DF /* Channel.m */; };
-		48042F452F97E3710038A1DF /* M3UParser.m in Sources */ = {isa = PBXBuildFile; fileRef = 48042F442F97E3710038A1DF /* M3UParser.m */; };
-		48042F4B2F97E3930038A1DF /* ChannelListViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 48042F4A2F97E3930038A1DF /* ChannelListViewController.m */; };
-		48042F512F97E4940038A1DF /* GroupListViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 48042F502F97E4940038A1DF /* GroupListViewController.m */; };
-		48317B532F9A6E09002489FE /* TextImportModalViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 48317B522F9A6E09002489FE /* TextImportModalViewController.m */; };
-		48317B562F9A6E2D002489FE /* SourceManagerViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 48317B552F9A6E2D002489FE /* SourceManagerViewController.m */; };
-		48317B592F9A6E53002489FE /* AboutViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 48317B582F9A6E53002489FE /* AboutViewController.m */; };
-		483AC8932F9A3EAA0025351C /* PlayerViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 483AC8922F9A3EAA0025351C /* PlayerViewController.m */; };
-		483AC8962F9A40E60025351C /* SettingsViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 483AC8952F9A40E60025351C /* SettingsViewController.m */; };
+		48317BA02F9A78E9002489FE /* AppDelegate.m in Sources */ = {isa = PBXBuildFile; fileRef = 48317B752F9A78E9002489FE /* AppDelegate.m */; };
+		48317BA12F9A78E9002489FE /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = 48317B762F9A78E9002489FE /* main.m */; };
+		48317BA22F9A78E9002489FE /* M3UParser.m in Sources */ = {isa = PBXBuildFile; fileRef = 48317B792F9A78E9002489FE /* M3UParser.m */; };
+		48317BA32F9A78E9002489FE /* ChannelListViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 48317B7D2F9A78E9002489FE /* ChannelListViewController.m */; };
+		48317BA42F9A78E9002489FE /* GroupListViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 48317B7F2F9A78E9002489FE /* GroupListViewController.m */; };
+		48317BA52F9A78E9002489FE /* PlayerViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 48317B822F9A78E9002489FE /* PlayerViewController.m */; };
+		48317BA62F9A78E9002489FE /* AboutViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 48317B852F9A78E9002489FE /* AboutViewController.m */; };
+		48317BA72F9A78E9002489FE /* SettingsViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 48317B872F9A78E9002489FE /* SettingsViewController.m */; };
+		48317BA82F9A78E9002489FE /* SourceManagerViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 48317B892F9A78E9002489FE /* SourceManagerViewController.m */; };
+		48317BA92F9A78E9002489FE /* TextImportModalViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 48317B8B2F9A78E9002489FE /* TextImportModalViewController.m */; };
+		48317BAA2F9A78E9002489FE /* Channel.m in Sources */ = {isa = PBXBuildFile; fileRef = 48317B8E2F9A78E9002489FE /* Channel.m */; };
+		48317BAB2F9A78E9002489FE /* AppDataManager.m in Sources */ = {isa = PBXBuildFile; fileRef = 48317B912F9A78E9002489FE /* AppDataManager.m */; };
+		48317BAC2F9A78E9002489FE /* PlayerConfigManager.m in Sources */ = {isa = PBXBuildFile; fileRef = 48317B932F9A78E9002489FE /* PlayerConfigManager.m */; };
+		48317BAD2F9A78E9002489FE /* SSLBypassHelper.m in Sources */ = {isa = PBXBuildFile; fileRef = 48317B952F9A78E9002489FE /* SSLBypassHelper.m */; };
+		48317BAE2F9A78E9002489FE /* ToastHelper.m in Sources */ = {isa = PBXBuildFile; fileRef = 48317B972F9A78E9002489FE /* ToastHelper.m */; };
+		48317BAF2F9A78E9002489FE /* UIImage+LogoHelper.m in Sources */ = {isa = PBXBuildFile; fileRef = 48317B992F9A78E9002489FE /* UIImage+LogoHelper.m */; };
+		48317BB02F9A78E9002489FE /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = 48317B9B2F9A78E9002489FE /* InfoPlist.strings */; };
+		48317BB22F9A78E9002489FE /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 48317B9F2F9A78E9002489FE /* Images.xcassets */; };
 		48D63F292F97DE1F002AD06E /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 48D63F282F97DE1F002AD06E /* Foundation.framework */; };
 		48D63F2B2F97DE1F002AD06E /* CoreGraphics.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 48D63F2A2F97DE1F002AD06E /* CoreGraphics.framework */; };
 		48D63F2D2F97DE1F002AD06E /* UIKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 48D63F2C2F97DE1F002AD06E /* UIKit.framework */; };
-		48D63F332F97DE1F002AD06E /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = 48D63F312F97DE1F002AD06E /* InfoPlist.strings */; };
-		48D63F352F97DE1F002AD06E /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = 48D63F342F97DE1F002AD06E /* main.m */; };
-		48D63F392F97DE1F002AD06E /* AppDelegate.m in Sources */ = {isa = PBXBuildFile; fileRef = 48D63F382F97DE1F002AD06E /* AppDelegate.m */; };
-		48D63F3B2F97DE1F002AD06E /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 48D63F3A2F97DE1F002AD06E /* Images.xcassets */; };
 		48D63F422F97DE1F002AD06E /* XCTest.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 48D63F412F97DE1F002AD06E /* XCTest.framework */; };
 		48D63F432F97DE1F002AD06E /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 48D63F282F97DE1F002AD06E /* Foundation.framework */; };
 		48D63F442F97DE1F002AD06E /* UIKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 48D63F2C2F97DE1F002AD06E /* UIKit.framework */; };
@@ -41,35 +46,45 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
-		48042F402F97E3530038A1DF /* Channel.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Channel.h; sourceTree = "<group>"; };
-		48042F412F97E3530038A1DF /* Channel.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = Channel.m; sourceTree = "<group>"; };
-		48042F432F97E3710038A1DF /* M3UParser.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = M3UParser.h; sourceTree = "<group>"; };
-		48042F442F97E3710038A1DF /* M3UParser.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = M3UParser.m; sourceTree = "<group>"; };
-		48042F492F97E3930038A1DF /* ChannelListViewController.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ChannelListViewController.h; sourceTree = "<group>"; };
-		48042F4A2F97E3930038A1DF /* ChannelListViewController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = ChannelListViewController.m; sourceTree = "<group>"; };
-		48042F4F2F97E4940038A1DF /* GroupListViewController.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = GroupListViewController.h; sourceTree = "<group>"; };
-		48042F502F97E4940038A1DF /* GroupListViewController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = GroupListViewController.m; sourceTree = "<group>"; };
-		48317B512F9A6DF2002489FE /* TextImportModalViewController.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = TextImportModalViewController.h; sourceTree = "<group>"; };
-		48317B522F9A6E09002489FE /* TextImportModalViewController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = TextImportModalViewController.m; sourceTree = "<group>"; };
-		48317B542F9A6E1B002489FE /* SourceManagerViewController.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SourceManagerViewController.h; sourceTree = "<group>"; };
-		48317B552F9A6E2D002489FE /* SourceManagerViewController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = SourceManagerViewController.m; sourceTree = "<group>"; };
-		48317B572F9A6E40002489FE /* AboutViewController.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = AboutViewController.h; sourceTree = "<group>"; };
-		48317B582F9A6E53002489FE /* AboutViewController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = AboutViewController.m; sourceTree = "<group>"; };
-		483AC8912F9A3E9A0025351C /* PlayerViewController.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = PlayerViewController.h; sourceTree = "<group>"; };
-		483AC8922F9A3EAA0025351C /* PlayerViewController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = PlayerViewController.m; sourceTree = "<group>"; };
-		483AC8942F9A40D10025351C /* SettingsViewController.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SettingsViewController.h; sourceTree = "<group>"; };
-		483AC8952F9A40E60025351C /* SettingsViewController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = SettingsViewController.m; sourceTree = "<group>"; };
+		48317B742F9A78E9002489FE /* AppDelegate.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = AppDelegate.h; sourceTree = "<group>"; };
+		48317B752F9A78E9002489FE /* AppDelegate.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = AppDelegate.m; sourceTree = "<group>"; };
+		48317B762F9A78E9002489FE /* main.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = main.m; sourceTree = "<group>"; };
+		48317B782F9A78E9002489FE /* M3UParser.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = M3UParser.h; sourceTree = "<group>"; };
+		48317B792F9A78E9002489FE /* M3UParser.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = M3UParser.m; sourceTree = "<group>"; };
+		48317B7C2F9A78E9002489FE /* ChannelListViewController.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ChannelListViewController.h; sourceTree = "<group>"; };
+		48317B7D2F9A78E9002489FE /* ChannelListViewController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = ChannelListViewController.m; sourceTree = "<group>"; };
+		48317B7E2F9A78E9002489FE /* GroupListViewController.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = GroupListViewController.h; sourceTree = "<group>"; };
+		48317B7F2F9A78E9002489FE /* GroupListViewController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = GroupListViewController.m; sourceTree = "<group>"; };
+		48317B812F9A78E9002489FE /* PlayerViewController.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = PlayerViewController.h; sourceTree = "<group>"; };
+		48317B822F9A78E9002489FE /* PlayerViewController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = PlayerViewController.m; sourceTree = "<group>"; };
+		48317B842F9A78E9002489FE /* AboutViewController.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = AboutViewController.h; sourceTree = "<group>"; };
+		48317B852F9A78E9002489FE /* AboutViewController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = AboutViewController.m; sourceTree = "<group>"; };
+		48317B862F9A78E9002489FE /* SettingsViewController.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SettingsViewController.h; sourceTree = "<group>"; };
+		48317B872F9A78E9002489FE /* SettingsViewController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = SettingsViewController.m; sourceTree = "<group>"; };
+		48317B882F9A78E9002489FE /* SourceManagerViewController.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SourceManagerViewController.h; sourceTree = "<group>"; };
+		48317B892F9A78E9002489FE /* SourceManagerViewController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = SourceManagerViewController.m; sourceTree = "<group>"; };
+		48317B8A2F9A78E9002489FE /* TextImportModalViewController.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = TextImportModalViewController.h; sourceTree = "<group>"; };
+		48317B8B2F9A78E9002489FE /* TextImportModalViewController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = TextImportModalViewController.m; sourceTree = "<group>"; };
+		48317B8D2F9A78E9002489FE /* Channel.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Channel.h; sourceTree = "<group>"; };
+		48317B8E2F9A78E9002489FE /* Channel.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = Channel.m; sourceTree = "<group>"; };
+		48317B902F9A78E9002489FE /* AppDataManager.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = AppDataManager.h; sourceTree = "<group>"; };
+		48317B912F9A78E9002489FE /* AppDataManager.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = AppDataManager.m; sourceTree = "<group>"; };
+		48317B922F9A78E9002489FE /* PlayerConfigManager.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = PlayerConfigManager.h; sourceTree = "<group>"; };
+		48317B932F9A78E9002489FE /* PlayerConfigManager.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = PlayerConfigManager.m; sourceTree = "<group>"; };
+		48317B942F9A78E9002489FE /* SSLBypassHelper.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SSLBypassHelper.h; sourceTree = "<group>"; };
+		48317B952F9A78E9002489FE /* SSLBypassHelper.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = SSLBypassHelper.m; sourceTree = "<group>"; };
+		48317B962F9A78E9002489FE /* ToastHelper.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ToastHelper.h; sourceTree = "<group>"; };
+		48317B972F9A78E9002489FE /* ToastHelper.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = ToastHelper.m; sourceTree = "<group>"; };
+		48317B982F9A78E9002489FE /* UIImage+LogoHelper.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "UIImage+LogoHelper.h"; sourceTree = "<group>"; };
+		48317B992F9A78E9002489FE /* UIImage+LogoHelper.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = "UIImage+LogoHelper.m"; sourceTree = "<group>"; };
+		48317B9C2F9A78E9002489FE /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/InfoPlist.strings; sourceTree = "<group>"; };
+		48317B9D2F9A78E9002489FE /* iClassicTV-Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = "iClassicTV-Info.plist"; sourceTree = "<group>"; };
+		48317B9E2F9A78E9002489FE /* iClassicTV-Prefix.pch */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "iClassicTV-Prefix.pch"; sourceTree = "<group>"; };
+		48317B9F2F9A78E9002489FE /* Images.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Images.xcassets; sourceTree = "<group>"; };
 		48D63F252F97DE1F002AD06E /* iClassicTV.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = iClassicTV.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		48D63F282F97DE1F002AD06E /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = System/Library/Frameworks/Foundation.framework; sourceTree = SDKROOT; };
 		48D63F2A2F97DE1F002AD06E /* CoreGraphics.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreGraphics.framework; path = System/Library/Frameworks/CoreGraphics.framework; sourceTree = SDKROOT; };
 		48D63F2C2F97DE1F002AD06E /* UIKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = UIKit.framework; path = System/Library/Frameworks/UIKit.framework; sourceTree = SDKROOT; };
-		48D63F302F97DE1F002AD06E /* iClassicTV-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "iClassicTV-Info.plist"; sourceTree = "<group>"; };
-		48D63F322F97DE1F002AD06E /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/InfoPlist.strings; sourceTree = "<group>"; };
-		48D63F342F97DE1F002AD06E /* main.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = main.m; sourceTree = "<group>"; };
-		48D63F362F97DE1F002AD06E /* iClassicTV-Prefix.pch */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "iClassicTV-Prefix.pch"; sourceTree = "<group>"; };
-		48D63F372F97DE1F002AD06E /* AppDelegate.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = AppDelegate.h; sourceTree = "<group>"; };
-		48D63F382F97DE1F002AD06E /* AppDelegate.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = AppDelegate.m; sourceTree = "<group>"; };
-		48D63F3A2F97DE1F002AD06E /* Images.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Images.xcassets; sourceTree = "<group>"; };
 		48D63F402F97DE1F002AD06E /* iClassicTVTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = iClassicTVTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		48D63F412F97DE1F002AD06E /* XCTest.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = XCTest.framework; path = Library/Frameworks/XCTest.framework; sourceTree = DEVELOPER_DIR; };
 		48D63F492F97DE1F002AD06E /* iClassicTVTests-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "iClassicTVTests-Info.plist"; sourceTree = "<group>"; };
@@ -101,10 +116,124 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		48317B722F9A78E9002489FE /* iClassicTV */ = {
+			isa = PBXGroup;
+			children = (
+				48317B732F9A78E9002489FE /* App */,
+				48317B772F9A78E9002489FE /* Core */,
+				48317B7A2F9A78E9002489FE /* Features */,
+				48317B8C2F9A78E9002489FE /* Models */,
+				48317B8F2F9A78E9002489FE /* Modules */,
+				48317B9A2F9A78E9002489FE /* Resources */,
+			);
+			path = iClassicTV;
+			sourceTree = "<group>";
+		};
+		48317B732F9A78E9002489FE /* App */ = {
+			isa = PBXGroup;
+			children = (
+				48317B742F9A78E9002489FE /* AppDelegate.h */,
+				48317B752F9A78E9002489FE /* AppDelegate.m */,
+				48317B762F9A78E9002489FE /* main.m */,
+			);
+			path = App;
+			sourceTree = "<group>";
+		};
+		48317B772F9A78E9002489FE /* Core */ = {
+			isa = PBXGroup;
+			children = (
+				48317B782F9A78E9002489FE /* M3UParser.h */,
+				48317B792F9A78E9002489FE /* M3UParser.m */,
+			);
+			path = Core;
+			sourceTree = "<group>";
+		};
+		48317B7A2F9A78E9002489FE /* Features */ = {
+			isa = PBXGroup;
+			children = (
+				48317B7B2F9A78E9002489FE /* Live */,
+				48317B802F9A78E9002489FE /* Player */,
+				48317B832F9A78E9002489FE /* Settings */,
+			);
+			path = Features;
+			sourceTree = "<group>";
+		};
+		48317B7B2F9A78E9002489FE /* Live */ = {
+			isa = PBXGroup;
+			children = (
+				48317B7C2F9A78E9002489FE /* ChannelListViewController.h */,
+				48317B7D2F9A78E9002489FE /* ChannelListViewController.m */,
+				48317B7E2F9A78E9002489FE /* GroupListViewController.h */,
+				48317B7F2F9A78E9002489FE /* GroupListViewController.m */,
+			);
+			path = Live;
+			sourceTree = "<group>";
+		};
+		48317B802F9A78E9002489FE /* Player */ = {
+			isa = PBXGroup;
+			children = (
+				48317B812F9A78E9002489FE /* PlayerViewController.h */,
+				48317B822F9A78E9002489FE /* PlayerViewController.m */,
+			);
+			path = Player;
+			sourceTree = "<group>";
+		};
+		48317B832F9A78E9002489FE /* Settings */ = {
+			isa = PBXGroup;
+			children = (
+				48317B842F9A78E9002489FE /* AboutViewController.h */,
+				48317B852F9A78E9002489FE /* AboutViewController.m */,
+				48317B862F9A78E9002489FE /* SettingsViewController.h */,
+				48317B872F9A78E9002489FE /* SettingsViewController.m */,
+				48317B882F9A78E9002489FE /* SourceManagerViewController.h */,
+				48317B892F9A78E9002489FE /* SourceManagerViewController.m */,
+				48317B8A2F9A78E9002489FE /* TextImportModalViewController.h */,
+				48317B8B2F9A78E9002489FE /* TextImportModalViewController.m */,
+			);
+			path = Settings;
+			sourceTree = "<group>";
+		};
+		48317B8C2F9A78E9002489FE /* Models */ = {
+			isa = PBXGroup;
+			children = (
+				48317B8D2F9A78E9002489FE /* Channel.h */,
+				48317B8E2F9A78E9002489FE /* Channel.m */,
+			);
+			path = Models;
+			sourceTree = "<group>";
+		};
+		48317B8F2F9A78E9002489FE /* Modules */ = {
+			isa = PBXGroup;
+			children = (
+				48317B902F9A78E9002489FE /* AppDataManager.h */,
+				48317B912F9A78E9002489FE /* AppDataManager.m */,
+				48317B922F9A78E9002489FE /* PlayerConfigManager.h */,
+				48317B932F9A78E9002489FE /* PlayerConfigManager.m */,
+				48317B942F9A78E9002489FE /* SSLBypassHelper.h */,
+				48317B952F9A78E9002489FE /* SSLBypassHelper.m */,
+				48317B962F9A78E9002489FE /* ToastHelper.h */,
+				48317B972F9A78E9002489FE /* ToastHelper.m */,
+				48317B982F9A78E9002489FE /* UIImage+LogoHelper.h */,
+				48317B992F9A78E9002489FE /* UIImage+LogoHelper.m */,
+			);
+			path = Modules;
+			sourceTree = "<group>";
+		};
+		48317B9A2F9A78E9002489FE /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				48317B9B2F9A78E9002489FE /* InfoPlist.strings */,
+				48317B9D2F9A78E9002489FE /* iClassicTV-Info.plist */,
+				48317B9E2F9A78E9002489FE /* iClassicTV-Prefix.pch */,
+				48317B9F2F9A78E9002489FE /* Images.xcassets */,
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
 		48D63F1C2F97DE1F002AD06E = {
 			isa = PBXGroup;
 			children = (
-				48D63F2E2F97DE1F002AD06E /* iClassicTV */,
+				48317B722F9A78E9002489FE /* iClassicTV */,
 				48D63F472F97DE1F002AD06E /* iClassicTVTests */,
 				48D63F272F97DE1F002AD06E /* Frameworks */,
 				48D63F262F97DE1F002AD06E /* Products */,
@@ -129,46 +258,6 @@
 				48D63F412F97DE1F002AD06E /* XCTest.framework */,
 			);
 			name = Frameworks;
-			sourceTree = "<group>";
-		};
-		48D63F2E2F97DE1F002AD06E /* iClassicTV */ = {
-			isa = PBXGroup;
-			children = (
-				48D63F372F97DE1F002AD06E /* AppDelegate.h */,
-				48D63F382F97DE1F002AD06E /* AppDelegate.m */,
-				48D63F3A2F97DE1F002AD06E /* Images.xcassets */,
-				48D63F2F2F97DE1F002AD06E /* Supporting Files */,
-				48042F402F97E3530038A1DF /* Channel.h */,
-				48042F412F97E3530038A1DF /* Channel.m */,
-				48042F432F97E3710038A1DF /* M3UParser.h */,
-				48042F442F97E3710038A1DF /* M3UParser.m */,
-				48042F4F2F97E4940038A1DF /* GroupListViewController.h */,
-				48042F502F97E4940038A1DF /* GroupListViewController.m */,
-				48042F492F97E3930038A1DF /* ChannelListViewController.h */,
-				48042F4A2F97E3930038A1DF /* ChannelListViewController.m */,
-				483AC8912F9A3E9A0025351C /* PlayerViewController.h */,
-				483AC8922F9A3EAA0025351C /* PlayerViewController.m */,
-				483AC8942F9A40D10025351C /* SettingsViewController.h */,
-				483AC8952F9A40E60025351C /* SettingsViewController.m */,
-				48317B512F9A6DF2002489FE /* TextImportModalViewController.h */,
-				48317B522F9A6E09002489FE /* TextImportModalViewController.m */,
-				48317B542F9A6E1B002489FE /* SourceManagerViewController.h */,
-				48317B552F9A6E2D002489FE /* SourceManagerViewController.m */,
-				48317B572F9A6E40002489FE /* AboutViewController.h */,
-				48317B582F9A6E53002489FE /* AboutViewController.m */,
-			);
-			path = iClassicTV;
-			sourceTree = "<group>";
-		};
-		48D63F2F2F97DE1F002AD06E /* Supporting Files */ = {
-			isa = PBXGroup;
-			children = (
-				48D63F302F97DE1F002AD06E /* iClassicTV-Info.plist */,
-				48D63F312F97DE1F002AD06E /* InfoPlist.strings */,
-				48D63F342F97DE1F002AD06E /* main.m */,
-				48D63F362F97DE1F002AD06E /* iClassicTV-Prefix.pch */,
-			);
-			name = "Supporting Files";
 			sourceTree = "<group>";
 		};
 		48D63F472F97DE1F002AD06E /* iClassicTVTests */ = {
@@ -264,8 +353,8 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				48D63F332F97DE1F002AD06E /* InfoPlist.strings in Resources */,
-				48D63F3B2F97DE1F002AD06E /* Images.xcassets in Resources */,
+				48317BB22F9A78E9002489FE /* Images.xcassets in Resources */,
+				48317BB02F9A78E9002489FE /* InfoPlist.strings in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -284,17 +373,22 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				48042F4B2F97E3930038A1DF /* ChannelListViewController.m in Sources */,
-				48042F452F97E3710038A1DF /* M3UParser.m in Sources */,
-				48D63F392F97DE1F002AD06E /* AppDelegate.m in Sources */,
-				48317B532F9A6E09002489FE /* TextImportModalViewController.m in Sources */,
-				483AC8962F9A40E60025351C /* SettingsViewController.m in Sources */,
-				48042F512F97E4940038A1DF /* GroupListViewController.m in Sources */,
-				483AC8932F9A3EAA0025351C /* PlayerViewController.m in Sources */,
-				48042F422F97E3530038A1DF /* Channel.m in Sources */,
-				48317B592F9A6E53002489FE /* AboutViewController.m in Sources */,
-				48D63F352F97DE1F002AD06E /* main.m in Sources */,
-				48317B562F9A6E2D002489FE /* SourceManagerViewController.m in Sources */,
+				48317BA42F9A78E9002489FE /* GroupListViewController.m in Sources */,
+				48317BAB2F9A78E9002489FE /* AppDataManager.m in Sources */,
+				48317BA12F9A78E9002489FE /* main.m in Sources */,
+				48317BAA2F9A78E9002489FE /* Channel.m in Sources */,
+				48317BA22F9A78E9002489FE /* M3UParser.m in Sources */,
+				48317BA72F9A78E9002489FE /* SettingsViewController.m in Sources */,
+				48317BAD2F9A78E9002489FE /* SSLBypassHelper.m in Sources */,
+				48317BAE2F9A78E9002489FE /* ToastHelper.m in Sources */,
+				48317BA62F9A78E9002489FE /* AboutViewController.m in Sources */,
+				48317BA32F9A78E9002489FE /* ChannelListViewController.m in Sources */,
+				48317BA92F9A78E9002489FE /* TextImportModalViewController.m in Sources */,
+				48317BA82F9A78E9002489FE /* SourceManagerViewController.m in Sources */,
+				48317BAF2F9A78E9002489FE /* UIImage+LogoHelper.m in Sources */,
+				48317BAC2F9A78E9002489FE /* PlayerConfigManager.m in Sources */,
+				48317BA02F9A78E9002489FE /* AppDelegate.m in Sources */,
+				48317BA52F9A78E9002489FE /* PlayerViewController.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -317,10 +411,10 @@
 /* End PBXTargetDependency section */
 
 /* Begin PBXVariantGroup section */
-		48D63F312F97DE1F002AD06E /* InfoPlist.strings */ = {
+		48317B9B2F9A78E9002489FE /* InfoPlist.strings */ = {
 			isa = PBXVariantGroup;
 			children = (
-				48D63F322F97DE1F002AD06E /* en */,
+				48317B9C2F9A78E9002489FE /* en */,
 			);
 			name = InfoPlist.strings;
 			sourceTree = "<group>";
@@ -415,8 +509,8 @@
 				ASSETCATALOG_COMPILER_LAUNCHIMAGE_NAME = LaunchImage;
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "";
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
-				GCC_PREFIX_HEADER = "iClassicTV/iClassicTV-Prefix.pch";
-				INFOPLIST_FILE = "iClassicTV/iClassicTV-Info.plist";
+				GCC_PREFIX_HEADER = "iClassicTV/Resources/iClassicTV-Prefix.pch";
+				INFOPLIST_FILE = "iClassicTV/Resources/iClassicTV-Info.plist";
 				IPHONEOS_DEPLOYMENT_TARGET = 6.0;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				WRAPPER_EXTENSION = app;
@@ -430,8 +524,8 @@
 				ASSETCATALOG_COMPILER_LAUNCHIMAGE_NAME = LaunchImage;
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "";
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
-				GCC_PREFIX_HEADER = "iClassicTV/iClassicTV-Prefix.pch";
-				INFOPLIST_FILE = "iClassicTV/iClassicTV-Info.plist";
+				GCC_PREFIX_HEADER = "iClassicTV/Resources/iClassicTV-Prefix.pch";
+				INFOPLIST_FILE = "iClassicTV/Resources/iClassicTV-Info.plist";
 				IPHONEOS_DEPLOYMENT_TARGET = 6.0;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				WRAPPER_EXTENSION = app;

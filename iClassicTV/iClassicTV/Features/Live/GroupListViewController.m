@@ -10,6 +10,8 @@
 #import "ChannelListViewController.h"
 #import "M3UParser.h"
 #import "Channel.h"
+// 引入数据管理模块，实现数据迁移逻辑的解耦
+#import "AppDataManager.h"
 
 @implementation GroupListViewController
 
@@ -28,19 +30,10 @@
 }
 
 - (void)loadDataFromUserDefaults {
-    NSUserDefaults *defs = [NSUserDefaults standardUserDefaults];
+    // 优化：调用独立模块处理旧版数据无缝迁移，保持控制器代码简洁
+    [[AppDataManager sharedManager] migrateLegacyDataIfNeeded];
     
-    // ================= 新增：数据迁移逻辑 (旧版单源无损迁移至新版多源架构) =================
-    NSString *legacyM3U = [defs objectForKey:@"ios6_iptv_m3u"];
-    if (legacyM3U) {
-        NSString *sourceId = [[NSUUID UUID] UUIDString];
-        NSDictionary *source = @{@"id": sourceId, @"name": @"默认直播源 (旧版)", @"content": legacyM3U, @"url": @""};
-        [defs setObject:@[source] forKey:@"ios6_iptv_sources"];
-        [defs setObject:sourceId forKey:@"ios6_iptv_active_source_id"];
-        [defs removeObjectForKey:@"ios6_iptv_m3u"]; // 销毁老旧存储，避免重复执行
-        [defs synchronize];
-    }
-    // ==============================================================================
+    NSUserDefaults *defs = [NSUserDefaults standardUserDefaults];
     
     // 读取多源数据
     NSArray *sources = [defs objectForKey:@"ios6_iptv_sources"];
