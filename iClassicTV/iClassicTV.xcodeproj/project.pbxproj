@@ -10,8 +10,12 @@
 		48042F422F97E3530038A1DF /* Channel.m in Sources */ = {isa = PBXBuildFile; fileRef = 48042F412F97E3530038A1DF /* Channel.m */; };
 		48042F452F97E3710038A1DF /* M3UParser.m in Sources */ = {isa = PBXBuildFile; fileRef = 48042F442F97E3710038A1DF /* M3UParser.m */; };
 		48042F4B2F97E3930038A1DF /* ChannelListViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 48042F4A2F97E3930038A1DF /* ChannelListViewController.m */; };
-		48042F4E2F97E3A70038A1DF /* ImportViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 48042F4D2F97E3A70038A1DF /* ImportViewController.m */; };
 		48042F512F97E4940038A1DF /* GroupListViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 48042F502F97E4940038A1DF /* GroupListViewController.m */; };
+		48317B532F9A6E09002489FE /* TextImportModalViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 48317B522F9A6E09002489FE /* TextImportModalViewController.m */; };
+		48317B562F9A6E2D002489FE /* SourceManagerViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 48317B552F9A6E2D002489FE /* SourceManagerViewController.m */; };
+		48317B592F9A6E53002489FE /* AboutViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 48317B582F9A6E53002489FE /* AboutViewController.m */; };
+		483AC8932F9A3EAA0025351C /* PlayerViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 483AC8922F9A3EAA0025351C /* PlayerViewController.m */; };
+		483AC8962F9A40E60025351C /* SettingsViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 483AC8952F9A40E60025351C /* SettingsViewController.m */; };
 		48D63F292F97DE1F002AD06E /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 48D63F282F97DE1F002AD06E /* Foundation.framework */; };
 		48D63F2B2F97DE1F002AD06E /* CoreGraphics.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 48D63F2A2F97DE1F002AD06E /* CoreGraphics.framework */; };
 		48D63F2D2F97DE1F002AD06E /* UIKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 48D63F2C2F97DE1F002AD06E /* UIKit.framework */; };
@@ -43,10 +47,18 @@
 		48042F442F97E3710038A1DF /* M3UParser.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = M3UParser.m; sourceTree = "<group>"; };
 		48042F492F97E3930038A1DF /* ChannelListViewController.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ChannelListViewController.h; sourceTree = "<group>"; };
 		48042F4A2F97E3930038A1DF /* ChannelListViewController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = ChannelListViewController.m; sourceTree = "<group>"; };
-		48042F4C2F97E3A70038A1DF /* ImportViewController.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ImportViewController.h; sourceTree = "<group>"; };
-		48042F4D2F97E3A70038A1DF /* ImportViewController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = ImportViewController.m; sourceTree = "<group>"; };
 		48042F4F2F97E4940038A1DF /* GroupListViewController.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = GroupListViewController.h; sourceTree = "<group>"; };
 		48042F502F97E4940038A1DF /* GroupListViewController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = GroupListViewController.m; sourceTree = "<group>"; };
+		48317B512F9A6DF2002489FE /* TextImportModalViewController.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = TextImportModalViewController.h; sourceTree = "<group>"; };
+		48317B522F9A6E09002489FE /* TextImportModalViewController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = TextImportModalViewController.m; sourceTree = "<group>"; };
+		48317B542F9A6E1B002489FE /* SourceManagerViewController.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SourceManagerViewController.h; sourceTree = "<group>"; };
+		48317B552F9A6E2D002489FE /* SourceManagerViewController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = SourceManagerViewController.m; sourceTree = "<group>"; };
+		48317B572F9A6E40002489FE /* AboutViewController.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = AboutViewController.h; sourceTree = "<group>"; };
+		48317B582F9A6E53002489FE /* AboutViewController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = AboutViewController.m; sourceTree = "<group>"; };
+		483AC8912F9A3E9A0025351C /* PlayerViewController.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = PlayerViewController.h; sourceTree = "<group>"; };
+		483AC8922F9A3EAA0025351C /* PlayerViewController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = PlayerViewController.m; sourceTree = "<group>"; };
+		483AC8942F9A40D10025351C /* SettingsViewController.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SettingsViewController.h; sourceTree = "<group>"; };
+		483AC8952F9A40E60025351C /* SettingsViewController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = SettingsViewController.m; sourceTree = "<group>"; };
 		48D63F252F97DE1F002AD06E /* iClassicTV.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = iClassicTV.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		48D63F282F97DE1F002AD06E /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = System/Library/Frameworks/Foundation.framework; sourceTree = SDKROOT; };
 		48D63F2A2F97DE1F002AD06E /* CoreGraphics.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreGraphics.framework; path = System/Library/Frameworks/CoreGraphics.framework; sourceTree = SDKROOT; };
@@ -134,8 +146,16 @@
 				48042F502F97E4940038A1DF /* GroupListViewController.m */,
 				48042F492F97E3930038A1DF /* ChannelListViewController.h */,
 				48042F4A2F97E3930038A1DF /* ChannelListViewController.m */,
-				48042F4C2F97E3A70038A1DF /* ImportViewController.h */,
-				48042F4D2F97E3A70038A1DF /* ImportViewController.m */,
+				483AC8912F9A3E9A0025351C /* PlayerViewController.h */,
+				483AC8922F9A3EAA0025351C /* PlayerViewController.m */,
+				483AC8942F9A40D10025351C /* SettingsViewController.h */,
+				483AC8952F9A40E60025351C /* SettingsViewController.m */,
+				48317B512F9A6DF2002489FE /* TextImportModalViewController.h */,
+				48317B522F9A6E09002489FE /* TextImportModalViewController.m */,
+				48317B542F9A6E1B002489FE /* SourceManagerViewController.h */,
+				48317B552F9A6E2D002489FE /* SourceManagerViewController.m */,
+				48317B572F9A6E40002489FE /* AboutViewController.h */,
+				48317B582F9A6E53002489FE /* AboutViewController.m */,
 			);
 			path = iClassicTV;
 			sourceTree = "<group>";
@@ -264,13 +284,17 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				48042F4E2F97E3A70038A1DF /* ImportViewController.m in Sources */,
 				48042F4B2F97E3930038A1DF /* ChannelListViewController.m in Sources */,
 				48042F452F97E3710038A1DF /* M3UParser.m in Sources */,
 				48D63F392F97DE1F002AD06E /* AppDelegate.m in Sources */,
+				48317B532F9A6E09002489FE /* TextImportModalViewController.m in Sources */,
+				483AC8962F9A40E60025351C /* SettingsViewController.m in Sources */,
 				48042F512F97E4940038A1DF /* GroupListViewController.m in Sources */,
+				483AC8932F9A3EAA0025351C /* PlayerViewController.m in Sources */,
 				48042F422F97E3530038A1DF /* Channel.m in Sources */,
+				48317B592F9A6E53002489FE /* AboutViewController.m in Sources */,
 				48D63F352F97DE1F002AD06E /* main.m in Sources */,
+				48317B562F9A6E2D002489FE /* SourceManagerViewController.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -389,6 +413,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_LAUNCHIMAGE_NAME = LaunchImage;
+				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "";
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
 				GCC_PREFIX_HEADER = "iClassicTV/iClassicTV-Prefix.pch";
 				INFOPLIST_FILE = "iClassicTV/iClassicTV-Info.plist";
@@ -403,6 +428,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_LAUNCHIMAGE_NAME = LaunchImage;
+				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "";
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
 				GCC_PREFIX_HEADER = "iClassicTV/iClassicTV-Prefix.pch";
 				INFOPLIST_FILE = "iClassicTV/iClassicTV-Info.plist";
