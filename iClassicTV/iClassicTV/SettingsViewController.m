@@ -35,6 +35,56 @@ static void addNewSource(NSString *sourceName, NSString *m3uData, NSString *urlS
     [[NSNotificationCenter defaultCenter] postNotificationName:@"M3UDataUpdated" object:nil];
 }
 
+#pragma mark - 文本多行输入弹窗 (TextImportModalViewController)
+// =========================================================
+@interface TextImportModalViewController : UIViewController
+@property (nonatomic, copy) void (^completionHandler)(NSString *text);
+@property (nonatomic, strong) UITextView *textView;
+@end
+
+@implementation TextImportModalViewController
+
+- (void)viewDidLoad {
+    [super viewDidLoad];
+    self.title = @"本地文本源";
+    self.view.backgroundColor = [UIColor whiteColor];
+    
+    // 增加导航栏按钮
+    self.navigationItem.leftBarButtonItem = [[UIBarButtonItem alloc] initWithTitle:@"取消" style:UIBarButtonItemStylePlain target:self action:@selector(cancel)];
+    self.navigationItem.rightBarButtonItem = [[UIBarButtonItem alloc] initWithTitle:@"下一步" style:UIBarButtonItemStyleDone target:self action:@selector(done)];
+    
+    // 初始化多行文本输入框
+    self.textView = [[UITextView alloc] initWithFrame:self.view.bounds];
+    self.textView.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+    self.textView.font = [UIFont systemFontOfSize:15];
+    [self.view addSubview:self.textView];
+    
+    // 自动弹出键盘
+    [self.textView becomeFirstResponder];
+}
+
+- (void)cancel {
+    [self.textView resignFirstResponder];
+    [self dismissViewControllerAnimated:YES completion:nil];
+}
+
+- (void)done {
+    if (self.textView.text.length == 0) {
+        UIAlertView *alert = [[UIAlertView alloc] initWithTitle:nil message:@"内容不能为空" delegate:nil cancelButtonTitle:@"确定" otherButtonTitles:nil];
+        [alert show];
+        return;
+    }
+    
+    [self.textView resignFirstResponder];
+    [self dismissViewControllerAnimated:YES completion:^{
+        if (self.completionHandler) {
+            self.completionHandler(self.textView.text);
+        }
+    }];
+}
+
+@end
+
 #pragma mark - 直播源管理子页面 (我的直播源)
 // =========================================================
 @interface SourceManagerViewController : UITableViewController <UIActionSheetDelegate, UIAlertViewDelegate>
@@ -129,10 +179,15 @@ static void addNewSource(NSString *sourceName, NSString *m3uData, NSString *urlS
             alert.tag = 201; // 网络导入URL输入弹窗
             [alert show];
         } else if (buttonIndex == 1) {
-            UIAlertView *alert = [[UIAlertView alloc] initWithTitle:@"本地文本源" message:@"请在此处粘贴 M3U 文本内容" delegate:self cancelButtonTitle:@"取消" otherButtonTitles:@"下一步", nil];
-            alert.alertViewStyle = UIAlertViewStylePlainTextInput;
-            alert.tag = 202; // 文本导入输入弹窗
-            [alert show];
+            // 优化：不再使用单行 UIAlertView，改为弹出专门的多行文本编辑模态页面
+            TextImportModalViewController *textVC = [[TextImportModalViewController alloc] init];
+            textVC.completionHandler = ^(NSString *text) {
+                self.tempM3UData = text;
+                self.tempURLString = @"";
+                [self showNamingAlertWithTag:204]; // 数据接收成功，弹出命名弹窗
+            };
+            UINavigationController *nav = [[UINavigationController alloc] initWithRootViewController:textVC];
+            [self presentViewController:nav animated:YES completion:nil];
         }
         return;
     }
@@ -226,16 +281,7 @@ static void addNewSource(NSString *sourceName, NSString *m3uData, NSString *urlS
                 }
             });
         });
-    } else if (alertView.tag == 202) {
-        // 处理粘贴的文本内容
-        NSString *m3uData = [alertView textFieldAtIndex:0].text;
-        if (m3uData.length == 0) {
-            [self showToast:@"内容不能为空"];
-            return;
-        }
-        self.tempM3UData = m3uData;
-        self.tempURLString = @"";
-        [self showNamingAlertWithTag:204]; // 数据接收成功，弹出命名弹窗
+        // 移除了原本的 alertView.tag == 202 分支，因为文本导入已升级为 TextImportModalViewController 处理
     } else if (alertView.tag == 203 || alertView.tag == 204) {
         // 保存新添加的直播源 (网络/文本 统一在此处处理)
         NSString *name = [alertView textFieldAtIndex:0].text;
