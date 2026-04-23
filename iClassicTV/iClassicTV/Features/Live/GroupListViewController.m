@@ -63,11 +63,30 @@
             [self.tableView reloadData];
             [[UIApplication sharedApplication] setNetworkActivityIndicatorVisible:NO];
             
-            // 优化：动态显示源的名称（只修改 navigationItem.title，这样不会影响底部的 TabBar）
+            // 优化：动态显示源的名称及空白状态提示
             if (self.groupNames.count == 0) {
-                self.navigationItem.title = @"请先添加直播源";
+                self.navigationItem.title = @"暂无可用直播源"; // 优化：修改无源时的标题更符合语境
+                
+                // 新增：构建好看的空白提示引导视图
+                UIView *emptyView = [[UIView alloc] initWithFrame:self.tableView.bounds];
+                emptyView.backgroundColor = [UIColor clearColor];
+                
+                // 使用 Label 构建多行居中的提示文字，Y轴减去120让视觉中心稍微偏上一点更美观
+                UILabel *tipsLabel = [[UILabel alloc] initWithFrame:CGRectMake(20, 0, self.tableView.bounds.size.width - 40, self.tableView.bounds.size.height - 120)];
+                tipsLabel.text = @"📺\n\n暂无可用直播源\n\n请点击底部【设置】->【我的直播源】进行添加";
+                tipsLabel.textColor = [UIColor grayColor];
+                tipsLabel.textAlignment = NSTextAlignmentCenter;
+                tipsLabel.numberOfLines = 0;
+                tipsLabel.font = [UIFont systemFontOfSize:16];
+                tipsLabel.backgroundColor = [UIColor clearColor];
+                
+                [emptyView addSubview:tipsLabel];
+                self.tableView.backgroundView = emptyView;
+                self.tableView.separatorStyle = UITableViewCellSeparatorStyleNone; // 无数据时隐藏多余的分割线，保持界面干净
             } else {
                 self.navigationItem.title = activeName;
+                self.tableView.backgroundView = nil; // 有数据时移除空白提示视图
+                self.tableView.separatorStyle = UITableViewCellSeparatorStyleSingleLine; // 恢复原生的分组分割线样式
             }
         });
     });
