@@ -8,22 +8,18 @@
 
 #import "SettingsViewController.h"
 
-#pragma mark - 内部工具方法：添加新的直播源
+#pragma mark - 内部工具方法：添加新的直播源 (修改为接收指定名称)
 // =========================================================
-static void addNewSource(NSString *m3uData, NSString *urlString) {
+static void addNewSource(NSString *sourceName, NSString *m3uData, NSString *urlString) {
     NSUserDefaults *defs = [NSUserDefaults standardUserDefaults];
     NSMutableArray *sources = [[defs objectForKey:@"ios6_iptv_sources"] mutableCopy] ?: [NSMutableArray array];
     
-    // 生成默认名称 (当前日期时间)
-    NSDateFormatter *df = [[NSDateFormatter alloc] init];
-    [df setDateFormat:@"yyyy-MM-dd HH:mm:ss"];
-    NSString *defaultName = [df stringFromDate:[NSDate date]];
     NSString *sourceId = [[NSUUID UUID] UUIDString];
     
     NSDictionary *source = @{
                              @"id": sourceId,
-                             @"name": defaultName,
-                             @"content": m3uData,
+                             @"name": sourceName ?: @"未命名直播源",
+                             @"content": m3uData ?: @"",
                              @"url": urlString ?: @""
                              };
     
@@ -40,7 +36,172 @@ static void addNewSource(NSString *m3uData, NSString *urlString) {
 }
 
 
-#pragma mark - 直播源管理子页面 (多级菜单)
+#pragma mark - 网络导入子页面
+// =========================================================
+@interface WebImportViewController : UIViewController <UIAlertViewDelegate>
+@property (nonatomic, strong) UITextField *urlField;
+@property (nonatomic, copy) NSString *tempM3UData;   // 临时存放下载的数据，等待用户确认名称
+@property (nonatomic, copy) NSString *tempURLString; // 临时存放 URL
+@end
+
+@implementation WebImportViewController
+- (void)viewDidLoad {
+    [super viewDidLoad];
+    self.title = @"添加网络直播源";
+    self.view.backgroundColor = [UIColor groupTableViewBackgroundColor];
+    
+    if ([self respondsToSelector:@selector(setEdgesForExtendedLayout:)]) {
+        self.edgesForExtendedLayout = UIRectEdgeNone;
+    }
+    
+    CGFloat width = self.view.frame.size.width;
+    
+    self.urlField = [[UITextField alloc] initWithFrame:CGRectMake(20, 20, width - 40, 40)];
+    self.urlField.borderStyle = UITextBorderStyleRoundedRect;
+    self.urlField.placeholder = @"输入 M3U 网址 (http://...)";
+    self.urlField.backgroundColor = [UIColor whiteColor];
+    [self.view addSubview:self.urlField];
+    
+    UIButton *btnLoad = [UIButton buttonWithType:UIButtonTypeRoundedRect];
+    btnLoad.frame = CGRectMake(20, 75, width - 40, 40);
+    [btnLoad setTitle:@"下载并配置" forState:UIControlStateNormal];
+    [btnLoad addTarget:self action:@selector(loadRemoteM3U) forControlEvents:UIControlEventTouchUpInside];
+    [self.view addSubview:btnLoad];
+}
+
+- (void)loadRemoteM3U {
+    [self.urlField resignFirstResponder];
+    NSURL *url = [NSURL URLWithString:self.urlField.text];
+    if (!url) {
+        UIAlertView *alert = [[UIAlertView alloc] initWithTitle:@"提示" message:@"网址无效" delegate:nil cancelButtonTitle:@"确定" otherButtonTitles:nil];
+        [alert show];
+        return;
+    }
+    
+    UIAlertView *hud = [[UIAlertView alloc] initWithTitle:@"下载中..." message:@"请稍候\n\n" delegate:nil cancelButtonTitle:nil otherButtonTitles:nil];
+    [hud show];
+    
+    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
+        NSError *error = nil;
+        NSString *m3uData = [NSString stringWithContentsOfURL:url encoding:NSUTF8StringEncoding error:&error];
+        
+        dispatch_async(dispatch_get_main_queue(), ^{
+            [hud dismissWithClickedButtonIndex:0 animated:YES];
+            if (m3uData) {
+                self.tempM3UData = m3uData;
+                self.tempURLString = url.absoluteString;
+                
+                // 下载成功后，弹出命名输入框
+                UIAlertView *nameAlert = [[UIAlertView alloc] initWithTitle:@"保存直播源" message:@"下载成功，请为该直播源命名" delegate:self cancelButtonTitle:@"取消" otherButtonTitles:@"保存", nil];
+                nameAlert.alertViewStyle = UIAlertViewStylePlainTextInput;
+                
+                NSDateFormatter *df = [[NSDateFormatter alloc] init];
+                [df setDateFormat:@"yyyy-MM-dd HH:mm:ss"];
+                [nameAlert textFieldAtIndex:0].text = [df stringFromDate:[NSDate date]];
+                
+                [nameAlert show];
+            } else {
+                UIAlertView *alert = [[UIAlertView alloc] initWithTitle:@"错误" message:@"下载失败，请检查网络或网址" delegate:nil cancelButtonTitle:@"确定" otherButtonTitles:nil];
+                [alert show];
+            }
+        });
+    });
+}
+
+// 处理命名弹窗回调
+- (void)alertView:(UIAlertView *)alertView clickedButtonAtIndex:(NSInteger)buttonIndex {
+    if (buttonIndex != alertView.cancelButtonIndex) {
+        NSString *name = [alertView textFieldAtIndex:0].text;
+        if (name.length == 0) name = @"未命名直播源";
+        
+        addNewSource(name, self.tempM3UData, self.tempURLString);
+        
+        UIAlertView *successAlert = [[UIAlertView alloc] initWithTitle:@"成功" message:@"网络直播源已保存！" delegate:nil cancelButtonTitle:@"确定" otherButtonTitles:nil];
+        [successAlert show];
+        [self.navigationController popViewControllerAnimated:YES];
+    }
+}
+@end
+
+
+#pragma mark - 文本导入子页面
+// =========================================================
+@interface TextImportViewController : UIViewController <UIAlertViewDelegate>
+@property (nonatomic, strong) UITextView *m3uTextView;
+@property (nonatomic, copy) NSString *tempM3UData; // 临时存放文本
+@end
+
+@implementation TextImportViewController
+- (void)viewDidLoad {
+    [super viewDidLoad];
+    self.title = @"添加本地直播源";
+    self.view.backgroundColor = [UIColor groupTableViewBackgroundColor];
+    
+    if ([self respondsToSelector:@selector(setEdgesForExtendedLayout:)]) {
+        self.edgesForExtendedLayout = UIRectEdgeNone;
+    }
+    
+    CGFloat width = self.view.frame.size.width;
+    
+    UILabel *label2 = [[UILabel alloc] initWithFrame:CGRectMake(20, 15, width - 40, 20)];
+    label2.text = @"请粘贴 M3U 文本内容：";
+    label2.font = [UIFont boldSystemFontOfSize:14];
+    label2.backgroundColor = [UIColor clearColor];
+    [self.view addSubview:label2];
+    
+    self.m3uTextView = [[UITextView alloc] initWithFrame:CGRectMake(20, 40, width - 40, 150)];
+    self.m3uTextView.layer.cornerRadius = 5.0;
+    self.m3uTextView.layer.borderColor = [UIColor lightGrayColor].CGColor;
+    self.m3uTextView.layer.borderWidth = 1.0;
+    [self.view addSubview:self.m3uTextView];
+    
+    UIButton *btnManual = [UIButton buttonWithType:UIButtonTypeRoundedRect];
+    btnManual.frame = CGRectMake(20, 200, width - 40, 40);
+    [btnManual setTitle:@"配置该文本源" forState:UIControlStateNormal];
+    [btnManual addTarget:self action:@selector(loadManualM3U) forControlEvents:UIControlEventTouchUpInside];
+    [self.view addSubview:btnManual];
+}
+
+- (void)loadManualM3U {
+    [self.m3uTextView resignFirstResponder];
+    NSString *m3uData = self.m3uTextView.text;
+    
+    if (m3uData.length == 0) {
+        UIAlertView *alert = [[UIAlertView alloc] initWithTitle:@"提示" message:@"请先粘贴内容" delegate:nil cancelButtonTitle:@"确定" otherButtonTitles:nil];
+        [alert show];
+        return;
+    }
+    
+    self.tempM3UData = m3uData;
+    
+    // 弹出命名输入框
+    UIAlertView *nameAlert = [[UIAlertView alloc] initWithTitle:@"保存直播源" message:@"请为该本地直播源命名" delegate:self cancelButtonTitle:@"取消" otherButtonTitles:@"保存", nil];
+    nameAlert.alertViewStyle = UIAlertViewStylePlainTextInput;
+    
+    NSDateFormatter *df = [[NSDateFormatter alloc] init];
+    [df setDateFormat:@"yyyy-MM-dd HH:mm:ss"];
+    [nameAlert textFieldAtIndex:0].text = [df stringFromDate:[NSDate date]];
+    
+    [nameAlert show];
+}
+
+// 处理命名弹窗回调
+- (void)alertView:(UIAlertView *)alertView clickedButtonAtIndex:(NSInteger)buttonIndex {
+    if (buttonIndex != alertView.cancelButtonIndex) {
+        NSString *name = [alertView textFieldAtIndex:0].text;
+        if (name.length == 0) name = @"未命名直播源";
+        
+        addNewSource(name, self.tempM3UData, nil);
+        
+        UIAlertView *successAlert = [[UIAlertView alloc] initWithTitle:@"成功" message:@"本地文本源已保存！" delegate:nil cancelButtonTitle:@"确定" otherButtonTitles:nil];
+        [successAlert show];
+        [self.navigationController popViewControllerAnimated:YES];
+    }
+}
+@end
+
+
+#pragma mark - 直播源管理子页面 (我的直播源)
 // =========================================================
 @interface SourceManagerViewController : UITableViewController <UIActionSheetDelegate, UIAlertViewDelegate>
 @property (nonatomic, strong) NSMutableArray *sources;
@@ -52,12 +213,22 @@ static void addNewSource(NSString *m3uData, NSString *urlString) {
 - (void)viewDidLoad {
     [super viewDidLoad];
     self.title = @"我的直播源";
+    
+    // 优化：右上角添加 + 按钮
+    UIBarButtonItem *addBtn = [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemAdd target:self action:@selector(showAddOptions)];
+    self.navigationItem.rightBarButtonItem = addBtn;
 }
 
 - (void)viewWillAppear:(BOOL)animated {
     [super viewWillAppear:animated];
     self.sources = [[[NSUserDefaults standardUserDefaults] objectForKey:@"ios6_iptv_sources"] mutableCopy] ?: [NSMutableArray array];
     [self.tableView reloadData];
+}
+
+- (void)showAddOptions {
+    UIActionSheet *sheet = [[UIActionSheet alloc] initWithTitle:@"添加直播源" delegate:self cancelButtonTitle:@"取消" destructiveButtonTitle:nil otherButtonTitles:@"添加网络直播源", @"添加本地文本源", nil];
+    sheet.tag = 101; // 利用 Tag 区分是“添加源菜单”还是“源操作菜单”
+    [sheet showInView:self.view];
 }
 
 - (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section {
@@ -84,7 +255,6 @@ static void addNewSource(NSString *m3uData, NSString *urlString) {
         cell.textLabel.textColor = [UIColor blackColor];
     }
     
-    // 副标题显示链接或类型
     if ([source[@"url"] length] > 0) {
         cell.detailTextLabel.text = source[@"url"];
     } else {
@@ -99,59 +269,73 @@ static void addNewSource(NSString *m3uData, NSString *urlString) {
     self.selectedIndexPath = indexPath;
     NSDictionary *source = self.sources[indexPath.row];
     
-    // 动态构建 ActionSheet
     UIActionSheet *sheet = [[UIActionSheet alloc] initWithTitle:@"操作" delegate:self cancelButtonTitle:nil destructiveButtonTitle:@"删除" otherButtonTitles:@"设为当前源", @"重命名", nil];
     
-    // 如果是网络源，可以刷新
     if ([source[@"url"] length] > 0) {
         [sheet addButtonWithTitle:@"刷新同步"];
     }
     [sheet addButtonWithTitle:@"取消"];
-    sheet.cancelButtonIndex = sheet.numberOfButtons - 1; // 最后一个是取消按钮
+    sheet.cancelButtonIndex = sheet.numberOfButtons - 1;
     
+    sheet.tag = 100; // 操作菜单的 Tag
     [sheet showInView:self.view];
 }
 
 - (void)actionSheet:(UIActionSheet *)actionSheet clickedButtonAtIndex:(NSInteger)buttonIndex {
     if (buttonIndex == actionSheet.cancelButtonIndex) return;
-    NSString *title = [actionSheet buttonTitleAtIndex:buttonIndex];
-    NSMutableDictionary *source = [self.sources[self.selectedIndexPath.row] mutableCopy];
     
-    NSUserDefaults *defs = [NSUserDefaults standardUserDefaults];
-    
-    if ([title isEqualToString:@"删除"]) {
-        [self.sources removeObjectAtIndex:self.selectedIndexPath.row];
-        [defs setObject:self.sources forKey:@"ios6_iptv_sources"];
-        
-        // 如果删除的是当前激活源，系统自动切到第一个
-        if ([source[@"id"] isEqualToString:[defs objectForKey:@"ios6_iptv_active_source_id"]]) {
-            if (self.sources.count > 0) {
-                [defs setObject:self.sources.firstObject[@"id"] forKey:@"ios6_iptv_active_source_id"];
-            } else {
-                [defs removeObjectForKey:@"ios6_iptv_active_source_id"];
-            }
-            [[NSNotificationCenter defaultCenter] postNotificationName:@"M3UDataUpdated" object:nil];
+    // 针对 右上角 + 按钮 呼出的菜单
+    if (actionSheet.tag == 101) {
+        if (buttonIndex == 0) {
+            WebImportViewController *webVC = [[WebImportViewController alloc] init];
+            [self.navigationController pushViewController:webVC animated:YES];
+        } else if (buttonIndex == 1) {
+            TextImportViewController *textVC = [[TextImportViewController alloc] init];
+            [self.navigationController pushViewController:textVC animated:YES];
         }
-        [defs synchronize];
-        [self.tableView reloadData];
+        return;
+    }
+    
+    // 针对 点击单元格 呼出的操作菜单
+    if (actionSheet.tag == 100) {
+        NSString *title = [actionSheet buttonTitleAtIndex:buttonIndex];
+        NSMutableDictionary *source = [self.sources[self.selectedIndexPath.row] mutableCopy];
         
-    } else if ([title isEqualToString:@"设为当前源"]) {
-        [defs setObject:source[@"id"] forKey:@"ios6_iptv_active_source_id"];
-        [defs synchronize];
-        [[NSNotificationCenter defaultCenter] postNotificationName:@"M3UDataUpdated" object:nil];
-        [self.tableView reloadData];
-        [self showToast:@"已切换直播源"];
+        NSUserDefaults *defs = [NSUserDefaults standardUserDefaults];
         
-    } else if ([title isEqualToString:@"重命名"]) {
-        UIAlertView *alert = [[UIAlertView alloc] initWithTitle:@"重命名" message:@"请输入新的名称" delegate:self cancelButtonTitle:@"取消" otherButtonTitles:@"确定", nil];
-        alert.alertViewStyle = UIAlertViewStylePlainTextInput;
-        UITextField *tf = [alert textFieldAtIndex:0];
-        tf.text = source[@"name"];
-        alert.tag = 301;
-        [alert show];
-        
-    } else if ([title isEqualToString:@"刷新同步"]) {
-        [self refreshSource:source atIndex:self.selectedIndexPath.row];
+        if ([title isEqualToString:@"删除"]) {
+            [self.sources removeObjectAtIndex:self.selectedIndexPath.row];
+            [defs setObject:self.sources forKey:@"ios6_iptv_sources"];
+            
+            if ([source[@"id"] isEqualToString:[defs objectForKey:@"ios6_iptv_active_source_id"]]) {
+                if (self.sources.count > 0) {
+                    [defs setObject:self.sources.firstObject[@"id"] forKey:@"ios6_iptv_active_source_id"];
+                } else {
+                    [defs removeObjectForKey:@"ios6_iptv_active_source_id"];
+                }
+                [[NSNotificationCenter defaultCenter] postNotificationName:@"M3UDataUpdated" object:nil];
+            }
+            [defs synchronize];
+            [self.tableView reloadData];
+            
+        } else if ([title isEqualToString:@"设为当前源"]) {
+            [defs setObject:source[@"id"] forKey:@"ios6_iptv_active_source_id"];
+            [defs synchronize];
+            [[NSNotificationCenter defaultCenter] postNotificationName:@"M3UDataUpdated" object:nil];
+            [self.tableView reloadData];
+            [self showToast:@"已切换直播源"];
+            
+        } else if ([title isEqualToString:@"重命名"]) {
+            UIAlertView *alert = [[UIAlertView alloc] initWithTitle:@"重命名" message:@"请输入新的名称" delegate:self cancelButtonTitle:@"取消" otherButtonTitles:@"确定", nil];
+            alert.alertViewStyle = UIAlertViewStylePlainTextInput;
+            UITextField *tf = [alert textFieldAtIndex:0];
+            tf.text = source[@"name"];
+            alert.tag = 301;
+            [alert show];
+            
+        } else if ([title isEqualToString:@"刷新同步"]) {
+            [self refreshSource:source atIndex:self.selectedIndexPath.row];
+        }
     }
 }
 
@@ -168,7 +352,6 @@ static void addNewSource(NSString *m3uData, NSString *urlString) {
             [defs synchronize];
             [self.tableView reloadData];
             
-            // 如果重命名的是当前激活的源，需要发通知告诉主页更新标题
             if ([source[@"id"] isEqualToString:[defs objectForKey:@"ios6_iptv_active_source_id"]]) {
                 [[NSNotificationCenter defaultCenter] postNotificationName:@"M3UDataUpdated" object:nil];
             }
@@ -190,7 +373,7 @@ static void addNewSource(NSString *m3uData, NSString *urlString) {
             [hud dismissWithClickedButtonIndex:0 animated:YES];
             if (m3uData) {
                 NSMutableDictionary *updatedSource = [source mutableCopy];
-                updatedSource[@"content"] = m3uData; // 覆盖旧数据
+                updatedSource[@"content"] = m3uData;
                 self.sources[index] = updatedSource;
                 
                 [[NSUserDefaults standardUserDefaults] setObject:self.sources forKey:@"ios6_iptv_sources"];
@@ -216,128 +399,6 @@ static void addNewSource(NSString *m3uData, NSString *urlString) {
     });
 }
 @end
-
-
-#pragma mark - 网络导入子页面
-// =========================================================
-@interface WebImportViewController : UIViewController
-@property (nonatomic, strong) UITextField *urlField;
-@end
-
-@implementation WebImportViewController
-- (void)viewDidLoad {
-    [super viewDidLoad];
-    self.title = @"网络导入";
-    self.view.backgroundColor = [UIColor groupTableViewBackgroundColor];
-    
-    if ([self respondsToSelector:@selector(setEdgesForExtendedLayout:)]) {
-        self.edgesForExtendedLayout = UIRectEdgeNone;
-    }
-    
-    CGFloat width = self.view.frame.size.width;
-    
-    UILabel *label1 = [[UILabel alloc] initWithFrame:CGRectMake(20, 15, width - 40, 20)];
-    label1.text = @"方式一：网络导入";
-    label1.font = [UIFont boldSystemFontOfSize:14];
-    label1.backgroundColor = [UIColor clearColor];
-    [self.view addSubview:label1];
-    
-    self.urlField = [[UITextField alloc] initWithFrame:CGRectMake(20, 40, width - 40, 40)];
-    self.urlField.borderStyle = UITextBorderStyleRoundedRect;
-    self.urlField.placeholder = @"输入 M3U 网址 (http://...)";
-    self.urlField.backgroundColor = [UIColor whiteColor];
-    [self.view addSubview:self.urlField];
-    
-    UIButton *btnLoad = [UIButton buttonWithType:UIButtonTypeRoundedRect];
-    btnLoad.frame = CGRectMake(20, 85, width - 40, 40);
-    [btnLoad setTitle:@"下载并载入" forState:UIControlStateNormal];
-    [btnLoad addTarget:self action:@selector(loadRemoteM3U) forControlEvents:UIControlEventTouchUpInside];
-    [self.view addSubview:btnLoad];
-}
-
-- (void)loadRemoteM3U {
-    [self.urlField resignFirstResponder];
-    NSURL *url = [NSURL URLWithString:self.urlField.text];
-    if (!url) {
-        UIAlertView *alert = [[UIAlertView alloc] initWithTitle:@"提示" message:@"网址无效" delegate:nil cancelButtonTitle:@"确定" otherButtonTitles:nil];
-        [alert show];
-        return;
-    }
-    
-    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
-        NSError *error = nil;
-        NSString *m3uData = [NSString stringWithContentsOfURL:url encoding:NSUTF8StringEncoding error:&error];
-        
-        dispatch_async(dispatch_get_main_queue(), ^{
-            if (m3uData) {
-                addNewSource(m3uData, url.absoluteString); // 调用统一写入方法
-                UIAlertView *alert = [[UIAlertView alloc] initWithTitle:@"成功" message:@"直播源已载入！" delegate:nil cancelButtonTitle:@"确定" otherButtonTitles:nil];
-                [alert show];
-                [self.navigationController popViewControllerAnimated:YES];
-            } else {
-                UIAlertView *alert = [[UIAlertView alloc] initWithTitle:@"错误" message:@"下载失败，请检查网络或网址" delegate:nil cancelButtonTitle:@"确定" otherButtonTitles:nil];
-                [alert show];
-            }
-        });
-    });
-}
-@end
-
-
-#pragma mark - 文本导入子页面
-// =========================================================
-@interface TextImportViewController : UIViewController
-@property (nonatomic, strong) UITextView *m3uTextView;
-@end
-
-@implementation TextImportViewController
-- (void)viewDidLoad {
-    [super viewDidLoad];
-    self.title = @"文本导入";
-    self.view.backgroundColor = [UIColor groupTableViewBackgroundColor];
-    
-    if ([self respondsToSelector:@selector(setEdgesForExtendedLayout:)]) {
-        self.edgesForExtendedLayout = UIRectEdgeNone;
-    }
-    
-    CGFloat width = self.view.frame.size.width;
-    
-    UILabel *label2 = [[UILabel alloc] initWithFrame:CGRectMake(20, 15, width - 40, 20)];
-    label2.text = @"方式二：手动粘贴 M3U 文本";
-    label2.font = [UIFont boldSystemFontOfSize:14];
-    label2.backgroundColor = [UIColor clearColor];
-    [self.view addSubview:label2];
-    
-    self.m3uTextView = [[UITextView alloc] initWithFrame:CGRectMake(20, 40, width - 40, 150)];
-    self.m3uTextView.layer.cornerRadius = 5.0;
-    self.m3uTextView.layer.borderColor = [UIColor lightGrayColor].CGColor;
-    self.m3uTextView.layer.borderWidth = 1.0;
-    [self.view addSubview:self.m3uTextView];
-    
-    UIButton *btnManual = [UIButton buttonWithType:UIButtonTypeRoundedRect];
-    btnManual.frame = CGRectMake(20, 200, width - 40, 40);
-    [btnManual setTitle:@"载入上方文本" forState:UIControlStateNormal];
-    [btnManual addTarget:self action:@selector(loadManualM3U) forControlEvents:UIControlEventTouchUpInside];
-    [self.view addSubview:btnManual];
-}
-
-- (void)loadManualM3U {
-    [self.m3uTextView resignFirstResponder];
-    NSString *m3uData = self.m3uTextView.text;
-    
-    if (m3uData.length == 0) {
-        UIAlertView *alert = [[UIAlertView alloc] initWithTitle:@"提示" message:@"请先粘贴内容" delegate:nil cancelButtonTitle:@"确定" otherButtonTitles:nil];
-        [alert show];
-        return;
-    }
-    
-    addNewSource(m3uData, nil); // 调用统一写入方法
-    UIAlertView *alert = [[UIAlertView alloc] initWithTitle:@"成功" message:@"本地文本源已载入！" delegate:nil cancelButtonTitle:@"确定" otherButtonTitles:nil];
-    [alert show];
-    [self.navigationController popViewControllerAnimated:YES];
-}
-@end
-
 
 #pragma mark - 关于软件子页面
 // =========================================================
@@ -381,9 +442,9 @@ static void addNewSource(NSString *m3uData, NSString *urlString) {
     [super viewDidLoad];
     self.title = @"设置";
     
-    // 构建多级设置菜单数据源
+    // 优化：精简主设置界面，将添加源的功能统一合并到我的直播源里面
     self.sections = @[
-                      @{@"title": @"直播源设置", @"rows": @[@"我的直播源 (管理与切换)", @"添加网络直播源", @"添加本地文本源"]},
+                      @{@"title": @"直播源设置", @"rows": @[@"我的直播源 (管理与添加)"]},
                       @{@"title": @"软件设置", @"rows": @[@"默认全屏逻辑", @"默认播放器", @"清空所有直播源", @"清空缓存 (记忆与偏好)"]},
                       @{@"title": @"关于", @"rows": @[@"关于 iClassicTV"]}
                       ];
@@ -461,12 +522,6 @@ static void addNewSource(NSString *m3uData, NSString *urlString) {
             // 跳转新的直播源管理页面
             SourceManagerViewController *smVC = [[SourceManagerViewController alloc] init];
             [self.navigationController pushViewController:smVC animated:YES];
-        } else if (indexPath.row == 1) {
-            WebImportViewController *webVC = [[WebImportViewController alloc] init];
-            [self.navigationController pushViewController:webVC animated:YES];
-        } else if (indexPath.row == 2) {
-            TextImportViewController *textVC = [[TextImportViewController alloc] init];
-            [self.navigationController pushViewController:textVC animated:YES];
         }
     } else if (indexPath.section == 1) {
         if (indexPath.row == 0) {
