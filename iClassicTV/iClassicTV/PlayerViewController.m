@@ -17,9 +17,10 @@
 @property (nonatomic, strong) UIButton *playBtn;
 @property (nonatomic, strong) UISlider *progressBar;
 @property (nonatomic, strong) UIButton *fullBtn;
+@property (nonatomic, strong) UILabel *statusLabel; // 新增：播放状态及纯音频反馈层
 
-@property (nonatomic, strong) NSTimer *timer; // 用于更新进度条
-@property (nonatomic, strong) NSTimer *autoHideTimer; // 新增：用于5秒自动隐藏控件的计时器
+@property (nonatomic, strong) NSTimer *timer;
+@property (nonatomic, strong) NSTimer *autoHideTimer;
 
 @property (nonatomic, assign) BOOL isControlsHidden;
 @property (nonatomic, assign) BOOL isFullscreen;
@@ -44,7 +45,19 @@
     self.player.controlStyle = MPMovieControlStyleNone;
     [self.view addSubview:self.player.view];
     
-    // 1.5 手势拦截层
+    // 1.5 状态反馈提示层 (放在视频之上，手势拦截层之下)
+    self.statusLabel = [[UILabel alloc] initWithFrame:CGRectMake(0, 0, 280, 100)];
+    self.statusLabel.center = CGPointMake(self.view.bounds.size.width / 2, self.view.bounds.size.height / 2);
+    self.statusLabel.autoresizingMask = UIViewAutoresizingFlexibleTopMargin | UIViewAutoresizingFlexibleBottomMargin | UIViewAutoresizingFlexibleLeftMargin | UIViewAutoresizingFlexibleRightMargin;
+    self.statusLabel.textAlignment = NSTextAlignmentCenter;
+    self.statusLabel.textColor = [UIColor whiteColor];
+    self.statusLabel.font = [UIFont boldSystemFontOfSize:16];
+    self.statusLabel.numberOfLines = 0;
+    self.statusLabel.backgroundColor = [UIColor clearColor];
+    self.statusLabel.text = @"加载中...";
+    [self.view addSubview:self.statusLabel];
+    
+    // 1.6 手势拦截层
     self.gestureCatcherView = [[UIView alloc] initWithFrame:self.view.bounds];
     self.gestureCatcherView.backgroundColor = [UIColor clearColor];
     self.gestureCatcherView.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
@@ -87,22 +100,19 @@
     [self.playBtn addTarget:self action:@selector(togglePlay) forControlEvents:UIControlEventTouchUpInside];
     [self.bottomBar addSubview:self.playBtn];
     
-    // 【修复】：缩小进度条宽度（从 125 缩小为 155），给右侧全屏按钮留出足够空间
     self.progressBar = [[UISlider alloc] initWithFrame:CGRectMake(60, 10, self.view.bounds.size.width - 155, 30)];
     self.progressBar.autoresizingMask = UIViewAutoresizingFlexibleWidth;
     [self.progressBar addTarget:self action:@selector(sliderValueChanged:) forControlEvents:UIControlEventValueChanged];
-    // 【新增】：拖动进度条时暂停自动隐藏，松开手时再重新开始倒计时
     [self.progressBar addTarget:self action:@selector(cancelAutoHideTimer) forControlEvents:UIControlEventTouchDown];
     [self.progressBar addTarget:self action:@selector(startAutoHideTimer) forControlEvents:UIControlEventTouchUpInside | UIControlEventTouchUpOutside | UIControlEventTouchCancel];
     [self.bottomBar addSubview:self.progressBar];
     
-    // 【修复】：将按钮宽度从 50 加宽至 80，解决文字截断问题
     self.fullBtn = [UIButton buttonWithType:UIButtonTypeCustom];
     self.fullBtn.frame = CGRectMake(self.view.bounds.size.width - 85, 5, 80, 40);
     [self.fullBtn setTitle:@"全屏" forState:UIControlStateNormal];
     [self.fullBtn setTitleColor:[UIColor whiteColor] forState:UIControlStateNormal];
     self.fullBtn.titleLabel.font = [UIFont systemFontOfSize:14];
-    self.fullBtn.titleLabel.adjustsFontSizeToFitWidth = YES; // 开启字体自适应缩小保底
+    self.fullBtn.titleLabel.adjustsFontSizeToFitWidth = YES;
     self.fullBtn.autoresizingMask = UIViewAutoresizingFlexibleLeftMargin;
     [self.fullBtn addTarget:self action:@selector(toggleFullscreenAction) forControlEvents:UIControlEventTouchUpInside];
     [self.bottomBar addSubview:self.fullBtn];
@@ -117,21 +127,68 @@
     [singleTap requireGestureRecognizerToFail:doubleTap];
     [self.gestureCatcherView addGestureRecognizer:singleTap];
     
-    // 5. 监听播放状态
+    // 5. 监听播放与缓冲状态
     [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(playbackStateChanged) name:MPMoviePlayerPlaybackStateDidChangeNotification object:self.player];
+    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(loadStateChanged) name:MPMoviePlayerLoadStateDidChangeNotification object:self.player];
+    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(mediaTypesAvailable) name:MPMovieMediaTypesAvailableNotification object:self.player];
+    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(playbackDidFinish:) name:MPMoviePlayerPlaybackDidFinishNotification object:self.player];
     
     [self.player play];
     [self startTimer];
     
-    // 初始状态下启动自动隐藏倒计时
     [self startAutoHideTimer];
 }
 
-#pragma mark - 新增：5秒自动隐藏控件逻辑
+#pragma mark - 新增：播放状态与智能类型反馈逻辑
+
+- (void)loadStateChanged {
+    if (self.player.loadState & MPMovieLoadStateStalled) {
+        // 如果已经在显示错误或者音频，不要被“缓冲中”覆盖
+        // 修复：iOS 6 不支持 containsString:，替换为 rangeOfString:
+        if ([self.statusLabel.text rangeOfString:@"📻"].location == NSNotFound &&
+            [self.statusLabel.text rangeOfString:@"❌"].location == NSNotFound) {
+            self.statusLabel.text = @"缓冲中...";
+            self.statusLabel.hidden = NO;
+        }
+    } else if ((self.player.loadState & MPMovieLoadStatePlayable) || (self.player.loadState & MPMovieLoadStatePlaythroughOK)) {
+        // 数据可播放，判断是否有视频轨道
+        if ((self.player.movieMediaTypes & MPMovieMediaTypeMaskVideo) == 0 &&
+            (self.player.movieMediaTypes & MPMovieMediaTypeMaskAudio) != 0) {
+            self.statusLabel.text = @"📻\n\n电台或纯音频源 / 无画面信号";
+            self.statusLabel.hidden = NO;
+        } else {
+            self.statusLabel.hidden = YES; // 有画面，隐藏提示，露出视频
+        }
+    }
+}
+
+- (void)mediaTypesAvailable {
+    // 获取到流媒体类型时进行精确判断，只有音频没有视频时
+    if ((self.player.movieMediaTypes & MPMovieMediaTypeMaskVideo) == 0 &&
+        (self.player.movieMediaTypes & MPMovieMediaTypeMaskAudio) != 0) {
+        self.statusLabel.text = @"📻\n\n电台或纯音频源 / 无画面信号";
+        self.statusLabel.hidden = NO;
+    } else if ((self.player.movieMediaTypes & MPMovieMediaTypeMaskVideo) != 0) {
+        // 如果确实有画面，且目前缓冲充足，则隐藏提示
+        if (self.player.loadState & MPMovieLoadStatePlayable || self.player.loadState & MPMovieLoadStatePlaythroughOK) {
+            self.statusLabel.hidden = YES;
+        }
+    }
+}
+
+- (void)playbackDidFinish:(NSNotification *)notification {
+    NSNumber *reason = [notification.userInfo objectForKey:MPMoviePlayerPlaybackDidFinishReasonUserInfoKey];
+    if (reason != nil && [reason integerValue] == MPMovieFinishReasonPlaybackError) {
+        // 遇到彻底解析失败、无网络、或者完全无法解码的源时，拦截并提示
+        self.statusLabel.text = @"❌\n\n播放失败或设备不支持该视频格式";
+        self.statusLabel.hidden = NO;
+    }
+}
+
+#pragma mark - 5秒自动隐藏控件逻辑
 
 - (void)startAutoHideTimer {
     [self cancelAutoHideTimer];
-    // 设置 5 秒后执行隐藏动作
     self.autoHideTimer = [NSTimer scheduledTimerWithTimeInterval:5.0 target:self selector:@selector(autoHideControls) userInfo:nil repeats:NO];
 }
 
@@ -143,13 +200,11 @@
 }
 
 - (void)autoHideControls {
-    // 只有在控件当前处于显示状态时才执行隐藏
     if (!self.isControlsHidden) {
         [self setControlsHidden:YES];
     }
 }
 
-// 提取出统一的控件显隐控制方法
 - (void)setControlsHidden:(BOOL)hidden {
     if (self.isControlsHidden == hidden) return;
     self.isControlsHidden = hidden;
@@ -166,16 +221,16 @@
     }
     
     if (!hidden) {
-        [self startAutoHideTimer]; // 如果切换为显示，重新开始 5 秒倒计时
+        [self startAutoHideTimer];
     } else {
-        [self cancelAutoHideTimer]; // 如果已隐藏，则取消倒计时
+        [self cancelAutoHideTimer];
     }
 }
 
 #pragma mark - 交互逻辑
 
 - (void)handleSingleTap:(UITapGestureRecognizer *)sender {
-    [self setControlsHidden:!self.isControlsHidden]; // 触发显隐切换
+    [self setControlsHidden:!self.isControlsHidden];
 }
 
 - (void)handleDoubleTap:(UITapGestureRecognizer *)sender {
@@ -183,7 +238,7 @@
 }
 
 - (void)toggleFullscreenAction {
-    [self startAutoHideTimer]; // 用户操作后重置倒计时
+    [self startAutoHideTimer];
     
     if (self.isFullscreen) {
         self.isFullscreen = NO;
@@ -231,14 +286,14 @@
 }
 
 - (void)sliderValueChanged:(UISlider *)slider {
-    [self startAutoHideTimer]; // 用户操作后重置倒计时
+    [self startAutoHideTimer];
     if (self.player.duration > 0 && !isnan(self.player.duration)) {
         self.player.currentPlaybackTime = slider.value * self.player.duration;
     }
 }
 
 - (void)togglePlay {
-    [self startAutoHideTimer]; // 用户操作后重置倒计时
+    [self startAutoHideTimer];
     if (self.player.playbackState == MPMoviePlaybackStatePlaying) {
         [self.player pause];
     } else {
@@ -259,7 +314,7 @@
 }
 
 - (void)closePlayer {
-    [self cancelAutoHideTimer]; // 退出时清理倒计时
+    [self cancelAutoHideTimer];
     
     if (![self respondsToSelector:@selector(setNeedsStatusBarAppearanceUpdate)]) {
         [[UIApplication sharedApplication] setStatusBarHidden:NO withAnimation:UIStatusBarAnimationNone];
