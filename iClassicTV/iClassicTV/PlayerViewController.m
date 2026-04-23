@@ -9,15 +9,17 @@
 #import "PlayerViewController.h"
 #import <MediaPlayer/MediaPlayer.h>
 
-@interface PlayerViewController () // 优化：移除了 UIGestureRecognizerDelegate，不再需要代理判断
+@interface PlayerViewController ()
 @property (nonatomic, strong) MPMoviePlayerController *player;
-@property (nonatomic, strong) UIView *gestureCatcherView; // 新增：独立的手势拦截层
+@property (nonatomic, strong) UIView *gestureCatcherView;
 @property (nonatomic, strong) UIView *topBar;
 @property (nonatomic, strong) UIView *bottomBar;
 @property (nonatomic, strong) UIButton *playBtn;
 @property (nonatomic, strong) UISlider *progressBar;
 @property (nonatomic, strong) UIButton *fullBtn;
-@property (nonatomic, strong) NSTimer *timer;
+
+@property (nonatomic, strong) NSTimer *timer; // 用于更新进度条
+@property (nonatomic, strong) NSTimer *autoHideTimer; // 新增：用于5秒自动隐藏控件的计时器
 
 @property (nonatomic, assign) BOOL isControlsHidden;
 @property (nonatomic, assign) BOOL isFullscreen;
@@ -31,7 +33,6 @@
     [super viewDidLoad];
     self.view.backgroundColor = [UIColor blackColor];
     
-    // 初始化状态
     self.isFullscreen = NO;
     self.originalOrientation = [UIApplication sharedApplication].statusBarOrientation;
     
@@ -43,14 +44,13 @@
     self.player.controlStyle = MPMovieControlStyleNone;
     [self.view addSubview:self.player.view];
     
-    // 1.5 新增核心：手势拦截层
-    // 把它盖在视频上面，彻底阻断 MPMoviePlayerController 偷吃我们的点击事件
+    // 1.5 手势拦截层
     self.gestureCatcherView = [[UIView alloc] initWithFrame:self.view.bounds];
     self.gestureCatcherView.backgroundColor = [UIColor clearColor];
     self.gestureCatcherView.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
     [self.view addSubview:self.gestureCatcherView];
     
-    // 2. 顶部导航栏 (盖在拦截层上面)
+    // 2. 顶部导航栏
     self.topBar = [[UIView alloc] initWithFrame:CGRectMake(0, 0, self.view.bounds.size.width, 44)];
     self.topBar.backgroundColor = [UIColor colorWithWhite:0.0 alpha:0.7];
     self.topBar.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleBottomMargin;
@@ -73,7 +73,7 @@
     titleLabel.autoresizingMask = UIViewAutoresizingFlexibleWidth;
     [self.topBar addSubview:titleLabel];
     
-    // 3. 底部控制栏 (盖在拦截层上面)
+    // 3. 底部控制栏
     self.bottomBar = [[UIView alloc] initWithFrame:CGRectMake(0, self.view.bounds.size.height - 50, self.view.bounds.size.width, 50)];
     self.bottomBar.backgroundColor = [UIColor colorWithWhite:0.0 alpha:0.7];
     self.bottomBar.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleTopMargin;
@@ -87,28 +87,34 @@
     [self.playBtn addTarget:self action:@selector(togglePlay) forControlEvents:UIControlEventTouchUpInside];
     [self.bottomBar addSubview:self.playBtn];
     
-    self.progressBar = [[UISlider alloc] initWithFrame:CGRectMake(60, 10, self.view.bounds.size.width - 125, 30)];
+    // 【修复】：缩小进度条宽度（从 125 缩小为 155），给右侧全屏按钮留出足够空间
+    self.progressBar = [[UISlider alloc] initWithFrame:CGRectMake(60, 10, self.view.bounds.size.width - 155, 30)];
     self.progressBar.autoresizingMask = UIViewAutoresizingFlexibleWidth;
     [self.progressBar addTarget:self action:@selector(sliderValueChanged:) forControlEvents:UIControlEventValueChanged];
+    // 【新增】：拖动进度条时暂停自动隐藏，松开手时再重新开始倒计时
+    [self.progressBar addTarget:self action:@selector(cancelAutoHideTimer) forControlEvents:UIControlEventTouchDown];
+    [self.progressBar addTarget:self action:@selector(startAutoHideTimer) forControlEvents:UIControlEventTouchUpInside | UIControlEventTouchUpOutside | UIControlEventTouchCancel];
     [self.bottomBar addSubview:self.progressBar];
     
+    // 【修复】：将按钮宽度从 50 加宽至 80，解决文字截断问题
     self.fullBtn = [UIButton buttonWithType:UIButtonTypeCustom];
-    self.fullBtn.frame = CGRectMake(self.view.bounds.size.width - 60, 5, 50, 40);
+    self.fullBtn.frame = CGRectMake(self.view.bounds.size.width - 85, 5, 80, 40);
     [self.fullBtn setTitle:@"全屏" forState:UIControlStateNormal];
     [self.fullBtn setTitleColor:[UIColor whiteColor] forState:UIControlStateNormal];
     self.fullBtn.titleLabel.font = [UIFont systemFontOfSize:14];
+    self.fullBtn.titleLabel.adjustsFontSizeToFitWidth = YES; // 开启字体自适应缩小保底
     self.fullBtn.autoresizingMask = UIViewAutoresizingFlexibleLeftMargin;
     [self.fullBtn addTarget:self action:@selector(toggleFullscreenAction) forControlEvents:UIControlEventTouchUpInside];
     [self.bottomBar addSubview:self.fullBtn];
     
-    // 4. 添加手势控制（修改：将手势全部添加到透明的 gestureCatcherView 上）
+    // 4. 添加手势控制
     UITapGestureRecognizer *doubleTap = [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(handleDoubleTap:)];
     doubleTap.numberOfTapsRequired = 2;
     [self.gestureCatcherView addGestureRecognizer:doubleTap];
     
     UITapGestureRecognizer *singleTap = [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(handleSingleTap:)];
     singleTap.numberOfTapsRequired = 1;
-    [singleTap requireGestureRecognizerToFail:doubleTap]; // 等待双击判定失败后才触发单击
+    [singleTap requireGestureRecognizerToFail:doubleTap];
     [self.gestureCatcherView addGestureRecognizer:singleTap];
     
     // 5. 监听播放状态
@@ -116,46 +122,79 @@
     
     [self.player play];
     [self startTimer];
+    
+    // 初始状态下启动自动隐藏倒计时
+    [self startAutoHideTimer];
 }
 
-#pragma mark - 交互逻辑
+#pragma mark - 新增：5秒自动隐藏控件逻辑
 
-- (void)handleSingleTap:(UITapGestureRecognizer *)sender {
-    self.isControlsHidden = !self.isControlsHidden;
+- (void)startAutoHideTimer {
+    [self cancelAutoHideTimer];
+    // 设置 5 秒后执行隐藏动作
+    self.autoHideTimer = [NSTimer scheduledTimerWithTimeInterval:5.0 target:self selector:@selector(autoHideControls) userInfo:nil repeats:NO];
+}
+
+- (void)cancelAutoHideTimer {
+    if (self.autoHideTimer) {
+        [self.autoHideTimer invalidate];
+        self.autoHideTimer = nil;
+    }
+}
+
+- (void)autoHideControls {
+    // 只有在控件当前处于显示状态时才执行隐藏
+    if (!self.isControlsHidden) {
+        [self setControlsHidden:YES];
+    }
+}
+
+// 提取出统一的控件显隐控制方法
+- (void)setControlsHidden:(BOOL)hidden {
+    if (self.isControlsHidden == hidden) return;
+    self.isControlsHidden = hidden;
     
     [UIView animateWithDuration:0.3 animations:^{
         self.topBar.alpha = self.isControlsHidden ? 0.0 : 1.0;
         self.bottomBar.alpha = self.isControlsHidden ? 0.0 : 1.0;
     }];
     
-    // 处理状态栏隐藏
     if ([self respondsToSelector:@selector(setNeedsStatusBarAppearanceUpdate)]) {
         [self setNeedsStatusBarAppearanceUpdate];
     } else {
         [[UIApplication sharedApplication] setStatusBarHidden:self.isControlsHidden withAnimation:UIStatusBarAnimationFade];
     }
+    
+    if (!hidden) {
+        [self startAutoHideTimer]; // 如果切换为显示，重新开始 5 秒倒计时
+    } else {
+        [self cancelAutoHideTimer]; // 如果已隐藏，则取消倒计时
+    }
+}
+
+#pragma mark - 交互逻辑
+
+- (void)handleSingleTap:(UITapGestureRecognizer *)sender {
+    [self setControlsHidden:!self.isControlsHidden]; // 触发显隐切换
 }
 
 - (void)handleDoubleTap:(UITapGestureRecognizer *)sender {
     [self toggleFullscreenAction];
 }
 
-// 统一的全屏/退出全屏处理逻辑
 - (void)toggleFullscreenAction {
+    [self startAutoHideTimer]; // 用户操作后重置倒计时
+    
     if (self.isFullscreen) {
-        // 正在全屏 -> 退出全屏，恢复原始方向
         self.isFullscreen = NO;
         [self.fullBtn setTitle:@"全屏" forState:UIControlStateNormal];
         [self forceRotateToOrientation:self.originalOrientation];
     } else {
-        // 不在全屏 -> 进入全屏
         self.isFullscreen = YES;
         [self.fullBtn setTitle:@"退出全屏" forState:UIControlStateNormal];
         
-        // 记录进入全屏前一刻的方向
         self.originalOrientation = [UIApplication sharedApplication].statusBarOrientation;
         
-        // 读取用户偏好
         NSInteger orientationPref = [[NSUserDefaults standardUserDefaults] integerForKey:@"PlayerOrientationPref"];
         UIInterfaceOrientation targetOrientation = UIInterfaceOrientationLandscapeRight;
         
@@ -164,7 +203,6 @@
         } else if (orientationPref == 2) {
             targetOrientation = UIInterfaceOrientationPortrait;
         } else {
-            // 跟随系统，默认转横屏
             targetOrientation = UIInterfaceOrientationLandscapeRight;
         }
         
@@ -172,13 +210,10 @@
     }
 }
 
-// 强制旋转底层 Hack 方法
 - (void)forceRotateToOrientation:(UIInterfaceOrientation)orientation {
-    // 先设为 Unknown 强制系统刷新布局状态，再设为目标方向
     [[UIDevice currentDevice] setValue:[NSNumber numberWithInteger:UIDeviceOrientationUnknown] forKey:@"orientation"];
     [[UIDevice currentDevice] setValue:[NSNumber numberWithInteger:orientation] forKey:@"orientation"];
     
-    // 优化：加入动画区块，让横竖屏切换时控件位置和画面能够平滑过渡，而不是瞬间闪烁跳变
     [UIView animateWithDuration:0.35 animations:^{
         [self.view setNeedsLayout];
         [self.view layoutIfNeeded];
@@ -196,12 +231,14 @@
 }
 
 - (void)sliderValueChanged:(UISlider *)slider {
+    [self startAutoHideTimer]; // 用户操作后重置倒计时
     if (self.player.duration > 0 && !isnan(self.player.duration)) {
         self.player.currentPlaybackTime = slider.value * self.player.duration;
     }
 }
 
 - (void)togglePlay {
+    [self startAutoHideTimer]; // 用户操作后重置倒计时
     if (self.player.playbackState == MPMoviePlaybackStatePlaying) {
         [self.player pause];
     } else {
@@ -217,12 +254,13 @@
     }
 }
 
-// 供 iOS 7+ 系统调用，决定是否隐藏状态栏
 - (BOOL)prefersStatusBarHidden {
     return self.isControlsHidden;
 }
 
 - (void)closePlayer {
+    [self cancelAutoHideTimer]; // 退出时清理倒计时
+    
     if (![self respondsToSelector:@selector(setNeedsStatusBarAppearanceUpdate)]) {
         [[UIApplication sharedApplication] setStatusBarHidden:NO withAnimation:UIStatusBarAnimationNone];
     }
@@ -232,13 +270,11 @@
     [self.player stop];
     [[NSNotificationCenter defaultCenter] removeObserver:self];
     
-    // 退出播放器前，强制恢复到竖屏，避免影响列表页
     [self forceRotateToOrientation:UIInterfaceOrientationPortrait];
     
     [self dismissViewControllerAnimated:YES completion:nil];
 }
 
-// 允许旋转
 - (BOOL)shouldAutorotate {
     return YES;
 }
