@@ -19,7 +19,10 @@
 @property (nonatomic, strong) UIButton *playBtn;
 @property (nonatomic, strong) UISlider *progressBar;
 @property (nonatomic, strong) UIButton *fullBtn;
-@property (nonatomic, strong) UILabel *statusLabel; // 新增：播放状态及纯音频反馈层
+@property (nonatomic, strong) UILabel *statusLabel; // 播放状态及纯音频反馈层
+
+@property (nonatomic, strong) UIButton *lockBtn;    // 锁定/解锁按钮
+@property (nonatomic, assign) BOOL isLocked;        // 播放器锁定状态
 
 @property (nonatomic, strong) NSTimer *timer;
 @property (nonatomic, strong) NSTimer *autoHideTimer;
@@ -37,6 +40,7 @@
     self.view.backgroundColor = [UIColor blackColor];
     
     self.isFullscreen = NO;
+    self.isLocked = NO; // 初始为未锁定
     self.originalOrientation = [UIApplication sharedApplication].statusBarOrientation;
     
     // 1. 初始化 iOS 原生解码内核播放器
@@ -119,6 +123,17 @@
     [self.fullBtn addTarget:self action:@selector(toggleFullscreenAction) forControlEvents:UIControlEventTouchUpInside];
     [self.bottomBar addSubview:self.fullBtn];
     
+    // 3.5 左侧锁定按钮 (放在最上层，确保锁定状态也能点击)
+    self.lockBtn = [UIButton buttonWithType:UIButtonTypeCustom];
+    self.lockBtn.frame = CGRectMake(20, (self.view.bounds.size.height - 40) / 2, 40, 40);
+    self.lockBtn.autoresizingMask = UIViewAutoresizingFlexibleTopMargin | UIViewAutoresizingFlexibleBottomMargin | UIViewAutoresizingFlexibleRightMargin;
+    self.lockBtn.backgroundColor = [UIColor colorWithWhite:0.0 alpha:0.3];
+    self.lockBtn.layer.cornerRadius = 20;
+    self.lockBtn.alpha = 0.6; // 默认半透明
+    [self.lockBtn setImage:[self generateLockIcon:NO] forState:UIControlStateNormal];
+    [self.lockBtn addTarget:self action:@selector(toggleLock) forControlEvents:UIControlEventTouchUpInside];
+    [self.view addSubview:self.lockBtn];
+    
     // 4. 添加手势控制
     UITapGestureRecognizer *doubleTap = [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(handleDoubleTap:)];
     doubleTap.numberOfTapsRequired = 2;
@@ -141,37 +156,81 @@
     [self startAutoHideTimer];
 }
 
-#pragma mark - 新增：播放状态与智能类型反馈逻辑
+#pragma mark - 锁定逻辑
+
+// 切换锁定状态
+- (void)toggleLock {
+    self.isLocked = !self.isLocked;
+    [self.lockBtn setImage:[self generateLockIcon:self.isLocked] forState:UIControlStateNormal];
+    
+    // 锁定后显示反馈并开启自动隐藏计时器
+    [self setControlsHidden:NO];
+    [self startAutoHideTimer];
+}
+
+// 动态绘制锁头图标
+- (UIImage *)generateLockIcon:(BOOL)locked {
+    CGSize size = CGSizeMake(30, 30);
+    UIGraphicsBeginImageContextWithOptions(size, NO, 0.0);
+    
+    // 修复：移除未使用的变量 CGContextRef ctx = UIGraphicsGetCurrentContext();
+    
+    [[UIColor whiteColor] setStroke];
+    [[UIColor whiteColor] setFill];
+    
+    // 锁身 (底部矩形)
+    UIBezierPath *body = [UIBezierPath bezierPathWithRoundedRect:CGRectMake(7, 14, 16, 11) cornerRadius:2];
+    [body fill];
+    
+    // 锁环 (顶部 U 型)
+    UIBezierPath *shackle = [UIBezierPath bezierPath];
+    if (locked) {
+        // 闭合状态
+        [shackle moveToPoint:CGPointMake(10, 14)];
+        [shackle addLineToPoint:CGPointMake(10, 9)];
+        [shackle addArcWithCenter:CGPointMake(15, 9) radius:5 startAngle:M_PI endAngle:0 clockwise:YES];
+        [shackle addLineToPoint:CGPointMake(20, 14)];
+    } else {
+        // 开启状态 (向上偏移并断开)
+        [shackle moveToPoint:CGPointMake(10, 10)];
+        [shackle addLineToPoint:CGPointMake(10, 5)];
+        [shackle addArcWithCenter:CGPointMake(15, 5) radius:5 startAngle:M_PI endAngle:0 clockwise:YES];
+        [shackle addLineToPoint:CGPointMake(20, 8)];
+    }
+    shackle.lineWidth = 2.5;
+    [shackle stroke];
+    
+    UIImage *img = UIGraphicsGetImageFromCurrentImageContext();
+    UIGraphicsEndImageContext();
+    return img;
+}
+
+#pragma mark - 播放状态与反馈逻辑
 
 - (void)loadStateChanged {
     if (self.player.loadState & MPMovieLoadStateStalled) {
-        // 如果已经在显示错误或者音频，不要被“缓冲中”覆盖
-        // 修复：iOS 6 不支持 containsString:，替换为 rangeOfString:
         if ([self.statusLabel.text rangeOfString:@"📻"].location == NSNotFound &&
             [self.statusLabel.text rangeOfString:@"❌"].location == NSNotFound) {
             self.statusLabel.text = @"缓冲中...";
             self.statusLabel.hidden = NO;
         }
     } else if ((self.player.loadState & MPMovieLoadStatePlayable) || (self.player.loadState & MPMovieLoadStatePlaythroughOK)) {
-        // 数据可播放，判断是否有视频轨道
         if ((self.player.movieMediaTypes & MPMovieMediaTypeMaskVideo) == 0 &&
             (self.player.movieMediaTypes & MPMovieMediaTypeMaskAudio) != 0) {
             self.statusLabel.text = @"📻\n\n电台或纯音频源 / 无画面信号";
             self.statusLabel.hidden = NO;
         } else {
-            self.statusLabel.hidden = YES; // 有画面，隐藏提示，露出视频
+            self.statusLabel.hidden = YES;
         }
     }
 }
 
 - (void)mediaTypesAvailable {
-    // 获取到流媒体类型时进行精确判断，只有音频没有视频时
     if ((self.player.movieMediaTypes & MPMovieMediaTypeMaskVideo) == 0 &&
         (self.player.movieMediaTypes & MPMovieMediaTypeMaskAudio) != 0) {
         self.statusLabel.text = @"📻\n\n电台或纯音频源 / 无画面信号";
         self.statusLabel.hidden = NO;
     } else if ((self.player.movieMediaTypes & MPMovieMediaTypeMaskVideo) != 0) {
-        // 如果确实有画面，且目前缓冲充足，则隐藏提示
         if (self.player.loadState & MPMovieLoadStatePlayable || self.player.loadState & MPMovieLoadStatePlaythroughOK) {
             self.statusLabel.hidden = YES;
         }
@@ -181,13 +240,12 @@
 - (void)playbackDidFinish:(NSNotification *)notification {
     NSNumber *reason = [notification.userInfo objectForKey:MPMoviePlayerPlaybackDidFinishReasonUserInfoKey];
     if (reason != nil && [reason integerValue] == MPMovieFinishReasonPlaybackError) {
-        // 遇到彻底解析失败、无网络、或者完全无法解码的源时，拦截并提示
         self.statusLabel.text = @"❌\n\n播放失败或设备不支持该视频格式";
         self.statusLabel.hidden = NO;
     }
 }
 
-#pragma mark - 5秒自动隐藏控件逻辑
+#pragma mark - 自动隐藏逻辑
 
 - (void)startAutoHideTimer {
     [self cancelAutoHideTimer];
@@ -208,13 +266,26 @@
 }
 
 - (void)setControlsHidden:(BOOL)hidden {
-    if (self.isControlsHidden == hidden) return;
+    if (self.isControlsHidden == hidden && !self.isLocked) return;
     self.isControlsHidden = hidden;
     
     [UIView animateWithDuration:0.3 animations:^{
-        self.topBar.alpha = self.isControlsHidden ? 0.0 : 1.0;
-        self.bottomBar.alpha = self.isControlsHidden ? 0.0 : 1.0;
+        if (self.isLocked) {
+            // 锁定状态：强制隐藏顶部和底部栏，只显示/隐藏锁定按钮
+            self.topBar.alpha = 0.0;
+            self.bottomBar.alpha = 0.0;
+            self.lockBtn.alpha = hidden ? 0.0 : 0.6;
+        } else {
+            // 未锁定状态：显示/隐藏所有控件
+            self.topBar.alpha = hidden ? 0.0 : 1.0;
+            self.bottomBar.alpha = hidden ? 0.0 : 1.0;
+            self.lockBtn.alpha = hidden ? 0.0 : 0.6;
+        }
     }];
+    
+    // 锁定状态下，禁用顶部和底部的交互
+    self.topBar.userInteractionEnabled = !self.isLocked && !hidden;
+    self.bottomBar.userInteractionEnabled = !self.isLocked && !hidden;
     
     if ([self respondsToSelector:@selector(setNeedsStatusBarAppearanceUpdate)]) {
         [self setNeedsStatusBarAppearanceUpdate];
@@ -236,6 +307,7 @@
 }
 
 - (void)handleDoubleTap:(UITapGestureRecognizer *)sender {
+    if (self.isLocked) return; // 锁定状态屏蔽双击
     [self toggleFullscreenAction];
 }
 
@@ -249,12 +321,8 @@
     } else {
         self.isFullscreen = YES;
         [self.fullBtn setTitle:@"退出全屏" forState:UIControlStateNormal];
-        
         self.originalOrientation = [UIApplication sharedApplication].statusBarOrientation;
-        
-        // 优化：调用播放器配置管理模块，直接获取偏好方向，使代码更加模块化
         UIInterfaceOrientation targetOrientation = [PlayerConfigManager preferredInterfaceOrientation];
-        
         [self forceRotateToOrientation:targetOrientation];
     }
 }
@@ -280,6 +348,7 @@
 }
 
 - (void)sliderValueChanged:(UISlider *)slider {
+    if (self.isLocked) return; // 锁定状态禁止调节进度
     [self startAutoHideTimer];
     if (self.player.duration > 0 && !isnan(self.player.duration)) {
         self.player.currentPlaybackTime = slider.value * self.player.duration;
