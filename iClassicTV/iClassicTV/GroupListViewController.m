@@ -16,6 +16,7 @@
 - (void)viewDidLoad {
     [super viewDidLoad];
     self.title = @"频道列表"; // 优化：默认标题改为频道列表
+    self.navigationItem.title = @"加载中..."; // 优化：单独设置顶部导航栏的初始标题
     self.tableView = [[UITableView alloc] initWithFrame:self.view.bounds style:UITableViewStyleGrouped];
     
     // iOS 6 风格：添加下拉刷新提示
@@ -82,11 +83,11 @@
             [self.tableView reloadData];
             [[UIApplication sharedApplication] setNetworkActivityIndicatorVisible:NO];
             
-            // 优化：动态显示源的名称，如果没有源则友好提示
+            // 优化：动态显示源的名称（只修改 navigationItem.title，这样不会影响底部的 TabBar）
             if (self.groupNames.count == 0) {
-                self.title = @"请先添加直播源";
+                self.navigationItem.title = @"请先添加直播源";
             } else {
-                self.title = activeName;
+                self.navigationItem.title = activeName;
             }
         });
     });
