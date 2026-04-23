@@ -9,14 +9,18 @@
 #import "PlayerViewController.h"
 #import <MediaPlayer/MediaPlayer.h>
 
-@interface PlayerViewController ()
+@interface PlayerViewController () <UIGestureRecognizerDelegate> // 遵守手势协议
 @property (nonatomic, strong) MPMoviePlayerController *player;
 @property (nonatomic, strong) UIView *topBar;
 @property (nonatomic, strong) UIView *bottomBar;
 @property (nonatomic, strong) UIButton *playBtn;
 @property (nonatomic, strong) UISlider *progressBar;
 @property (nonatomic, strong) NSTimer *timer;
+
 @property (nonatomic, assign) BOOL isControlsHidden;
+@property (nonatomic, assign) BOOL isFullscreen; // 记录当前是否处于我们自定义的全屏状态
+@property (nonatomic, assign) UIInterfaceOrientation originalOrientation; // 记录进入全屏前的方向
+
 @end
 
 @implementation PlayerViewController
@@ -25,18 +29,23 @@
     [super viewDidLoad];
     self.view.backgroundColor = [UIColor blackColor];
     
+    // 初始化状态
+    self.isFullscreen = NO;
+    // 记录初始方向
+    self.originalOrientation = [UIApplication sharedApplication].statusBarOrientation;
+    
     // 1. 初始化 iOS 原生解码内核播放器
     NSURL *url = [NSURL URLWithString:[self.videoURLString stringByAddingPercentEscapesUsingEncoding:NSUTF8StringEncoding]];
     self.player = [[MPMoviePlayerController alloc] initWithContentURL:url];
     self.player.view.frame = self.view.bounds;
     self.player.view.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
-    // 【核心修正】：永远保持 None，拒绝系统UI的介入
+    // 永远保持 None，拒绝系统UI的介入
     self.player.controlStyle = MPMovieControlStyleNone;
     [self.view addSubview:self.player.view];
     
     // 2. 顶部导航栏 (包含返回按钮和频道名称)
     self.topBar = [[UIView alloc] initWithFrame:CGRectMake(0, 0, self.view.bounds.size.width, 44)];
-    self.topBar.backgroundColor = [UIColor colorWithWhite:0.0 alpha:0.7]; // 半透明纯黑底色
+    self.topBar.backgroundColor = [UIColor colorWithWhite:0.0 alpha:0.7];
     self.topBar.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleBottomMargin;
     [self.view addSubview:self.topBar];
     
@@ -82,18 +91,19 @@
     [fullBtn setTitleColor:[UIColor whiteColor] forState:UIControlStateNormal];
     fullBtn.titleLabel.font = [UIFont systemFontOfSize:14];
     fullBtn.autoresizingMask = UIViewAutoresizingFlexibleLeftMargin;
-    [fullBtn addTarget:self action:@selector(toggleFullscreen) forControlEvents:UIControlEventTouchUpInside];
+    [fullBtn addTarget:self action:@selector(toggleFullscreenAction) forControlEvents:UIControlEventTouchUpInside]; // 统一调用 Action
     [self.bottomBar addSubview:fullBtn];
     
-    // 4. 【新增】添加手势控制：双击全屏 与 单击隐藏/显示控件
-    UITapGestureRecognizer *doubleTap = [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(toggleFullscreen)];
-    doubleTap.numberOfTapsRequired = 2; // 双击触发全屏
+    // 4. 添加手势控制
+    UITapGestureRecognizer *doubleTap = [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(handleDoubleTap:)];
+    doubleTap.numberOfTapsRequired = 2;
+    doubleTap.delegate = self;
     [self.view addGestureRecognizer:doubleTap];
     
-    UITapGestureRecognizer *singleTap = [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(toggleControls)];
-    singleTap.numberOfTapsRequired = 1; // 单击触发隐藏/显示
-    // 【关键】：告诉系统必须等待双击判定失败后，才执行单击。防止单击和双击事件打架。
-    [singleTap requireGestureRecognizerToFail:doubleTap];
+    UITapGestureRecognizer *singleTap = [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(handleSingleTap:)];
+    singleTap.numberOfTapsRequired = 1;
+    singleTap.delegate = self;
+    [singleTap requireGestureRecognizerToFail:doubleTap]; // 关键：确保不冲突
     [self.view addGestureRecognizer:singleTap];
     
     // 5. 监听播放状态
@@ -103,12 +113,78 @@
     [self startTimer];
 }
 
+#pragma mark - 交互逻辑
+
+- (void)handleSingleTap:(UITapGestureRecognizer *)sender {
+    // 强制每次单击都触发状态反转和动画
+    self.isControlsHidden = !self.isControlsHidden;
+    
+    [UIView animateWithDuration:0.3 animations:^{
+        self.topBar.alpha = self.isControlsHidden ? 0.0 : 1.0;
+        self.bottomBar.alpha = self.isControlsHidden ? 0.0 : 1.0;
+    }];
+    
+    // 处理状态栏隐藏
+    if ([self respondsToSelector:@selector(setNeedsStatusBarAppearanceUpdate)]) {
+        [self setNeedsStatusBarAppearanceUpdate];
+    } else {
+        [[UIApplication sharedApplication] setStatusBarHidden:self.isControlsHidden withAnimation:UIStatusBarAnimationFade];
+    }
+}
+
+- (void)handleDoubleTap:(UITapGestureRecognizer *)sender {
+    [self toggleFullscreenAction];
+}
+
+// 统一的全屏/退出全屏处理逻辑
+- (void)toggleFullscreenAction {
+    if (self.isFullscreen) {
+        // 正在全屏 -> 退出全屏，恢复原始方向
+        self.isFullscreen = NO;
+        [self forceRotateToOrientation:self.originalOrientation];
+    } else {
+        // 不在全屏 -> 进入全屏
+        self.isFullscreen = YES;
+        
+        // 记录进入全屏前一刻的方向
+        self.originalOrientation = [UIApplication sharedApplication].statusBarOrientation;
+        
+        // 读取用户偏好
+        NSInteger orientationPref = [[NSUserDefaults standardUserDefaults] integerForKey:@"PlayerOrientationPref"];
+        UIInterfaceOrientation targetOrientation = UIInterfaceOrientationLandscapeRight;
+        
+        if (orientationPref == 1) {
+            targetOrientation = UIInterfaceOrientationLandscapeRight;
+        } else if (orientationPref == 2) {
+            targetOrientation = UIInterfaceOrientationPortrait;
+        } else {
+            // 跟随系统，默认转横屏
+            targetOrientation = UIInterfaceOrientationLandscapeRight;
+        }
+        
+        [self forceRotateToOrientation:targetOrientation];
+    }
+}
+
+// 强制旋转底层 Hack 方法
+- (void)forceRotateToOrientation:(UIInterfaceOrientation)orientation {
+    // 先设为 Unknown 强制系统刷新布局状态，再设为目标方向
+    // 修复：使用 UIDeviceOrientationUnknown 解决未声明标识符的编译错误
+    [[UIDevice currentDevice] setValue:[NSNumber numberWithInteger:UIDeviceOrientationUnknown] forKey:@"orientation"];
+    [[UIDevice currentDevice] setValue:[NSNumber numberWithInteger:orientation] forKey:@"orientation"];
+    
+    // 触发旋转后，手动修正一下控制栏的布局，防止横竖屏切换时控件位置错乱
+    [self.view setNeedsLayout];
+    [self.view layoutIfNeeded];
+}
+
+// ... 保持原有控制逻辑不变 ...
+
 - (void)startTimer {
     self.timer = [NSTimer scheduledTimerWithTimeInterval:1.0 target:self selector:@selector(updateProgress) userInfo:nil repeats:YES];
 }
 
 - (void)updateProgress {
-    // 针对直播源的特殊保护：直播源可能没有时长 (duration 为 0 或 NaN)
     if (self.player.duration > 0 && !isnan(self.player.duration)) {
         self.progressBar.value = self.player.currentPlaybackTime / self.player.duration;
     }
@@ -136,59 +212,12 @@
     }
 }
 
-- (void)toggleFullscreen {
-    // 读取用户在设置中设定的全屏逻辑偏好
-    NSInteger orientationPref = [[NSUserDefaults standardUserDefaults] integerForKey:@"PlayerOrientationPref"];
-    
-    UIInterfaceOrientation targetOrientation = UIInterfaceOrientationLandscapeRight;
-    
-    if (orientationPref == 1) {
-        targetOrientation = UIInterfaceOrientationLandscapeRight; // 强制横屏
-    } else if (orientationPref == 2) {
-        targetOrientation = UIInterfaceOrientationPortrait; // 强制竖屏
-    } else {
-        // 0 = 跟随系统。如果当前是竖屏，点击全屏进入横屏；反之退回竖屏（充当开关）
-        UIInterfaceOrientation currentOrientation = [UIApplication sharedApplication].statusBarOrientation;
-        if (UIInterfaceOrientationIsPortrait(currentOrientation)) {
-            targetOrientation = UIInterfaceOrientationLandscapeRight;
-        } else {
-            targetOrientation = UIInterfaceOrientationPortrait;
-        }
-    }
-    
-    // 【核心修改】：利用底层 API 强制向系统发送设备方向变更的通知。
-    // 我们不再调用 [self.player setFullscreen:YES]，这样就彻底避免了进入系统默认黑盒子 UI，
-    // 原生的画面会自动跟随设备方向填满屏幕，同时完美保留我们的自定义组件！
-    
-    // Hack: 先设为 Unknown 保证系统一定会刷新布局
-    [[UIDevice currentDevice] setValue:[NSNumber numberWithInteger:UIDeviceOrientationUnknown] forKey:@"orientation"];
-    [[UIDevice currentDevice] setValue:[NSNumber numberWithInteger:targetOrientation] forKey:@"orientation"];
-}
-
-- (void)toggleControls {
-    self.isControlsHidden = !self.isControlsHidden;
-    [UIView animateWithDuration:0.3 animations:^{
-        self.topBar.alpha = self.isControlsHidden ? 0.0 : 1.0;
-        self.bottomBar.alpha = self.isControlsHidden ? 0.0 : 1.0;
-    }];
-    
-    // 沉浸式体验：隐藏控制栏时，连带隐藏系统顶部的状态栏 (时间、电池等)
-    if ([self respondsToSelector:@selector(setNeedsStatusBarAppearanceUpdate)]) {
-        // 适配 iOS 7 及以上
-        [self setNeedsStatusBarAppearanceUpdate];
-    } else {
-        // 适配 iOS 6
-        [[UIApplication sharedApplication] setStatusBarHidden:self.isControlsHidden withAnimation:UIStatusBarAnimationFade];
-    }
-}
-
 // 供 iOS 7+ 系统调用，决定是否隐藏状态栏
 - (BOOL)prefersStatusBarHidden {
     return self.isControlsHidden;
 }
 
 - (void)closePlayer {
-    // 退出播放器时，确保恢复系统状态栏显示
     if (![self respondsToSelector:@selector(setNeedsStatusBarAppearanceUpdate)]) {
         [[UIApplication sharedApplication] setStatusBarHidden:NO withAnimation:UIStatusBarAnimationNone];
     }
@@ -197,13 +226,27 @@
     self.timer = nil;
     [self.player stop];
     [[NSNotificationCenter defaultCenter] removeObserver:self];
+    
+    // 退出播放器前，强制恢复到竖屏，避免影响列表页
+    [self forceRotateToOrientation:UIInterfaceOrientationPortrait];
+    
     [self dismissViewControllerAnimated:YES completion:nil];
 }
 
-// 允许该播放器页面支持横竖屏自动旋转
+// 手势代理：防止点击按钮时触发背景手势
+- (BOOL)gestureRecognizer:(UIGestureRecognizer *)gestureRecognizer shouldReceiveTouch:(UITouch *)touch {
+    // 如果点在控制栏上，不响应背景手势
+    if ([touch.view isDescendantOfView:self.topBar] || [touch.view isDescendantOfView:self.bottomBar]) {
+        return NO;
+    }
+    return YES;
+}
+
+// 允许旋转
 - (BOOL)shouldAutorotate {
     return YES;
 }
+
 - (NSUInteger)supportedInterfaceOrientations {
     return UIInterfaceOrientationMaskAllButUpsideDown;
 }
