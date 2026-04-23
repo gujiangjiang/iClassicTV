@@ -30,7 +30,8 @@
     self.player = [[MPMoviePlayerController alloc] initWithContentURL:url];
     self.player.view.frame = self.view.bounds;
     self.player.view.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
-    self.player.controlStyle = MPMovieControlStyleNone; // 隐藏 iOS 默认控制条，使用我们的外观组件
+    // 【核心修正】：永远保持 None，拒绝系统UI的介入
+    self.player.controlStyle = MPMovieControlStyleNone;
     [self.view addSubview:self.player.view];
     
     // 2. 顶部导航栏 (包含返回按钮和频道名称)
@@ -84,13 +85,19 @@
     [fullBtn addTarget:self action:@selector(toggleFullscreen) forControlEvents:UIControlEventTouchUpInside];
     [self.bottomBar addSubview:fullBtn];
     
-    // 4. 添加手势控制：点击屏幕任意位置显示/隐藏 UI 控制栏
-    UITapGestureRecognizer *tap = [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(toggleControls)];
-    [self.view addGestureRecognizer:tap];
+    // 4. 【新增】添加手势控制：双击全屏 与 单击隐藏/显示控件
+    UITapGestureRecognizer *doubleTap = [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(toggleFullscreen)];
+    doubleTap.numberOfTapsRequired = 2; // 双击触发全屏
+    [self.view addGestureRecognizer:doubleTap];
     
-    // 5. 监听播放状态和退出全屏事件
+    UITapGestureRecognizer *singleTap = [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(toggleControls)];
+    singleTap.numberOfTapsRequired = 1; // 单击触发隐藏/显示
+    // 【关键】：告诉系统必须等待双击判定失败后，才执行单击。防止单击和双击事件打架。
+    [singleTap requireGestureRecognizerToFail:doubleTap];
+    [self.view addGestureRecognizer:singleTap];
+    
+    // 5. 监听播放状态
     [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(playbackStateChanged) name:MPMoviePlayerPlaybackStateDidChangeNotification object:self.player];
-    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(exitFullscreen) name:MPMoviePlayerWillExitFullscreenNotification object:self.player];
     
     [self.player play];
     [self startTimer];
@@ -133,24 +140,29 @@
     // 读取用户在设置中设定的全屏逻辑偏好
     NSInteger orientationPref = [[NSUserDefaults standardUserDefaults] integerForKey:@"PlayerOrientationPref"];
     
-    // 利用底层 API 强制向系统发送设备方向变更的通知，以此强制干预全屏的最终展现方向
-    if (orientationPref == 1) {
-        // 1 = 强制横屏
-        [[UIDevice currentDevice] setValue:[NSNumber numberWithInteger:UIInterfaceOrientationLandscapeRight] forKey:@"orientation"];
-    } else if (orientationPref == 2) {
-        // 2 = 强制竖屏
-        [[UIDevice currentDevice] setValue:[NSNumber numberWithInteger:UIInterfaceOrientationPortrait] forKey:@"orientation"];
-    }
-    // 0 = 跟随系统 (不做任何强制干预，由设备重力感应决定)
+    UIInterfaceOrientation targetOrientation = UIInterfaceOrientationLandscapeRight;
     
-    // 调用系统原生的全屏功能，它会自动继承我们上面设定的设备方向
-    self.player.controlStyle = MPMovieControlStyleFullscreen;
-    [self.player setFullscreen:YES animated:YES];
-}
-
-- (void)exitFullscreen {
-    // 用户退出原生全屏后，恢复我们外观组件的 UI 样式
-    self.player.controlStyle = MPMovieControlStyleNone;
+    if (orientationPref == 1) {
+        targetOrientation = UIInterfaceOrientationLandscapeRight; // 强制横屏
+    } else if (orientationPref == 2) {
+        targetOrientation = UIInterfaceOrientationPortrait; // 强制竖屏
+    } else {
+        // 0 = 跟随系统。如果当前是竖屏，点击全屏进入横屏；反之退回竖屏（充当开关）
+        UIInterfaceOrientation currentOrientation = [UIApplication sharedApplication].statusBarOrientation;
+        if (UIInterfaceOrientationIsPortrait(currentOrientation)) {
+            targetOrientation = UIInterfaceOrientationLandscapeRight;
+        } else {
+            targetOrientation = UIInterfaceOrientationPortrait;
+        }
+    }
+    
+    // 【核心修改】：利用底层 API 强制向系统发送设备方向变更的通知。
+    // 我们不再调用 [self.player setFullscreen:YES]，这样就彻底避免了进入系统默认黑盒子 UI，
+    // 原生的画面会自动跟随设备方向填满屏幕，同时完美保留我们的自定义组件！
+    
+    // Hack: 先设为 Unknown 保证系统一定会刷新布局
+    [[UIDevice currentDevice] setValue:[NSNumber numberWithInteger:UIDeviceOrientationUnknown] forKey:@"orientation"];
+    [[UIDevice currentDevice] setValue:[NSNumber numberWithInteger:targetOrientation] forKey:@"orientation"];
 }
 
 - (void)toggleControls {
@@ -159,9 +171,28 @@
         self.topBar.alpha = self.isControlsHidden ? 0.0 : 1.0;
         self.bottomBar.alpha = self.isControlsHidden ? 0.0 : 1.0;
     }];
+    
+    // 沉浸式体验：隐藏控制栏时，连带隐藏系统顶部的状态栏 (时间、电池等)
+    if ([self respondsToSelector:@selector(setNeedsStatusBarAppearanceUpdate)]) {
+        // 适配 iOS 7 及以上
+        [self setNeedsStatusBarAppearanceUpdate];
+    } else {
+        // 适配 iOS 6
+        [[UIApplication sharedApplication] setStatusBarHidden:self.isControlsHidden withAnimation:UIStatusBarAnimationFade];
+    }
+}
+
+// 供 iOS 7+ 系统调用，决定是否隐藏状态栏
+- (BOOL)prefersStatusBarHidden {
+    return self.isControlsHidden;
 }
 
 - (void)closePlayer {
+    // 退出播放器时，确保恢复系统状态栏显示
+    if (![self respondsToSelector:@selector(setNeedsStatusBarAppearanceUpdate)]) {
+        [[UIApplication sharedApplication] setStatusBarHidden:NO withAnimation:UIStatusBarAnimationNone];
+    }
+    
     [self.timer invalidate];
     self.timer = nil;
     [self.player stop];
