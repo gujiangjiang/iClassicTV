@@ -23,6 +23,7 @@
 
 @property (nonatomic, assign) BOOL isLocked;
 @property (nonatomic, assign) BOOL isControlsHidden;
+@property (nonatomic, assign) BOOL currentIsFullscreen; // 新增：记录当前是否全屏
 @property (nonatomic, strong) NSTimer *autoHideTimer;
 
 @end
@@ -35,10 +36,26 @@
         self.backgroundColor = [UIColor clearColor];
         self.isLocked = NO;
         self.isControlsHidden = NO;
+        self.currentIsFullscreen = NO;
         [self setupUI];
         [self startAutoHideTimer];
     }
     return self;
+}
+
+// 新增：根据系统版本应用对应的背景风格 (iOS7毛玻璃 / iOS6拟物黑)
+- (void)applyBlurEffectToView:(UIView *)view {
+    BOOL isIOS7 = [[[UIDevice currentDevice] systemVersion] floatValue] >= 7.0;
+    if (isIOS7) {
+        view.backgroundColor = [UIColor clearColor];
+        UIToolbar *blurBar = [[UIToolbar alloc] initWithFrame:view.bounds];
+        blurBar.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+        blurBar.barStyle = UIBarStyleBlack;
+        blurBar.translucent = YES;
+        [view insertSubview:blurBar atIndex:0]; // 垫在最底层实现毛玻璃
+    } else {
+        view.backgroundColor = [UIColor colorWithWhite:0.0 alpha:0.7];
+    }
 }
 
 - (void)setupUI {
@@ -57,13 +74,11 @@
     // 2. 手势拦截层
     self.gestureCatcherView = [[UIView alloc] initWithFrame:self.bounds];
     self.gestureCatcherView.backgroundColor = [UIColor clearColor];
-    self.gestureCatcherView.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
     [self addSubview:self.gestureCatcherView];
     
     // 3. 顶部导航栏
     self.topBar = [[UIView alloc] initWithFrame:CGRectMake(0, 0, self.bounds.size.width, 44)];
-    self.topBar.backgroundColor = [UIColor colorWithWhite:0.0 alpha:0.7];
-    self.topBar.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleBottomMargin;
+    [self applyBlurEffectToView:self.topBar];
     [self addSubview:self.topBar];
     
     UIButton *backBtn = [UIButton buttonWithType:UIButtonTypeCustom];
@@ -84,8 +99,7 @@
     
     // 4. 底部控制栏
     self.bottomBar = [[UIView alloc] initWithFrame:CGRectMake(0, self.bounds.size.height - 50, self.bounds.size.width, 50)];
-    self.bottomBar.backgroundColor = [UIColor colorWithWhite:0.0 alpha:0.7];
-    self.bottomBar.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleTopMargin;
+    [self applyBlurEffectToView:self.bottomBar];
     [self addSubview:self.bottomBar];
     
     self.playBtn = [UIButton buttonWithType:UIButtonTypeCustom];
@@ -116,7 +130,6 @@
     // 5. 左侧锁定按钮
     self.lockBtn = [UIButton buttonWithType:UIButtonTypeCustom];
     self.lockBtn.frame = CGRectMake(20, (self.bounds.size.height - 40) / 2, 40, 40);
-    self.lockBtn.autoresizingMask = UIViewAutoresizingFlexibleTopMargin | UIViewAutoresizingFlexibleBottomMargin | UIViewAutoresizingFlexibleRightMargin;
     self.lockBtn.backgroundColor = [UIColor colorWithWhite:0.0 alpha:0.3];
     self.lockBtn.layer.cornerRadius = 20;
     self.lockBtn.alpha = 0.6;
@@ -133,6 +146,48 @@
     singleTap.numberOfTapsRequired = 1;
     [singleTap requireGestureRecognizerToFail:doubleTap];
     [self.gestureCatcherView addGestureRecognizer:singleTap];
+}
+
+// 新增：动态重算控制组件的 Frame 以适应半屏/全屏
+- (void)updateLayoutForFullscreen:(BOOL)isFullscreen videoFrame:(CGRect)videoFrame {
+    self.currentIsFullscreen = isFullscreen;
+    
+    // 竖屏半屏时解开可能遗留的锁定状态
+    if (!isFullscreen && self.isLocked) {
+        self.isLocked = NO;
+        [self.lockBtn setImage:[UIImage dynamicLockIconWithState:NO] forState:UIControlStateNormal];
+    }
+    
+    // 全屏时隐藏了状态栏，非全屏时显示状态栏。动态补偿高度避免内容被遮挡
+    CGFloat topBarHeight = isFullscreen ? 44.0 : 64.0;
+    CGFloat yOffset = isFullscreen ? 0.0 : 20.0;
+    
+    self.topBar.frame = CGRectMake(0, 0, self.bounds.size.width, topBarHeight);
+    
+    // 调整 topBar 内部元素的垂直偏移
+    for (UIView *subview in self.topBar.subviews) {
+        if ([subview isKindOfClass:[UIButton class]]) {
+            subview.frame = CGRectMake(5, yOffset, 60, 44);
+        } else if ([subview isKindOfClass:[UILabel class]]) {
+            subview.frame = CGRectMake(70, yOffset, self.bounds.size.width - 140, 44);
+        }
+    }
+    
+    // BottomBar 紧贴视频区域底部悬浮
+    self.bottomBar.frame = CGRectMake(0, CGRectGetMaxY(videoFrame) - 50, self.bounds.size.width, 50);
+    
+    // 触控感应区域与视频区域重叠
+    self.gestureCatcherView.frame = videoFrame;
+    
+    // 锁定按钮仅在全屏可用并居左对齐
+    self.lockBtn.hidden = !isFullscreen;
+    self.lockBtn.center = CGPointMake(40, CGRectGetMidY(videoFrame));
+    
+    // 状态文字在视频居中
+    self.statusLabel.center = CGPointMake(CGRectGetMidX(videoFrame), CGRectGetMidY(videoFrame));
+    
+    // 触发一次隐藏状态校验，确保非全屏时顶部常显
+    [self setControlsHidden:self.isControlsHidden];
 }
 
 #pragma mark - 公开更新接口
@@ -238,13 +293,14 @@
             self.bottomBar.alpha = 0.0;
             self.lockBtn.alpha = hidden ? 0.0 : 0.6;
         } else {
-            self.topBar.alpha = hidden ? 0.0 : 1.0;
+            // 优化：竖屏非全屏模式下，顶部栏作为系统导航栏功能，决不能被隐藏
+            self.topBar.alpha = (!self.currentIsFullscreen) ? 1.0 : (hidden ? 0.0 : 1.0);
             self.bottomBar.alpha = hidden ? 0.0 : 1.0;
             self.lockBtn.alpha = hidden ? 0.0 : 0.6;
         }
     }];
     
-    self.topBar.userInteractionEnabled = !self.isLocked && !hidden;
+    self.topBar.userInteractionEnabled = !self.isLocked;
     self.bottomBar.userInteractionEnabled = !self.isLocked && !hidden;
     
     // 通知控制器 UI 隐藏状态改变，以便控制器更新状态栏

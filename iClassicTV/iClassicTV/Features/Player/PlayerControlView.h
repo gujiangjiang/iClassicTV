@@ -36,4 +36,7 @@
 // 新增：主动注销自动隐藏定时器，防止在关闭播放器时引发内存泄漏或野指针异常
 - (void)cancelAutoHideTimer;
 
+// 新增：布局更新接口，用于支持非全屏半屏显示的动态适配
+- (void)updateLayoutForFullscreen:(BOOL)isFullscreen videoFrame:(CGRect)videoFrame;
+
 @end

@@ -17,10 +17,12 @@
 @property (nonatomic, strong) MPMoviePlayerController *player;
 @property (nonatomic, strong) PlayerControlView *controlView; // UI 面板层
 
+@property (nonatomic, strong) UIView *backgroundView; // 新增：底层背景容器，用于竖屏留白区域渲染
+@property (nonatomic, strong) UILabel *tipsLabel;     // 新增：竖屏预留区域提示文字
+
 @property (nonatomic, strong) NSTimer *timer;
 @property (nonatomic, assign) BOOL isFullscreen;
 @property (nonatomic, assign) BOOL isControlsHidden;
-@property (nonatomic, assign) UIInterfaceOrientation originalOrientation;
 
 @end
 
@@ -35,8 +37,20 @@
         self.wantsFullScreenLayout = YES;
     }
     
-    self.isFullscreen = NO;
-    self.originalOrientation = [UIApplication sharedApplication].statusBarOrientation;
+    // 新增：加入统一的底层背景视图，方便管理非全屏时的界面空白处样式
+    self.backgroundView = [[UIView alloc] initWithFrame:self.view.bounds];
+    self.backgroundView.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+    [self.view addSubview:self.backgroundView];
+    
+    // 新增：用于在非全屏下方预留空间显示的提示文案
+    self.tipsLabel = [[UILabel alloc] initWithFrame:CGRectZero];
+    self.tipsLabel.backgroundColor = [UIColor clearColor];
+    self.tipsLabel.textAlignment = NSTextAlignmentCenter;
+    self.tipsLabel.textColor = [UIColor grayColor];
+    self.tipsLabel.font = [UIFont systemFontOfSize:14];
+    self.tipsLabel.text = @"电子节目单功能等待完善中。";
+    self.tipsLabel.numberOfLines = 0;
+    [self.view addSubview:self.tipsLabel];
     
     // 1. 注册接收远程控制事件（锁屏控件、耳机线控）
     [[UIApplication sharedApplication] beginReceivingRemoteControlEvents];
@@ -45,10 +59,8 @@
     // 2. 初始化底层播放内核
     NSURL *url = [NSURL URLWithString:[self.videoURLString stringByAddingPercentEscapesUsingEncoding:NSUTF8StringEncoding]];
     self.player = [[MPMoviePlayerController alloc] initWithContentURL:url];
-    self.player.view.frame = self.view.bounds;
-    self.player.view.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
     self.player.controlStyle = MPMovieControlStyleNone; // 隐藏系统自带 UI
-    [self.view addSubview:self.player.view];
+    [self.view addSubview:self.player.view]; // 优化：Frame 交由 viewWillLayoutSubviews 动态算计
     
     // 3. 挂载分离出去的独立 UI 组件
     self.controlView = [[PlayerControlView alloc] initWithFrame:self.view.bounds];
@@ -69,6 +81,42 @@
     [self updateNowPlayingInfo];
 }
 
+// 优化：通过系统回调动态计算各个组件的 Frame 尺寸，自动完美适配横竖屏
+- (void)viewWillLayoutSubviews {
+    [super viewWillLayoutSubviews];
+    
+    // 判断系统当前旋转后的方向，强制确立全屏状态标识
+    UIInterfaceOrientation orientation = [UIApplication sharedApplication].statusBarOrientation;
+    self.isFullscreen = UIInterfaceOrientationIsLandscape(orientation);
+    
+    [self.controlView updateFullscreenButtonState:self.isFullscreen];
+    
+    CGRect videoFrame;
+    if (self.isFullscreen) {
+        // 横屏：纯粹沉浸式全屏
+        videoFrame = self.view.bounds;
+        self.backgroundView.backgroundColor = [UIColor blackColor];
+        self.tipsLabel.hidden = YES;
+    } else {
+        // 竖屏：避开 64px 伪导航栏高度，并以标准的 16:9 比例渲染播放器画面
+        CGFloat topBarHeight = 64.0;
+        CGFloat videoHeight = self.view.bounds.size.width * 9.0 / 16.0;
+        videoFrame = CGRectMake(0, topBarHeight, self.view.bounds.size.width, videoHeight);
+        
+        // 分离系统风格，iOS 7 显示淡雅灰色，iOS 6 显示经典的带纹理的亚麻布深灰
+        BOOL isIOS7 = [[[UIDevice currentDevice] systemVersion] floatValue] >= 7.0;
+        self.backgroundView.backgroundColor = isIOS7 ? [UIColor groupTableViewBackgroundColor] : [UIColor scrollViewTexturedBackgroundColor];
+        
+        self.tipsLabel.hidden = NO;
+        self.tipsLabel.frame = CGRectMake(20, CGRectGetMaxY(videoFrame) + 30, self.view.bounds.size.width - 40, 40);
+    }
+    
+    self.player.view.frame = videoFrame;
+    
+    // 同步把计算好的视频大小抛给 UI 组件层让其自适应重算内部部件
+    [self.controlView updateLayoutForFullscreen:self.isFullscreen videoFrame:videoFrame];
+}
+
 #pragma mark - PlayerControlViewDelegate (响应 UI 层的点击操作)
 
 - (void)controlViewDidTapBack:(PlayerControlView *)controlView {
@@ -85,18 +133,18 @@
 
 - (void)controlViewDidTapFullscreen:(PlayerControlView *)controlView {
     if (self.isFullscreen) {
-        self.isFullscreen = NO;
-        [self.controlView updateFullscreenButtonState:NO];
-        [self forceRotateToOrientation:self.originalOrientation];
+        // 当前为横屏，主动退出全屏切回竖屏
+        [self forceRotateToOrientation:UIInterfaceOrientationPortrait];
     } else {
-        self.isFullscreen = YES;
-        [self.controlView updateFullscreenButtonState:YES];
-        self.originalOrientation = [UIApplication sharedApplication].statusBarOrientation;
+        // 当前为竖屏，主动进入全屏切至横屏
         UIInterfaceOrientation targetOrientation = [PlayerConfigManager preferredInterfaceOrientation];
+        if (!UIInterfaceOrientationIsLandscape(targetOrientation)) {
+            targetOrientation = UIInterfaceOrientationLandscapeRight; // 如果配置异常，兜底防呆为右横向
+        }
         [self forceRotateToOrientation:targetOrientation];
     }
     
-    // 修复：全屏状态改变后，立刻主动刷新状态栏的显隐状态，实现真正的沉浸式全屏
+    // 主动更新状态栏可见性状态
     if ([self respondsToSelector:@selector(setNeedsStatusBarAppearanceUpdate)]) {
         [self setNeedsStatusBarAppearanceUpdate];
     } else {
@@ -218,8 +266,9 @@
 }
 
 - (BOOL)prefersStatusBarHidden {
-    // 修复：只要是全屏模式，就永远强制隐藏状态栏；非全屏时才跟随控制面板的显隐状态
-    return self.isFullscreen || self.isControlsHidden;
+    // 优化：竖屏半屏下必须常驻显示状态栏防跳动；横屏全屏下跟随播放面板控制是否隐藏
+    if (!self.isFullscreen) return NO;
+    return self.isControlsHidden;
 }
 
 - (void)closePlayer {
