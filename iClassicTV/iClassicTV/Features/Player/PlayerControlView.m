@@ -81,7 +81,7 @@
     self.topBar.backgroundColor = [UIColor clearColor];
     [self addSubview:self.topBar];
     
-    // 嵌入系统原生的 UINavigationBar 作为全屏模式下的顶栏背景
+    // 嵌入系统原生的 UINavigationBar 作为顶栏的原生背景渲染层
     UINavigationBar *topNavBg = [[UINavigationBar alloc] initWithFrame:self.topBar.bounds];
     topNavBg.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
     topNavBg.barStyle = UIBarStyleBlack;
@@ -92,7 +92,7 @@
     backBtn.frame = CGRectMake(5, 0, 60, 44);
     [backBtn setTitle:@"< 返回" forState:UIControlStateNormal];
     [backBtn setTitleColor:[UIColor whiteColor] forState:UIControlStateNormal];
-    backBtn.titleLabel.font = [UIFont boldSystemFontOfSize:15];
+    backBtn.titleLabel.font = [UIFont systemFontOfSize:17]; // 优化：采用 17 号字体贴近系统原生返回按钮
     [backBtn addTarget:self action:@selector(backBtnTapped) forControlEvents:UIControlEventTouchUpInside];
     [self.topBar addSubview:backBtn];
     
@@ -100,7 +100,7 @@
     self.titleLabel.textColor = [UIColor whiteColor];
     self.titleLabel.textAlignment = NSTextAlignmentCenter;
     self.titleLabel.backgroundColor = [UIColor clearColor];
-    self.titleLabel.font = [UIFont boldSystemFontOfSize:16];
+    self.titleLabel.font = [UIFont boldSystemFontOfSize:17]; // 优化：采用 17 号粗体贴近系统原生标题
     self.titleLabel.autoresizingMask = UIViewAutoresizingFlexibleWidth;
     [self.topBar addSubview:self.titleLabel];
     
@@ -164,27 +164,45 @@
         [self.lockBtn setImage:[UIImage dynamicLockIconWithState:NO] forState:UIControlStateNormal];
     }
     
-    // 优化：根据横竖屏决定 TopBar 是否渲染背景
     CGFloat topBarHeight = isFullscreen ? 44.0 : 64.0;
     CGFloat yOffset = isFullscreen ? 0.0 : 20.0;
     
     self.topBar.frame = CGRectMake(0, 0, self.bounds.size.width, topBarHeight);
     
     BOOL isIOS7 = [[[UIDevice currentDevice] systemVersion] floatValue] >= 7.0;
+    
+    // 修复：新增动态调整文字和按钮颜色，彻底还原系统原生样式
+    UIColor *titleColor = [UIColor whiteColor];
+    UIColor *backBtnColor = [UIColor whiteColor];
+    
+    if (!isFullscreen && isIOS7) {
+        // iOS 7+ 竖屏模式：配合 UIBarStyleDefault 原生浅色导航栏，文字必须为黑色，返回按钮为系统原生蓝色
+        titleColor = [UIColor blackColor];
+        backBtnColor = [UIColor colorWithRed:0.0 green:122.0/255.0 blue:1.0 alpha:1.0];
+    }
+    
     for (UIView *subview in self.topBar.subviews) {
         if (subview.tag == 999) {
-            // 优化：竖屏模式下彻底隐藏导航栏背景渲染，直接透出底层的原生背景质感
-            subview.hidden = !isFullscreen;
+            UINavigationBar *navBg = (UINavigationBar *)subview;
+            // 修复：不再强制隐藏导航栏背景，而是根据全屏状态动态切换它的原生主题风格
+            navBg.hidden = NO;
+            navBg.barStyle = isFullscreen ? UIBarStyleBlack : UIBarStyleDefault;
             
             if (isFullscreen) {
                 subview.frame = self.topBar.bounds;
             } else if (!isIOS7) {
                 subview.frame = CGRectMake(0, 20, self.bounds.size.width, 44);
+            } else {
+                subview.frame = self.topBar.bounds;
             }
         } else if ([subview isKindOfClass:[UIButton class]]) {
-            subview.frame = CGRectMake(5, yOffset, 60, 44);
+            UIButton *btn = (UIButton *)subview;
+            btn.frame = CGRectMake(5, yOffset, 60, 44);
+            [btn setTitleColor:backBtnColor forState:UIControlStateNormal];
         } else if ([subview isKindOfClass:[UILabel class]]) {
-            subview.frame = CGRectMake(70, yOffset, self.bounds.size.width - 140, 44);
+            UILabel *lbl = (UILabel *)subview;
+            lbl.frame = CGRectMake(70, yOffset, self.bounds.size.width - 140, 44);
+            lbl.textColor = titleColor;
         }
     }
     
