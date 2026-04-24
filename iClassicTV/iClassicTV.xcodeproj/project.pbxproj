@@ -42,6 +42,9 @@
 		48D63F4E2F97DE1F002AD06E /* iClassicTVTests.m in Sources */ = {isa = PBXBuildFile; fileRef = 48D63F4D2F97DE1F002AD06E /* iClassicTVTests.m */; };
 		48FBEB1B2F9BCCA300DD08EE /* DataManagementViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 48FBEB1A2F9BCCA300DD08EE /* DataManagementViewController.m */; };
 		48FBEB1E2F9BD2D200DD08EE /* AlertHelper.m in Sources */ = {isa = PBXBuildFile; fileRef = 48FBEB1D2F9BD2D200DD08EE /* AlertHelper.m */; };
+		48FBEB212F9BD55100DD08EE /* zh-CN.json in Resources */ = {isa = PBXBuildFile; fileRef = 48FBEB202F9BD55100DD08EE /* zh-CN.json */; };
+		48FBEB232F9BD56A00DD08EE /* en.json in Resources */ = {isa = PBXBuildFile; fileRef = 48FBEB222F9BD56A00DD08EE /* en.json */; };
+		48FBEB262F9BD59800DD08EE /* LanguageManager.m in Sources */ = {isa = PBXBuildFile; fileRef = 48FBEB252F9BD59800DD08EE /* LanguageManager.m */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -117,6 +120,10 @@
 		48FBEB1A2F9BCCA300DD08EE /* DataManagementViewController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = DataManagementViewController.m; sourceTree = "<group>"; };
 		48FBEB1C2F9BD2D200DD08EE /* AlertHelper.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = AlertHelper.h; sourceTree = "<group>"; };
 		48FBEB1D2F9BD2D200DD08EE /* AlertHelper.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = AlertHelper.m; sourceTree = "<group>"; };
+		48FBEB202F9BD55100DD08EE /* zh-CN.json */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.json; path = "zh-CN.json"; sourceTree = "<group>"; };
+		48FBEB222F9BD56A00DD08EE /* en.json */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.json; path = en.json; sourceTree = "<group>"; };
+		48FBEB242F9BD59800DD08EE /* LanguageManager.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = LanguageManager.h; sourceTree = "<group>"; };
+		48FBEB252F9BD59800DD08EE /* LanguageManager.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = LanguageManager.m; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -146,6 +153,7 @@
 		48317B722F9A78E9002489FE /* iClassicTV */ = {
 			isa = PBXGroup;
 			children = (
+				48FBEB1F2F9BD53100DD08EE /* i18n */,
 				48317B732F9A78E9002489FE /* App */,
 				48317B772F9A78E9002489FE /* Core */,
 				48317B7A2F9A78E9002489FE /* Features */,
@@ -171,6 +179,8 @@
 			children = (
 				48317B782F9A78E9002489FE /* M3UParser.h */,
 				48317B792F9A78E9002489FE /* M3UParser.m */,
+				48FBEB242F9BD59800DD08EE /* LanguageManager.h */,
+				48FBEB252F9BD59800DD08EE /* LanguageManager.m */,
 			);
 			path = Core;
 			sourceTree = "<group>";
@@ -323,6 +333,15 @@
 			name = "Supporting Files";
 			sourceTree = "<group>";
 		};
+		48FBEB1F2F9BD53100DD08EE /* i18n */ = {
+			isa = PBXGroup;
+			children = (
+				48FBEB202F9BD55100DD08EE /* zh-CN.json */,
+				48FBEB222F9BD56A00DD08EE /* en.json */,
+			);
+			name = i18n;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -398,7 +417,9 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				48FBEB212F9BD55100DD08EE /* zh-CN.json in Resources */,
 				48317BB22F9A78E9002489FE /* Images.xcassets in Resources */,
+				48FBEB232F9BD56A00DD08EE /* en.json in Resources */,
 				48317BB02F9A78E9002489FE /* InfoPlist.strings in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -427,6 +448,7 @@
 				481612762F9B900D00067C15 /* NSString+EncodingHelper.m in Sources */,
 				48317BAA2F9A78E9002489FE /* Channel.m in Sources */,
 				48317BA22F9A78E9002489FE /* M3UParser.m in Sources */,
+				48FBEB262F9BD59800DD08EE /* LanguageManager.m in Sources */,
 				4816127C2F9BA82300067C15 /* UIViewController+ScrollToTop.m in Sources */,
 				48317BA72F9A78E9002489FE /* SettingsViewController.m in Sources */,
 				48317BAD2F9A78E9002489FE /* SSLBypassHelper.m in Sources */,
