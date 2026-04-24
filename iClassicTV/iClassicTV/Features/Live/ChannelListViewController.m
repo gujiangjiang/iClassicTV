@@ -15,6 +15,8 @@
 #import "UIImage+LogoHelper.h"
 #import "ToastHelper.h"
 #import "PlayerConfigManager.h"
+// 新增：引入滚动处理通用模块
+#import "UIViewController+ScrollToTop.h"
 
 // --- 修复：新增自定义的原生播放器子类，用于接管并强制控制原生播放器的屏幕旋转逻辑 ---
 @interface CustomNativePlayerViewController : MPMoviePlayerViewController
@@ -54,6 +56,9 @@
     [super viewDidLoad];
     self.tableView.rowHeight = 55.0;
     self.imageCache = [[NSCache alloc] init];
+    
+    // 新增：调用通用模块，为当前导航栏标题栏注册双击回到最上方的功能
+    [self enableNavigationBarDoubleTapToScrollTop];
 }
 
 - (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section {

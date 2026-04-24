@@ -10,6 +10,8 @@
 #import "SourceManagerViewController.h"
 #import "AboutViewController.h"
 #import "AppDataManager.h" // 引入数据管理模块
+// 新增：引入滚动处理通用模块
+#import "UIViewController+ScrollToTop.h"
 
 @interface SettingsViewController () <UIAlertViewDelegate, UIActionSheetDelegate>
 @property (nonatomic, strong) NSArray *sections;
@@ -22,6 +24,10 @@
 - (void)viewDidLoad {
     [super viewDidLoad];
     self.title = @"设置";
+    
+    // 新增：调用通用模块，为当前导航栏标题栏注册双击回到最上方的功能
+    [self enableNavigationBarDoubleTapToScrollTop];
+    
     self.sections = @[
                       @{@"title": @"直播源设置", @"rows": @[@"我的直播源 (管理与添加)"]},
                       @{@"title": @"软件设置", @"rows": @[@"默认全屏逻辑", @"默认播放器", @"清空所有直播源", @"清空缓存 (记忆与偏好)"]},

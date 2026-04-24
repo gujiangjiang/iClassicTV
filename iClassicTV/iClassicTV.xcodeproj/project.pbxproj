@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		481612762F9B900D00067C15 /* NSString+EncodingHelper.m in Sources */ = {isa = PBXBuildFile; fileRef = 481612752F9B900D00067C15 /* NSString+EncodingHelper.m */; };
+		4816127C2F9BA82300067C15 /* UIViewController+ScrollToTop.m in Sources */ = {isa = PBXBuildFile; fileRef = 4816127B2F9BA82300067C15 /* UIViewController+ScrollToTop.m */; };
 		482FAB212F9A857900B4F9D8 /* UIImage+DynamicIcon.m in Sources */ = {isa = PBXBuildFile; fileRef = 482FAB202F9A857900B4F9D8 /* UIImage+DynamicIcon.m */; };
 		482FAB242F9A891A00B4F9D8 /* PlayerControlView.m in Sources */ = {isa = PBXBuildFile; fileRef = 482FAB232F9A891A00B4F9D8 /* PlayerControlView.m */; };
 		48317BA02F9A78E9002489FE /* AppDelegate.m in Sources */ = {isa = PBXBuildFile; fileRef = 48317B752F9A78E9002489FE /* AppDelegate.m */; };
@@ -51,6 +52,8 @@
 /* Begin PBXFileReference section */
 		481612742F9B8FFA00067C15 /* NSString+EncodingHelper.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "NSString+EncodingHelper.h"; sourceTree = "<group>"; };
 		481612752F9B900D00067C15 /* NSString+EncodingHelper.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = "NSString+EncodingHelper.m"; sourceTree = "<group>"; };
+		4816127A2F9BA81800067C15 /* UIViewController+ScrollToTop.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "UIViewController+ScrollToTop.h"; sourceTree = "<group>"; };
+		4816127B2F9BA82300067C15 /* UIViewController+ScrollToTop.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = "UIViewController+ScrollToTop.m"; sourceTree = "<group>"; };
 		482FAB1F2F9A856A00B4F9D8 /* UIImage+DynamicIcon.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "UIImage+DynamicIcon.h"; sourceTree = "<group>"; };
 		482FAB202F9A857900B4F9D8 /* UIImage+DynamicIcon.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = "UIImage+DynamicIcon.m"; sourceTree = "<group>"; };
 		482FAB222F9A890E00B4F9D8 /* PlayerControlView.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = PlayerControlView.h; sourceTree = "<group>"; };
@@ -230,6 +233,8 @@
 				482FAB202F9A857900B4F9D8 /* UIImage+DynamicIcon.m */,
 				481612742F9B8FFA00067C15 /* NSString+EncodingHelper.h */,
 				481612752F9B900D00067C15 /* NSString+EncodingHelper.m */,
+				4816127A2F9BA81800067C15 /* UIViewController+ScrollToTop.h */,
+				4816127B2F9BA82300067C15 /* UIViewController+ScrollToTop.m */,
 			);
 			path = Modules;
 			sourceTree = "<group>";
@@ -394,6 +399,7 @@
 				481612762F9B900D00067C15 /* NSString+EncodingHelper.m in Sources */,
 				48317BAA2F9A78E9002489FE /* Channel.m in Sources */,
 				48317BA22F9A78E9002489FE /* M3UParser.m in Sources */,
+				4816127C2F9BA82300067C15 /* UIViewController+ScrollToTop.m in Sources */,
 				48317BA72F9A78E9002489FE /* SettingsViewController.m in Sources */,
 				48317BAD2F9A78E9002489FE /* SSLBypassHelper.m in Sources */,
 				48317BAE2F9A78E9002489FE /* ToastHelper.m in Sources */,

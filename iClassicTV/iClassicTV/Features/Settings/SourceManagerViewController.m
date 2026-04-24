@@ -11,6 +11,8 @@
 #import "AppDataManager.h"
 #import "NSString+EncodingHelper.h" // 引入字符串编码处理辅助模块
 #import "ToastHelper.h" // 新增：全局引入独立的 Toast 模块，统一交互样式
+// 新增：引入滚动处理通用模块
+#import "UIViewController+ScrollToTop.h"
 
 @interface SourceManagerViewController () <UIActionSheetDelegate, UIAlertViewDelegate>
 @property (nonatomic, strong) NSArray *scannedLocalFiles; // 用于临时存储扫描到的 iTunes 共享文件
@@ -24,6 +26,9 @@
     
     UIBarButtonItem *addBtn = [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemAdd target:self action:@selector(showAddOptions)];
     self.navigationItem.rightBarButtonItem = addBtn;
+    
+    // 新增：调用通用模块，为当前导航栏标题栏注册双击回到最上方的功能
+    [self enableNavigationBarDoubleTapToScrollTop];
 }
 
 - (void)viewWillAppear:(BOOL)animated {
@@ -279,7 +284,5 @@
         });
     });
 }
-
-// 优化：删除本文件自带的残留 showToast 方法，转为统一依赖 ToastHelper 模块
 
 @end

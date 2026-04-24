@@ -14,6 +14,8 @@
 // 新增：引入数据管理器，用于保存外部导入的源
 #import "AppDataManager.h"
 #import "NSString+EncodingHelper.h" // 引入字符串编码处理辅助模块
+// 新增：引入滚动处理通用模块
+#import "UIViewController+ScrollToTop.h"
 
 @implementation AppDelegate
 
@@ -36,10 +38,29 @@
     self.tabBarController = [[UITabBarController alloc] init];
     self.tabBarController.viewControllers = @[nav1, nav2];
     
+    // 新增：将代理设置为自己，从而可以拦截 Tab 的重复点击事件
+    self.tabBarController.delegate = self;
+    
     self.window.rootViewController = self.tabBarController;
     self.window.backgroundColor = [UIColor whiteColor];
     [self.window makeKeyAndVisible];
     
+    return YES;
+}
+
+#pragma mark - UITabBarControllerDelegate
+
+// 新增：处理点击 TabBar 的逻辑，实现双击回到最上方功能
+- (BOOL)tabBarController:(UITabBarController *)tabBarController shouldSelectViewController:(UIViewController *)viewController {
+    // 如果用户点击的依然是当前已经处于选中状态的 Tab
+    if (tabBarController.selectedViewController == viewController) {
+        if ([viewController isKindOfClass:[UINavigationController class]]) {
+            UINavigationController *nav = (UINavigationController *)viewController;
+            // 找到该导航控制器下最顶层的视图，并调用通用模块使其滚动到顶部
+            [nav.topViewController scrollToTopAnimated:YES];
+        }
+        return YES;
+    }
     return YES;
 }
 

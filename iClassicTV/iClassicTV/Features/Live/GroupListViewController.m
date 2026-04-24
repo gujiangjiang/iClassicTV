@@ -13,6 +13,8 @@
 // 引入数据管理模块，实现数据迁移逻辑的解耦
 #import "AppDataManager.h"
 #import "NSString+EncodingHelper.h" // 引入字符串编码处理辅助模块
+// 新增：引入滚动处理通用模块
+#import "UIViewController+ScrollToTop.h"
 
 @implementation GroupListViewController
 
@@ -21,6 +23,9 @@
     self.title = @"频道列表"; // 优化：默认标题改为频道列表
     self.navigationItem.title = @"加载中..."; // 优化：单独设置顶部导航栏的初始标题
     self.tableView = [[UITableView alloc] initWithFrame:self.view.bounds style:UITableViewStyleGrouped];
+    
+    // 新增：调用通用模块，为当前导航栏标题栏注册双击回到最上方的功能
+    [self enableNavigationBarDoubleTapToScrollTop];
     
     // 监听数据更新通知
     [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(loadDataFromUserDefaults) name:@"M3UDataUpdated" object:nil];
