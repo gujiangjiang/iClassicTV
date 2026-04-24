@@ -13,6 +13,7 @@
 #import "NetworkManager.h" // 新增：引入全局独立的下载模块
 #import "ToastHelper.h"
 #import "UIViewController+ScrollToTop.h"
+#import "AlertHelper.h" // 新增：引入通用弹窗模块
 
 @interface SourceManagerViewController () <UIActionSheetDelegate, UIAlertViewDelegate>
 @property (nonatomic, strong) NSArray *scannedLocalFiles;
@@ -84,17 +85,17 @@
 // 处理侧滑删除动作
 - (void)tableView:(UITableView *)tableView commitEditingStyle:(UITableViewCellEditingStyle)editingStyle forRowAtIndexPath:(NSIndexPath *)indexPath {
     if (editingStyle == UITableViewCellEditingStyleDelete) {
-        // 记录当前要操作的索引
-        self.selectedIndexPath = indexPath;
-        
-        // 弹出确认删除的提示框
-        UIAlertView *deleteAlert = [[UIAlertView alloc] initWithTitle:@"确认删除"
-                                                              message:@"您确定要删除该直播源吗？"
-                                                             delegate:self
-                                                    cancelButtonTitle:@"取消"
-                                                    otherButtonTitles:@"删除", nil];
-        deleteAlert.tag = 401;
-        [deleteAlert show];
+        // 优化：使用公共的 AlertHelper 模块实现侧滑删除确认，代码更清爽
+        __weak typeof(self) weakSelf = self;
+        [AlertHelper showConfirmAlertWithTitle:@"确认删除"
+                                       message:@"您确定要删除该直播源吗？"
+                                  confirmTitle:@"删除"
+                                   cancelTitle:@"取消"
+                                  confirmBlock:^{
+                                      [[AppDataManager sharedManager] deleteSourceAtIndex:indexPath.row];
+                                      weakSelf.sources = [[AppDataManager sharedManager] getAllSources];
+                                      [tableView reloadData];
+                                  } cancelBlock:nil];
     }
 }
 
@@ -189,10 +190,17 @@
         NSDictionary *sourceDict = self.sources[self.selectedIndexPath.row];
         
         if ([title isEqualToString:@"删除"]) {
-            // 弹出确认删除的提示框防止误操作
-            UIAlertView *deleteAlert = [[UIAlertView alloc] initWithTitle:@"确认删除" message:@"您确定要删除该直播源吗？" delegate:self cancelButtonTitle:@"取消" otherButtonTitles:@"删除", nil];
-            deleteAlert.tag = 401;
-            [deleteAlert show];
+            // 优化：使用公共 AlertHelper，替代原生多余 delegate 处理
+            __weak typeof(self) weakSelf = self;
+            [AlertHelper showConfirmAlertWithTitle:@"确认删除"
+                                           message:@"您确定要删除该直播源吗？"
+                                      confirmTitle:@"删除"
+                                       cancelTitle:@"取消"
+                                      confirmBlock:^{
+                                          [[AppDataManager sharedManager] deleteSourceAtIndex:weakSelf.selectedIndexPath.row];
+                                          weakSelf.sources = [[AppDataManager sharedManager] getAllSources];
+                                          [weakSelf.tableView reloadData];
+                                      } cancelBlock:nil];
         } else if ([title isEqualToString:@"设为当前源"]) {
             [[AppDataManager sharedManager] setActiveSourceById:sourceDict[@"id"]];
             [self.tableView reloadData];
@@ -215,12 +223,8 @@
 - (void)alertView:(UIAlertView *)alertView clickedButtonAtIndex:(NSInteger)buttonIndex {
     if (buttonIndex == alertView.cancelButtonIndex) return;
     
-    if (alertView.tag == 401) {
-        // 执行删除逻辑
-        [[AppDataManager sharedManager] deleteSourceAtIndex:self.selectedIndexPath.row];
-        self.sources = [[AppDataManager sharedManager] getAllSources];
-        [self.tableView reloadData];
-    } else if (alertView.tag == 301) {
+    // 注：确认删除的逻辑已迁移至 AlertHelper 中处理，此处只保留文本输入和提示相关的弹窗
+    if (alertView.tag == 301) {
         UITextField *tf = [alertView textFieldAtIndex:0];
         if (tf.text.length > 0) {
             [[AppDataManager sharedManager] updateSourceNameAtIndex:self.selectedIndexPath.row withName:tf.text];

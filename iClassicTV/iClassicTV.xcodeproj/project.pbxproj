@@ -41,6 +41,7 @@
 		48D63F4C2F97DE1F002AD06E /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = 48D63F4A2F97DE1F002AD06E /* InfoPlist.strings */; };
 		48D63F4E2F97DE1F002AD06E /* iClassicTVTests.m in Sources */ = {isa = PBXBuildFile; fileRef = 48D63F4D2F97DE1F002AD06E /* iClassicTVTests.m */; };
 		48FBEB1B2F9BCCA300DD08EE /* DataManagementViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 48FBEB1A2F9BCCA300DD08EE /* DataManagementViewController.m */; };
+		48FBEB1E2F9BD2D200DD08EE /* AlertHelper.m in Sources */ = {isa = PBXBuildFile; fileRef = 48FBEB1D2F9BD2D200DD08EE /* AlertHelper.m */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -114,6 +115,8 @@
 		48D63F4D2F97DE1F002AD06E /* iClassicTVTests.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = iClassicTVTests.m; sourceTree = "<group>"; };
 		48FBEB192F9BCCA300DD08EE /* DataManagementViewController.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = DataManagementViewController.h; sourceTree = "<group>"; };
 		48FBEB1A2F9BCCA300DD08EE /* DataManagementViewController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = DataManagementViewController.m; sourceTree = "<group>"; };
+		48FBEB1C2F9BD2D200DD08EE /* AlertHelper.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = AlertHelper.h; sourceTree = "<group>"; };
+		48FBEB1D2F9BD2D200DD08EE /* AlertHelper.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = AlertHelper.m; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -255,6 +258,8 @@
 				4816127B2F9BA82300067C15 /* UIViewController+ScrollToTop.m */,
 				48C2CB642F9BB9E200A9379F /* NetworkManager.h */,
 				48C2CB652F9BB9E200A9379F /* NetworkManager.m */,
+				48FBEB1C2F9BD2D200DD08EE /* AlertHelper.h */,
+				48FBEB1D2F9BD2D200DD08EE /* AlertHelper.m */,
 			);
 			path = Modules;
 			sourceTree = "<group>";
@@ -418,6 +423,7 @@
 				48C2CB632F9BB76900A9379F /* UAManagerViewController.m in Sources */,
 				48317BA12F9A78E9002489FE /* main.m in Sources */,
 				48C2CB602F9BB73000A9379F /* UserAgentManager.m in Sources */,
+				48FBEB1E2F9BD2D200DD08EE /* AlertHelper.m in Sources */,
 				481612762F9B900D00067C15 /* NSString+EncodingHelper.m in Sources */,
 				48317BAA2F9A78E9002489FE /* Channel.m in Sources */,
 				48317BA22F9A78E9002489FE /* M3UParser.m in Sources */,

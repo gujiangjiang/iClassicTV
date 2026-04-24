@@ -8,8 +8,9 @@
 
 #import "DataManagementViewController.h"
 #import "AppDataManager.h"
+#import "AlertHelper.h" // 新增：引入通用弹窗模块
 
-@interface DataManagementViewController () <UIAlertViewDelegate, UIActionSheetDelegate>
+@interface DataManagementViewController () <UIActionSheetDelegate>
 @property (nonatomic, strong) NSArray *sections;
 @property (nonatomic, strong) NSArray *scannedBackupFiles; // 保存扫描到的备份文件名
 @property (nonatomic, copy) NSString *selectedBackupFileName; // 选中的待恢复文件名
@@ -66,6 +67,7 @@
 
 - (void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath {
     [tableView deselectRowAtIndexPath:indexPath animated:YES];
+    __weak typeof(self) weakSelf = self;
     
     if (indexPath.section == 0) {
         if (indexPath.row == 0) {
@@ -73,31 +75,59 @@
         } else if (indexPath.row == 1) {
             [self scanAndPerformRestore];
         } else if (indexPath.row == 2) {
-            UIAlertView *alert = [[UIAlertView alloc] initWithTitle:@"清空备份" message:@"确定要永久删除本设备上的所有备份文件吗？" delegate:self cancelButtonTitle:@"取消" otherButtonTitles:@"确定删除", nil];
-            alert.tag = 201; [alert show];
+            // 优化：使用公共的 AlertHelper 封装确认逻辑
+            [AlertHelper showConfirmAlertWithTitle:@"清空备份"
+                                           message:@"确定要永久删除本设备上的所有备份文件吗？"
+                                      confirmTitle:@"确定删除"
+                                       cancelTitle:@"取消"
+                                      confirmBlock:^{
+                                          [weakSelf clearAllBackupFiles];
+                                      } cancelBlock:nil];
         }
     } else if (indexPath.section == 1) {
-        // 细化后的清理操作分配对应的 tag
-        NSString *title = @"";
-        NSString *msg = @"";
-        NSInteger tag = 0;
-        
+        // 细化后的清理操作分配对应的确认逻辑（利用 Block 可以直接在此处理，无需维护繁杂的 switch case 和 tag）
         switch (indexPath.row) {
-            case 0:
-                title = @"清空直播源"; msg = @"确定要清空所有的直播源吗？"; tag = 202; break;
-            case 1:
-                title = @"清空频道图像"; msg = @"确定要清空已缓存的频道图像吗？"; tag = 203; break;
-            case 2:
-                title = @"清空所有缓存"; msg = @"确定要清空应用的所有网络和临时缓存吗？"; tag = 204; break;
-            case 3:
-                title = @"清空记忆偏好"; msg = @"确定要清空所有的线路记忆与播放偏好吗？"; tag = 205; break;
-            case 4:
-                title = @"恢复所有设置"; msg = @"确定要恢复所有设置到默认状态吗？(不影响直播源)"; tag = 206; break;
+            case 0: {
+                [AlertHelper showConfirmAlertWithTitle:@"清空直播源" message:@"确定要清空所有的直播源吗？" confirmTitle:@"确定" cancelTitle:@"取消" confirmBlock:^{
+                    [[AppDataManager sharedManager] clearAllSources];
+                    UIAlertView *successAlert = [[UIAlertView alloc] initWithTitle:@"已清空" message:@"所有直播源已清空" delegate:nil cancelButtonTitle:@"确定" otherButtonTitles:nil];
+                    [successAlert show];
+                } cancelBlock:nil];
+                break;
+            }
+            case 1: {
+                [AlertHelper showConfirmAlertWithTitle:@"清空频道图像" message:@"确定要清空已缓存的频道图像吗？" confirmTitle:@"确定" cancelTitle:@"取消" confirmBlock:^{
+                    [[AppDataManager sharedManager] clearAllChannelIcons];
+                    UIAlertView *successAlert = [[UIAlertView alloc] initWithTitle:@"已清空" message:@"所有频道图像缓存已清空" delegate:nil cancelButtonTitle:@"确定" otherButtonTitles:nil];
+                    [successAlert show];
+                } cancelBlock:nil];
+                break;
+            }
+            case 2: {
+                [AlertHelper showConfirmAlertWithTitle:@"清空所有缓存" message:@"确定要清空应用的所有网络和临时缓存吗？" confirmTitle:@"确定" cancelTitle:@"取消" confirmBlock:^{
+                    [[AppDataManager sharedManager] clearAllGeneralCache];
+                    UIAlertView *successAlert = [[UIAlertView alloc] initWithTitle:@"已清空" message:@"应用缓存已完全清空" delegate:nil cancelButtonTitle:@"确定" otherButtonTitles:nil];
+                    [successAlert show];
+                } cancelBlock:nil];
+                break;
+            }
+            case 3: {
+                [AlertHelper showConfirmAlertWithTitle:@"清空记忆偏好" message:@"确定要清空所有的线路记忆与播放偏好吗？" confirmTitle:@"确定" cancelTitle:@"取消" confirmBlock:^{
+                    [[AppDataManager sharedManager] clearAllPreferencesCache];
+                    UIAlertView *successAlert = [[UIAlertView alloc] initWithTitle:@"已清空" message:@"记忆与偏好已清空" delegate:nil cancelButtonTitle:@"确定" otherButtonTitles:nil];
+                    [successAlert show];
+                } cancelBlock:nil];
+                break;
+            }
+            case 4: {
+                [AlertHelper showConfirmAlertWithTitle:@"恢复所有设置" message:@"确定要恢复所有设置到默认状态吗？(不影响直播源)" confirmTitle:@"确定" cancelTitle:@"取消" confirmBlock:^{
+                    [[AppDataManager sharedManager] restoreAllSettings];
+                    UIAlertView *successAlert = [[UIAlertView alloc] initWithTitle:@"已恢复" message:@"各项设置已恢复至默认" delegate:nil cancelButtonTitle:@"确定" otherButtonTitles:nil];
+                    [successAlert show];
+                } cancelBlock:nil];
+                break;
+            }
         }
-        
-        UIAlertView *alert = [[UIAlertView alloc] initWithTitle:title message:msg delegate:self cancelButtonTitle:@"取消" otherButtonTitles:@"确定", nil];
-        alert.tag = tag;
-        [alert show];
     }
 }
 
@@ -218,9 +248,16 @@
 
 - (void)showRestoreConfirmationAlert {
     NSString *msg = [NSString stringWithFormat:@"确定要恢复备份文件 [%@] 吗？\n当前的所有设置和直播源将被完全覆盖！", self.selectedBackupFileName];
-    UIAlertView *alert = [[UIAlertView alloc] initWithTitle:@"确认恢复" message:msg delegate:self cancelButtonTitle:@"取消" otherButtonTitles:@"立即恢复", nil];
-    alert.tag = 103;
-    [alert show];
+    
+    // 优化：使用公共的 AlertHelper 封装恢复确认
+    __weak typeof(self) weakSelf = self;
+    [AlertHelper showConfirmAlertWithTitle:@"确认恢复"
+                                   message:msg
+                              confirmTitle:@"立即恢复"
+                               cancelTitle:@"取消"
+                              confirmBlock:^{
+                                  [weakSelf executeRestore];
+                              } cancelBlock:nil];
 }
 
 - (void)executeRestore {
@@ -258,7 +295,7 @@
     [successAlert show];
 }
 
-#pragma mark - 弹窗与动作表代理
+#pragma mark - 动作表代理
 - (void)actionSheet:(UIActionSheet *)actionSheet clickedButtonAtIndex:(NSInteger)buttonIndex {
     if (actionSheet.tag == 301 && buttonIndex != actionSheet.cancelButtonIndex) {
         self.selectedBackupFileName = self.scannedBackupFiles[buttonIndex];
@@ -266,35 +303,6 @@
     }
 }
 
-- (void)alertView:(UIAlertView *)alertView clickedButtonAtIndex:(NSInteger)buttonIndex {
-    if (buttonIndex != alertView.cancelButtonIndex) {
-        if (alertView.tag == 103) {
-            // 执行恢复逻辑
-            [self executeRestore];
-        } else if (alertView.tag == 201) {
-            [self clearAllBackupFiles];
-        } else if (alertView.tag == 202) {
-            [[AppDataManager sharedManager] clearAllSources];
-            UIAlertView *successAlert = [[UIAlertView alloc] initWithTitle:@"已清空" message:@"所有直播源已清空" delegate:nil cancelButtonTitle:@"确定" otherButtonTitles:nil];
-            [successAlert show];
-        } else if (alertView.tag == 203) {
-            [[AppDataManager sharedManager] clearAllChannelIcons];
-            UIAlertView *successAlert = [[UIAlertView alloc] initWithTitle:@"已清空" message:@"所有频道图像缓存已清空" delegate:nil cancelButtonTitle:@"确定" otherButtonTitles:nil];
-            [successAlert show];
-        } else if (alertView.tag == 204) {
-            [[AppDataManager sharedManager] clearAllGeneralCache];
-            UIAlertView *successAlert = [[UIAlertView alloc] initWithTitle:@"已清空" message:@"应用缓存已完全清空" delegate:nil cancelButtonTitle:@"确定" otherButtonTitles:nil];
-            [successAlert show];
-        } else if (alertView.tag == 205) {
-            [[AppDataManager sharedManager] clearAllPreferencesCache];
-            UIAlertView *successAlert = [[UIAlertView alloc] initWithTitle:@"已清空" message:@"记忆与偏好已清空" delegate:nil cancelButtonTitle:@"确定" otherButtonTitles:nil];
-            [successAlert show];
-        } else if (alertView.tag == 206) {
-            [[AppDataManager sharedManager] restoreAllSettings];
-            UIAlertView *successAlert = [[UIAlertView alloc] initWithTitle:@"已恢复" message:@"各项设置已恢复至默认" delegate:nil cancelButtonTitle:@"确定" otherButtonTitles:nil];
-            [successAlert show];
-        }
-    }
-}
+// 注：由于所有清空和确认操作已被 AlertHelper 的 Block 接管，原有的 UIAlertViewDelegate 方法被完全精简，移除了冗杂的 tag 判断
 
 @end
