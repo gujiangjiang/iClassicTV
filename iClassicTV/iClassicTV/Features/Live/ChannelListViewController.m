@@ -85,10 +85,19 @@
                             UIImage *resizedImage = [downloadedImage resizeAndPadToSize:CGSizeMake(40, 40)];
                             [self.imageCache setObject:resizedImage forKey:logoKey];
                             dispatch_async(dispatch_get_main_queue(), ^{
-                                UITableViewCell *updateCell = [tableView cellForRowAtIndexPath:indexPath];
-                                if (updateCell) {
-                                    updateCell.imageView.image = resizedImage;
-                                    [updateCell setNeedsLayout];
+                                // 优化：安全检查，防止快速滚动时 Cell 复用导致的图片错乱
+                                if (indexPath.row < self.channels.count) {
+                                    Channel *currentChannel = self.channels[indexPath.row];
+                                    NSString *currentLogoKey = currentChannel.logo.length > 0 ? currentChannel.logo : currentChannel.name;
+                                    
+                                    // 只有当前 indexPath 对应的数据依然是发起请求时的数据，才更新 UI
+                                    if ([currentLogoKey isEqualToString:logoKey]) {
+                                        UITableViewCell *updateCell = [tableView cellForRowAtIndexPath:indexPath];
+                                        if (updateCell) {
+                                            updateCell.imageView.image = resizedImage;
+                                            [updateCell setNeedsLayout];
+                                        }
+                                    }
                                 }
                             });
                         }
