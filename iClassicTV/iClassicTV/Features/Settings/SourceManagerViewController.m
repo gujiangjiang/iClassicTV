@@ -8,7 +8,8 @@
 
 #import "SourceManagerViewController.h"
 #import "TextImportModalViewController.h"
-#import "AppDataManager.h" // 引入数据管理模块
+#import "AppDataManager.h"
+#import "NSString+EncodingHelper.h" // 引入字符串编码处理辅助模块
 
 @interface SourceManagerViewController () <UIActionSheetDelegate, UIAlertViewDelegate>
 @property (nonatomic, strong) NSArray *scannedLocalFiles; // 用于临时存储扫描到的 iTunes 共享文件
@@ -142,13 +143,8 @@
         NSString *docsPath = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES).firstObject;
         NSString *filePath = [docsPath stringByAppendingPathComponent:fileName];
         
-        NSError *error = nil;
-        // 优化：优先尝试 UTF-8 编码，失败则回退尝试 GBK 编码读取
-        NSString *content = [NSString stringWithContentsOfFile:filePath encoding:NSUTF8StringEncoding error:&error];
-        if (!content) {
-            NSStringEncoding gbkEncoding = CFStringConvertEncodingToNSStringEncoding(kCFStringEncodingGB_18030_2000);
-            content = [NSString stringWithContentsOfFile:filePath encoding:gbkEncoding error:nil];
-        }
+        // 优化：使用独立模块读取文件，自动处理 UTF-8 和 GBK 编码回退
+        NSString *content = [NSString stringWithContentsOfFileWithFallback:filePath];
         
         if (content && content.length > 0) {
             self.tempM3UData = content;
@@ -208,13 +204,8 @@
         [hud show];
         
         dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
-            NSError *error = nil;
-            // 优化：优先尝试 UTF-8 编码，失败则回退尝试 GBK 编码下载
-            NSString *m3uData = [NSString stringWithContentsOfURL:url encoding:NSUTF8StringEncoding error:&error];
-            if (!m3uData) {
-                NSStringEncoding gbkEncoding = CFStringConvertEncodingToNSStringEncoding(kCFStringEncodingGB_18030_2000);
-                m3uData = [NSString stringWithContentsOfURL:url encoding:gbkEncoding error:nil];
-            }
+            // 优化：使用独立模块下载文件，自动处理 UTF-8 和 GBK 编码回退
+            NSString *m3uData = [NSString stringWithContentsOfURLWithFallback:url];
             
             dispatch_async(dispatch_get_main_queue(), ^{
                 [hud dismissWithClickedButtonIndex:0 animated:YES];
@@ -264,13 +255,8 @@
     [hud show];
     
     dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
-        NSError *error = nil;
-        // 优化：优先尝试 UTF-8 编码，失败则回退尝试 GBK 编码下载
-        NSString *m3uData = [NSString stringWithContentsOfURL:url encoding:NSUTF8StringEncoding error:&error];
-        if (!m3uData) {
-            NSStringEncoding gbkEncoding = CFStringConvertEncodingToNSStringEncoding(kCFStringEncodingGB_18030_2000);
-            m3uData = [NSString stringWithContentsOfURL:url encoding:gbkEncoding error:nil];
-        }
+        // 优化：使用独立模块下载文件，自动处理 UTF-8 和 GBK 编码回退
+        NSString *m3uData = [NSString stringWithContentsOfURLWithFallback:url];
         
         dispatch_async(dispatch_get_main_queue(), ^{
             [hud dismissWithClickedButtonIndex:0 animated:YES];

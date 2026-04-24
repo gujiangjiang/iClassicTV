@@ -12,6 +12,7 @@
 #import "Channel.h"
 // 引入数据管理模块，实现数据迁移逻辑的解耦
 #import "AppDataManager.h"
+#import "NSString+EncodingHelper.h" // 引入字符串编码处理辅助模块
 
 @implementation GroupListViewController
 
@@ -114,13 +115,8 @@
     [[UIApplication sharedApplication] setNetworkActivityIndicatorVisible:YES];
     
     dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
-        NSError *error = nil;
-        // 优化：优先尝试 UTF-8 编码，失败则回退尝试 GBK 编码下载
-        NSString *m3uData = [NSString stringWithContentsOfURL:url encoding:NSUTF8StringEncoding error:&error];
-        if (!m3uData) {
-            NSStringEncoding gbkEncoding = CFStringConvertEncodingToNSStringEncoding(kCFStringEncodingGB_18030_2000);
-            m3uData = [NSString stringWithContentsOfURL:url encoding:gbkEncoding error:nil];
-        }
+        // 优化：使用独立模块下载文件，自动处理 UTF-8 和 GBK 编码回退
+        NSString *m3uData = [NSString stringWithContentsOfURLWithFallback:url];
         
         dispatch_async(dispatch_get_main_queue(), ^{
             [hud dismissWithClickedButtonIndex:0 animated:YES];

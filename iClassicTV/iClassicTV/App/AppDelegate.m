@@ -13,6 +13,7 @@
 #import <AVFoundation/AVFoundation.h>
 // 新增：引入数据管理器，用于保存外部导入的源
 #import "AppDataManager.h"
+#import "NSString+EncodingHelper.h" // 引入字符串编码处理辅助模块
 
 @implementation AppDelegate
 
@@ -47,13 +48,8 @@
     if (url.isFileURL) {
         NSString *extension = [[url pathExtension] lowercaseString];
         if ([extension isEqualToString:@"m3u"] || [extension isEqualToString:@"m3u8"]) {
-            NSError *error = nil;
-            // 优化：优先尝试 UTF-8 编码，失败则回退尝试 GBK 编码读取
-            NSString *content = [NSString stringWithContentsOfURL:url encoding:NSUTF8StringEncoding error:&error];
-            if (!content) {
-                NSStringEncoding gbkEncoding = CFStringConvertEncodingToNSStringEncoding(kCFStringEncodingGB_18030_2000);
-                content = [NSString stringWithContentsOfURL:url encoding:gbkEncoding error:nil];
-            }
+            // 优化：使用独立模块读取文件，自动处理 UTF-8 和 GBK 编码回退
+            NSString *content = [NSString stringWithContentsOfURLWithFallback:url];
             
             if (content && content.length > 0) {
                 // 以源文件名作为基础进行命名备注
