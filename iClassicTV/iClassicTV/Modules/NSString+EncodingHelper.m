@@ -7,20 +7,48 @@
 //
 
 #import "NSString+EncodingHelper.h"
+#import "SSLBypassHelper.h" // 新增：引入 SSLBypassHelper 以确保 https 链接也能绕过 iOS 6 证书校验
 
 @implementation NSString (EncodingHelper)
 
 + (NSString *)stringWithContentsOfURLWithFallback:(NSURL *)url {
     if (!url) return nil;
     
-    NSError *error = nil;
+    // 优化：采用 NSMutableURLRequest 替代直接的 stringWithContentsOfURL，增加 15 秒超时和重试控制，防止后台线程长时间阻塞假死
+    NSMutableURLRequest *request = [NSMutableURLRequest requestWithURL:url];
+    [request setTimeoutInterval:15.0];
+    
+    // 优化：伪装 User-Agent，防止部分服务器拒绝非浏览器的空 UA 请求
+    [request setValue:@"Mozilla/5.0 (iPhone; CPU iPhone OS 6_0 like Mac OS X) AppleWebKit/536.26 Version/6.0 Mobile/10A5376e Safari/8536.25" forHTTPHeaderField:@"User-Agent"];
+    
+    // 针对 HTTPS 链接应用 SSL 绕过策略
+    if ([url.scheme.lowercaseString isEqualToString:@"https"]) {
+        [SSLBypassHelper bypassSSLForHost:url.host];
+    }
+    
+    NSData *data = nil;
+    int maxRetry = 2; // 优化：最多尝试 2 次 (1次正常请求 + 1次重试)
+    
+    for (int i = 0; i < maxRetry; i++) {
+        data = [NSURLConnection sendSynchronousRequest:request returningResponse:nil error:nil];
+        if (data && data.length > 0) {
+            break; // 请求成功，跳出重试循环
+        }
+        if (i < maxRetry - 1) {
+            [NSThread sleepForTimeInterval:1.0]; // 失败后短暂休眠 1 秒再试
+        }
+    }
+    
+    if (!data) return nil;
+    
     // 优先尝试 UTF-8 编码读取
-    NSString *content = [NSString stringWithContentsOfURL:url encoding:NSUTF8StringEncoding error:&error];
+    NSString *content = [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding];
     if (!content) {
         // 失败则回退尝试 GBK/GB18030 编码读取
         NSStringEncoding gbkEncoding = CFStringConvertEncodingToNSStringEncoding(kCFStringEncodingGB_18030_2000);
-        content = [NSString stringWithContentsOfURL:url encoding:gbkEncoding error:nil];
+        content = [[NSString alloc] initWithData:data encoding:gbkEncoding];
     }
+    
     return content;
 }
 
