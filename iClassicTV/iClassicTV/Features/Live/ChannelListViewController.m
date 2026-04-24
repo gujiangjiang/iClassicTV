@@ -16,6 +16,33 @@
 #import "ToastHelper.h"
 #import "PlayerConfigManager.h"
 
+// --- 修复：新增自定义的原生播放器子类，用于接管并强制控制原生播放器的屏幕旋转逻辑 ---
+@interface CustomNativePlayerViewController : MPMoviePlayerViewController
+@end
+
+@implementation CustomNativePlayerViewController
+
+- (BOOL)shouldAutorotate {
+    return YES;
+}
+
+- (NSUInteger)supportedInterfaceOrientations {
+    // 读取用户设置中的全屏方向偏好 (0: 跟随系统, 1: 横屏, 2: 竖屏)
+    NSInteger pref = [[NSUserDefaults standardUserDefaults] integerForKey:@"PlayerOrientationPref"];
+    if (pref == 1) {
+        // 强制横屏
+        return UIInterfaceOrientationMaskLandscape;
+    } else if (pref == 2) {
+        // 强制竖屏
+        return UIInterfaceOrientationMaskPortrait;
+    }
+    // 跟随系统 (支持除倒立外的所有方向)
+    return UIInterfaceOrientationMaskAllButUpsideDown;
+}
+
+@end
+// ---------------------------------------------------------------------
+
 @interface ChannelListViewController () <UIActionSheetDelegate>
 @property (nonatomic, strong) Channel *selectedChannel;
 @property (nonatomic, strong) NSCache *imageCache;
@@ -161,10 +188,17 @@
     
     if (playerPref == 1) {
         NSURL *url = [NSURL URLWithString:[urlString stringByAddingPercentEscapesUsingEncoding:NSUTF8StringEncoding]];
-        MPMoviePlayerViewController *playerVC = [[MPMoviePlayerViewController alloc] initWithContentURL:url];
+        // 修复：使用自定义的原生播放器子类，以支持方向控制
+        CustomNativePlayerViewController *playerVC = [[CustomNativePlayerViewController alloc] initWithContentURL:url];
         
-        UIInterfaceOrientation targetOrientation = [PlayerConfigManager preferredInterfaceOrientation];
-        [[UIDevice currentDevice] setValue:[NSNumber numberWithInteger:targetOrientation] forKey:@"orientation"];
+        // 修复：根据偏好设置预先旋转设备，解决默认总是横屏的 Bug
+        NSInteger orientationPref = [[NSUserDefaults standardUserDefaults] integerForKey:@"PlayerOrientationPref"];
+        if (orientationPref == 1) {
+            [[UIDevice currentDevice] setValue:[NSNumber numberWithInteger:UIInterfaceOrientationLandscapeRight] forKey:@"orientation"];
+        } else if (orientationPref == 2) {
+            [[UIDevice currentDevice] setValue:[NSNumber numberWithInteger:UIInterfaceOrientationPortrait] forKey:@"orientation"];
+        }
+        // 如果是 0 (跟随系统)，则不主动修改 UIDevice 的方向，让其自然跟随系统状态
         
         [self presentMoviePlayerViewControllerAnimated:playerVC];
         [playerVC.moviePlayer play];
