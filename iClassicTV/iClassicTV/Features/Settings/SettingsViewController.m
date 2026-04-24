@@ -9,12 +9,12 @@
 #import "SettingsViewController.h"
 #import "SourceManagerViewController.h"
 #import "AboutViewController.h"
-#import "UAManagerViewController.h" // 新增：引入 UA 管理模块
+#import "UAManagerViewController.h" // 引入 UA 管理模块
 #import "AppDataManager.h" // 引入数据管理模块
-// 新增：引入滚动处理通用模块
-#import "UIViewController+ScrollToTop.h"
+#import "UIViewController+ScrollToTop.h" // 引入滚动处理通用模块
+#import "DataManagementViewController.h" // 新增：引入数据管理与备份模块
 
-@interface SettingsViewController () <UIAlertViewDelegate, UIActionSheetDelegate>
+@interface SettingsViewController () <UIActionSheetDelegate>
 @property (nonatomic, strong) NSArray *sections;
 @end
 
@@ -26,15 +26,22 @@
     [super viewDidLoad];
     self.title = @"设置";
     
-    // 新增：调用通用模块，为当前导航栏标题栏注册双击回到最上方的功能
+    // 调用通用模块，为当前导航栏标题栏注册双击回到最上方的功能
     [self enableNavigationBarDoubleTapToScrollTop];
     
-    // 优化：在软件设置列表中插入 "User-Agent 设置"
+    // 优化：重构设置列表，将危险的清空操作移入专属的数据管理页面
     self.sections = @[
                       @{@"title": @"直播源设置", @"rows": @[@"我的直播源 (管理与添加)"]},
-                      @{@"title": @"软件设置", @"rows": @[@"默认全屏逻辑", @"默认播放器", @"User-Agent 设置", @"清空所有直播源", @"清空缓存 (记忆与偏好)"]},
+                      @{@"title": @"软件设置", @"rows": @[@"默认全屏逻辑", @"默认播放器", @"User-Agent 设置"]},
+                      @{@"title": @"数据与安全", @"rows": @[@"数据管理与备份"]}, // 新增：数据管理入口
                       @{@"title": @"关于", @"rows": @[@"关于 iClassicTV"]}
                       ];
+}
+
+// 优化：每次出现时刷新列表，确保显示的偏好设置状态是最新的
+- (void)viewWillAppear:(BOOL)animated {
+    [super viewWillAppear:animated];
+    [self.tableView reloadData];
 }
 
 - (NSInteger)numberOfSectionsInTableView:(UITableView *)tableView { return self.sections.count; }
@@ -49,25 +56,22 @@
     cell.textLabel.text = self.sections[indexPath.section][@"rows"][indexPath.row];
     cell.detailTextLabel.text = @"";
     
-    // 优化：更新清空操作的行索引 (改为 3 和 4)
-    if (indexPath.section == 1 && (indexPath.row == 3 || indexPath.row == 4)) {
-        cell.accessoryType = UITableViewCellAccessoryNone;
-        cell.textLabel.textAlignment = NSTextAlignmentCenter;
-        cell.textLabel.textColor = [UIColor redColor];
-    } else {
-        cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
-        cell.textLabel.textAlignment = NSTextAlignmentLeft;
-        cell.textLabel.textColor = [UIColor blackColor];
+    // 统一设置基础样式
+    cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
+    cell.textLabel.textAlignment = NSTextAlignmentLeft;
+    cell.textLabel.textColor = [UIColor blackColor];
+    
+    // 显示软件设置的当前状态
+    if (indexPath.section == 1) {
+        if (indexPath.row == 0) {
+            NSInteger pref = [[NSUserDefaults standardUserDefaults] integerForKey:@"PlayerOrientationPref"];
+            cell.detailTextLabel.text = (pref == 1) ? @"横屏" : ((pref == 2) ? @"竖屏" : @"跟随系统");
+        } else if (indexPath.row == 1) {
+            NSInteger pref = [[NSUserDefaults standardUserDefaults] integerForKey:@"PlayerTypePref"];
+            cell.detailTextLabel.text = (pref == 1) ? @"iOS原生播放器" : @"自定义播放器";
+        }
     }
     
-    if (indexPath.section == 1 && indexPath.row == 0) {
-        NSInteger pref = [[NSUserDefaults standardUserDefaults] integerForKey:@"PlayerOrientationPref"];
-        cell.detailTextLabel.text = (pref == 1) ? @"横屏" : ((pref == 2) ? @"竖屏" : @"跟随系统");
-    }
-    if (indexPath.section == 1 && indexPath.row == 1) {
-        NSInteger pref = [[NSUserDefaults standardUserDefaults] integerForKey:@"PlayerTypePref"];
-        cell.detailTextLabel.text = (pref == 1) ? @"iOS原生播放器" : @"自定义播放器";
-    }
     return cell;
 }
 
@@ -84,17 +88,14 @@
             UIActionSheet *sheet = [[UIActionSheet alloc] initWithTitle:@"默认播放器" delegate:self cancelButtonTitle:@"取消" destructiveButtonTitle:nil otherButtonTitles:@"自定义播放器 (推荐)", @"iOS原生播放器", nil];
             sheet.tag = 202; [sheet showInView:self.view];
         } else if (indexPath.row == 2) {
-            // 新增：跳转到独立的 User-Agent 设置页面
             UAManagerViewController *uaVC = [[UAManagerViewController alloc] initWithStyle:UITableViewStyleGrouped];
             [self.navigationController pushViewController:uaVC animated:YES];
-        } else if (indexPath.row == 3) {
-            UIAlertView *alert = [[UIAlertView alloc] initWithTitle:@"警告" message:@"确定要清空所有的直播源吗？" delegate:self cancelButtonTitle:@"取消" otherButtonTitles:@"确定清空", nil];
-            alert.tag = 101; [alert show];
-        } else if (indexPath.row == 4) {
-            UIAlertView *alert = [[UIAlertView alloc] initWithTitle:@"清空缓存" message:@"确定要清空所有的线路记忆偏好吗？" delegate:self cancelButtonTitle:@"取消" otherButtonTitles:@"确定", nil];
-            alert.tag = 102; [alert show];
         }
     } else if (indexPath.section == 2 && indexPath.row == 0) {
+        // 新增：跳转到数据管理页面
+        DataManagementViewController *dataVC = [[DataManagementViewController alloc] init];
+        [self.navigationController pushViewController:dataVC animated:YES];
+    } else if (indexPath.section == 3 && indexPath.row == 0) {
         [self.navigationController pushViewController:[[AboutViewController alloc] init] animated:YES];
     }
 }
@@ -111,19 +112,4 @@
     }
 }
 
-- (void)alertView:(UIAlertView *)alertView clickedButtonAtIndex:(NSInteger)buttonIndex {
-    if (buttonIndex != alertView.cancelButtonIndex) {
-        if (alertView.tag == 101) {
-            // 调用模块一键清理所有数据
-            [[AppDataManager sharedManager] clearAllSources];
-            UIAlertView *successAlert = [[UIAlertView alloc] initWithTitle:@"已清空" message:@"所有直播源已清空" delegate:nil cancelButtonTitle:@"确定" otherButtonTitles:nil];
-            [successAlert show];
-        } else if (alertView.tag == 102) {
-            // 调用模块清理偏好缓存
-            [[AppDataManager sharedManager] clearAllPreferencesCache];
-            UIAlertView *successAlert = [[UIAlertView alloc] initWithTitle:@"已清空" message:@"记忆缓存已清空" delegate:nil cancelButtonTitle:@"确定" otherButtonTitles:nil];
-            [successAlert show];
-        }
-    }
-}
 @end
