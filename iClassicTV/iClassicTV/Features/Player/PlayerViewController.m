@@ -10,13 +10,14 @@
 #import <MediaPlayer/MediaPlayer.h>
 #import "PlayerConfigManager.h"
 #import "PlayerControlView.h"
+#import "LanguageManager.h" // 引入多语言模块
 
 @interface PlayerViewController () <PlayerControlViewDelegate>
 
 @property (nonatomic, strong) MPMoviePlayerController *player;
 @property (nonatomic, strong) PlayerControlView *controlView;
 
-@property (nonatomic, strong) UINavigationBar *navBar; // 新增：接管原生的顶部导航栏
+@property (nonatomic, strong) UINavigationBar *navBar; // 接管原生的顶部导航栏
 @property (nonatomic, strong) UIView *backgroundView;
 @property (nonatomic, strong) UILabel *tipsLabel;
 
@@ -44,7 +45,7 @@
     self.tipsLabel.textAlignment = NSTextAlignmentCenter;
     self.tipsLabel.textColor = [UIColor grayColor];
     self.tipsLabel.font = [UIFont systemFontOfSize:14];
-    self.tipsLabel.text = @"电子节目单功能等待完善中。";
+    self.tipsLabel.text = LocalizedString(@"epg_wip"); // 多语言支持
     self.tipsLabel.numberOfLines = 0;
     [self.view addSubview:self.tipsLabel];
     
@@ -62,10 +63,10 @@
     self.controlView.delegate = self;
     [self.view addSubview:self.controlView];
     
-    // 新增：构建并挂载真正的系统原生 UINavigationBar 放在最顶层
+    // 构建并挂载真正的系统原生 UINavigationBar 放在最顶层
     self.navBar = [[UINavigationBar alloc] initWithFrame:CGRectZero];
-    UINavigationItem *navItem = [[UINavigationItem alloc] initWithTitle:self.channelTitle ?: @"未知频道"];
-    UIBarButtonItem *backItem = [[UIBarButtonItem alloc] initWithTitle:@"返回" style:UIBarButtonItemStyleBordered target:self action:@selector(closePlayer)];
+    UINavigationItem *navItem = [[UINavigationItem alloc] initWithTitle:self.channelTitle ?: LocalizedString(@"unknown_channel")];
+    UIBarButtonItem *backItem = [[UIBarButtonItem alloc] initWithTitle:LocalizedString(@"back") style:UIBarButtonItemStyleBordered target:self action:@selector(closePlayer)];
     navItem.leftBarButtonItem = backItem;
     [self.navBar pushNavigationItem:navItem animated:NO];
     [self.view addSubview:self.navBar];
@@ -195,7 +196,7 @@
 - (void)updateNowPlayingInfo {
     if (NSClassFromString(@"MPNowPlayingInfoCenter")) {
         NSMutableDictionary *info = [NSMutableDictionary dictionary];
-        [info setObject:(self.channelTitle ?: @"未知频道") forKey:MPMediaItemPropertyTitle];
+        [info setObject:(self.channelTitle ?: LocalizedString(@"unknown_channel")) forKey:MPMediaItemPropertyTitle];
         if (self.channelLogo) {
             MPMediaItemArtwork *artwork = [[MPMediaItemArtwork alloc] initWithImage:self.channelLogo];
             [info setObject:artwork forKey:MPMediaItemPropertyArtwork];
@@ -205,17 +206,17 @@
 }
 
 - (void)loadStateChanged {
-    if (self.player.loadState & MPMovieLoadStateStalled) [self.controlView showStatusMessage:@"缓冲中..."];
+    if (self.player.loadState & MPMovieLoadStateStalled) [self.controlView showStatusMessage:LocalizedString(@"buffering")];
     else if ((self.player.loadState & MPMovieLoadStatePlayable) || (self.player.loadState & MPMovieLoadStatePlaythroughOK)) {
         if ((self.player.movieMediaTypes & MPMovieMediaTypeMaskVideo) == 0 && (self.player.movieMediaTypes & MPMovieMediaTypeMaskAudio) != 0) {
-            [self.controlView showStatusMessage:@"📻\n\n电台或纯音频源 / 无画面信号"];
+            [self.controlView showStatusMessage:LocalizedString(@"audio_only_signal")];
         } else [self.controlView hideStatusMessage];
     }
 }
 
 - (void)mediaTypesAvailable {
     if ((self.player.movieMediaTypes & MPMovieMediaTypeMaskVideo) == 0 && (self.player.movieMediaTypes & MPMovieMediaTypeMaskAudio) != 0) {
-        [self.controlView showStatusMessage:@"📻\n\n电台或纯音频源 / 无画面信号"];
+        [self.controlView showStatusMessage:LocalizedString(@"audio_only_signal")];
     } else if ((self.player.movieMediaTypes & MPMovieMediaTypeMaskVideo) != 0) {
         if (self.player.loadState & MPMovieLoadStatePlayable || self.player.loadState & MPMovieLoadStatePlaythroughOK) {
             [self.controlView hideStatusMessage];
@@ -230,7 +231,7 @@
 - (void)playbackDidFinish:(NSNotification *)notification {
     NSNumber *reason = [notification.userInfo objectForKey:MPMoviePlayerPlaybackDidFinishReasonUserInfoKey];
     if (reason != nil && [reason integerValue] == MPMovieFinishReasonPlaybackError) {
-        [self.controlView showStatusMessage:@"❌\n\n播放失败或设备不支持该视频格式"];
+        [self.controlView showStatusMessage:LocalizedString(@"playback_failed")];
     }
 }
 

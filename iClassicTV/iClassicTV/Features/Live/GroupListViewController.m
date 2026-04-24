@@ -17,16 +17,17 @@
 #import "NetworkManager.h"
 // 新增：引入滚动处理通用模块
 #import "UIViewController+ScrollToTop.h"
+#import "LanguageManager.h" // 引入多语言模块
 
 @implementation GroupListViewController
 
 - (void)viewDidLoad {
     [super viewDidLoad];
-    self.title = @"频道列表"; // 优化：默认标题改为频道列表
-    self.navigationItem.title = @"加载中..."; // 优化：单独设置顶部导航栏的初始标题
+    self.title = LocalizedString(@"channel_list"); // 优化：默认标题改为频道列表
+    self.navigationItem.title = LocalizedString(@"loading"); // 优化：单独设置顶部导航栏的初始标题
     self.tableView = [[UITableView alloc] initWithFrame:self.view.bounds style:UITableViewStyleGrouped];
     
-    // 新增：调用通用模块，为当前导航栏标题栏注册双击回到最上方的功能
+    // 调用通用模块，为当前导航栏标题栏注册双击回到最上方的功能
     [self enableNavigationBarDoubleTapToScrollTop];
     
     // 监听数据更新通知
@@ -35,10 +36,10 @@
 }
 
 - (void)loadDataFromUserDefaults {
-    // 优化：调用独立模块处理旧版数据无缝迁移，保持控制器代码简洁
+    // 调用独立模块处理旧版数据无缝迁移，保持控制器代码简洁
     [[AppDataManager sharedManager] migrateLegacyDataIfNeeded];
     
-    // 优化：直接通过 AppDataManager 获取当前激活源的数据
+    // 直接通过 AppDataManager 获取当前激活源的数据
     NSDictionary *activeSource = [[AppDataManager sharedManager] getActiveSourceInfo];
     NSString *activeM3U = activeSource[@"content"];
     NSString *activeName = activeSource[@"name"];
@@ -78,16 +79,16 @@
             [self.tableView reloadData];
             [[UIApplication sharedApplication] setNetworkActivityIndicatorVisible:NO];
             
-            // 优化：动态显示源的名称及空白状态提示
+            // 动态显示源的名称及空白状态提示
             if (self.groupNames.count == 0) {
-                self.navigationItem.title = @"暂无可用直播源"; // 优化：修改无源时的标题更符合语境
+                self.navigationItem.title = LocalizedString(@"no_sources_title"); // 修改无源时的标题更符合语境
                 
                 // 构建好看的空白提示引导视图
                 UIView *emptyView = [[UIView alloc] initWithFrame:self.tableView.bounds];
                 emptyView.backgroundColor = [UIColor clearColor];
                 
                 UILabel *tipsLabel = [[UILabel alloc] initWithFrame:CGRectMake(20, 0, self.tableView.bounds.size.width - 40, self.tableView.bounds.size.height - 120)];
-                tipsLabel.text = @"📺\n\n暂无可用直播源\n\n请点击底部【设置】->【我的直播源】进行添加";
+                tipsLabel.text = LocalizedString(@"no_sources_tips");
                 tipsLabel.textColor = [UIColor grayColor];
                 tipsLabel.textAlignment = NSTextAlignmentCenter;
                 tipsLabel.numberOfLines = 0;
@@ -116,13 +117,13 @@
     if (!url) return;
     
     // 显示 iOS 6 风格的 HUD 提示
-    UIAlertView *hud = [[UIAlertView alloc] initWithTitle:@"正在同步..." message:@"正在从网络更新直播源内容\n\n" delegate:nil cancelButtonTitle:nil otherButtonTitles:nil];
+    UIAlertView *hud = [[UIAlertView alloc] initWithTitle:LocalizedString(@"syncing") message:LocalizedString(@"syncing_msg") delegate:nil cancelButtonTitle:nil otherButtonTitles:nil];
     [hud show];
     
     [[UIApplication sharedApplication] setNetworkActivityIndicatorVisible:YES];
     
     dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
-        // 优化：使用独立的网络模块下载文件，内部自动处理 UTF-8 和 GBK 编码回退
+        // 使用独立的网络模块下载文件，内部自动处理 UTF-8 和 GBK 编码回退
         NSString *m3uData = [[NetworkManager sharedManager] downloadStringSyncFromURL:url];
         
         dispatch_async(dispatch_get_main_queue(), ^{
@@ -145,7 +146,7 @@
                     // 此处 update 方法内部会发出 M3UDataUpdated 通知，从而自动触发界面的 loadDataFromUserDefaults
                 }
             } else {
-                UIAlertView *alert = [[UIAlertView alloc] initWithTitle:@"同步失败" message:@"无法连接到源地址，请检查网络或链接是否有效" delegate:nil cancelButtonTitle:@"确定" otherButtonTitles:nil];
+                UIAlertView *alert = [[UIAlertView alloc] initWithTitle:LocalizedString(@"sync_failed") message:LocalizedString(@"sync_failed_msg") delegate:nil cancelButtonTitle:LocalizedString(@"confirm") otherButtonTitles:nil];
                 [alert show];
             }
         });

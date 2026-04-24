@@ -8,6 +8,7 @@
 
 #import "PlayerControlView.h"
 #import "UIImage+DynamicIcon.h"
+#import "LanguageManager.h" // 引入多语言模块
 
 @interface PlayerControlView ()
 
@@ -78,7 +79,7 @@
     
     self.playBtn = [UIButton buttonWithType:UIButtonTypeCustom];
     self.playBtn.frame = CGRectMake(5, 5, 50, 40);
-    [self.playBtn setTitle:@"暂停" forState:UIControlStateNormal];
+    [self.playBtn setTitle:LocalizedString(@"pause") forState:UIControlStateNormal];
     [self.playBtn setTitleColor:[UIColor whiteColor] forState:UIControlStateNormal];
     self.playBtn.titleLabel.font = [UIFont systemFontOfSize:14];
     [self.playBtn addTarget:self action:@selector(playBtnTapped) forControlEvents:UIControlEventTouchUpInside];
@@ -93,7 +94,7 @@
     
     self.fullBtn = [UIButton buttonWithType:UIButtonTypeCustom];
     self.fullBtn.frame = CGRectMake(self.bounds.size.width - 85, 5, 80, 40);
-    [self.fullBtn setTitle:@"全屏" forState:UIControlStateNormal];
+    [self.fullBtn setTitle:LocalizedString(@"fullscreen") forState:UIControlStateNormal];
     [self.fullBtn setTitleColor:[UIColor whiteColor] forState:UIControlStateNormal];
     self.fullBtn.titleLabel.font = [UIFont systemFontOfSize:14];
     self.fullBtn.titleLabel.adjustsFontSizeToFitWidth = YES;
@@ -141,8 +142,8 @@
 }
 
 - (void)updateProgressWithValue:(float)value { self.progressBar.value = value; }
-- (void)updatePlayButtonState:(BOOL)isPlaying { [self.playBtn setTitle:(isPlaying ? @"暂停" : @"播放") forState:UIControlStateNormal]; }
-- (void)updateFullscreenButtonState:(BOOL)isFullscreen { [self.fullBtn setTitle:(isFullscreen ? @"退出全屏" : @"全屏") forState:UIControlStateNormal]; }
+- (void)updatePlayButtonState:(BOOL)isPlaying { [self.playBtn setTitle:(isPlaying ? LocalizedString(@"pause") : LocalizedString(@"play")) forState:UIControlStateNormal]; }
+- (void)updateFullscreenButtonState:(BOOL)isFullscreen { [self.fullBtn setTitle:(isFullscreen ? LocalizedString(@"exit_fullscreen") : LocalizedString(@"fullscreen")) forState:UIControlStateNormal]; }
 - (void)showStatusMessage:(NSString *)message { self.statusLabel.text = message; self.statusLabel.hidden = NO; }
 - (void)hideStatusMessage { self.statusLabel.hidden = YES; }
 
