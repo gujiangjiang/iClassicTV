@@ -29,6 +29,8 @@
 		48317BAF2F9A78E9002489FE /* UIImage+LogoHelper.m in Sources */ = {isa = PBXBuildFile; fileRef = 48317B992F9A78E9002489FE /* UIImage+LogoHelper.m */; };
 		48317BB02F9A78E9002489FE /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = 48317B9B2F9A78E9002489FE /* InfoPlist.strings */; };
 		48317BB22F9A78E9002489FE /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 48317B9F2F9A78E9002489FE /* Images.xcassets */; };
+		48C2CB602F9BB73000A9379F /* UserAgentManager.m in Sources */ = {isa = PBXBuildFile; fileRef = 48C2CB5F2F9BB73000A9379F /* UserAgentManager.m */; };
+		48C2CB632F9BB76900A9379F /* UAManagerViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 48C2CB622F9BB76900A9379F /* UAManagerViewController.m */; };
 		48D63F292F97DE1F002AD06E /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 48D63F282F97DE1F002AD06E /* Foundation.framework */; };
 		48D63F2B2F97DE1F002AD06E /* CoreGraphics.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 48D63F2A2F97DE1F002AD06E /* CoreGraphics.framework */; };
 		48D63F2D2F97DE1F002AD06E /* UIKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 48D63F2C2F97DE1F002AD06E /* UIKit.framework */; };
@@ -93,6 +95,10 @@
 		48317B9D2F9A78E9002489FE /* iClassicTV-Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = "iClassicTV-Info.plist"; sourceTree = "<group>"; };
 		48317B9E2F9A78E9002489FE /* iClassicTV-Prefix.pch */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "iClassicTV-Prefix.pch"; sourceTree = "<group>"; };
 		48317B9F2F9A78E9002489FE /* Images.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Images.xcassets; sourceTree = "<group>"; };
+		48C2CB5E2F9BB73000A9379F /* UserAgentManager.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = UserAgentManager.h; path = ../Features/Settings/UserAgentManager.h; sourceTree = "<group>"; };
+		48C2CB5F2F9BB73000A9379F /* UserAgentManager.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = UserAgentManager.m; path = ../Features/Settings/UserAgentManager.m; sourceTree = "<group>"; };
+		48C2CB612F9BB76900A9379F /* UAManagerViewController.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = UAManagerViewController.h; sourceTree = "<group>"; };
+		48C2CB622F9BB76900A9379F /* UAManagerViewController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = UAManagerViewController.m; sourceTree = "<group>"; };
 		48D63F252F97DE1F002AD06E /* iClassicTV.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = iClassicTV.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		48D63F282F97DE1F002AD06E /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = System/Library/Frameworks/Foundation.framework; sourceTree = SDKROOT; };
 		48D63F2A2F97DE1F002AD06E /* CoreGraphics.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreGraphics.framework; path = System/Library/Frameworks/CoreGraphics.framework; sourceTree = SDKROOT; };
@@ -203,6 +209,8 @@
 				48317B892F9A78E9002489FE /* SourceManagerViewController.m */,
 				48317B8A2F9A78E9002489FE /* TextImportModalViewController.h */,
 				48317B8B2F9A78E9002489FE /* TextImportModalViewController.m */,
+				48C2CB612F9BB76900A9379F /* UAManagerViewController.h */,
+				48C2CB622F9BB76900A9379F /* UAManagerViewController.m */,
 			);
 			path = Settings;
 			sourceTree = "<group>";
@@ -227,6 +235,8 @@
 				48317B952F9A78E9002489FE /* SSLBypassHelper.m */,
 				48317B962F9A78E9002489FE /* ToastHelper.h */,
 				48317B972F9A78E9002489FE /* ToastHelper.m */,
+				48C2CB5E2F9BB73000A9379F /* UserAgentManager.h */,
+				48C2CB5F2F9BB73000A9379F /* UserAgentManager.m */,
 				48317B982F9A78E9002489FE /* UIImage+LogoHelper.h */,
 				48317B992F9A78E9002489FE /* UIImage+LogoHelper.m */,
 				482FAB1F2F9A856A00B4F9D8 /* UIImage+DynamicIcon.h */,
@@ -395,7 +405,9 @@
 			files = (
 				48317BA42F9A78E9002489FE /* GroupListViewController.m in Sources */,
 				48317BAB2F9A78E9002489FE /* AppDataManager.m in Sources */,
+				48C2CB632F9BB76900A9379F /* UAManagerViewController.m in Sources */,
 				48317BA12F9A78E9002489FE /* main.m in Sources */,
+				48C2CB602F9BB73000A9379F /* UserAgentManager.m in Sources */,
 				481612762F9B900D00067C15 /* NSString+EncodingHelper.m in Sources */,
 				48317BAA2F9A78E9002489FE /* Channel.m in Sources */,
 				48317BA22F9A78E9002489FE /* M3UParser.m in Sources */,
