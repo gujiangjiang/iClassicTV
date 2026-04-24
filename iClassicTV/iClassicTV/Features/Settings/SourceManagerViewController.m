@@ -10,6 +10,7 @@
 #import "TextImportModalViewController.h"
 #import "AppDataManager.h"
 #import "NSString+EncodingHelper.h" // 引入字符串编码处理辅助模块
+#import "ToastHelper.h" // 新增：全局引入独立的 Toast 模块，统一交互样式
 
 @interface SourceManagerViewController () <UIActionSheetDelegate, UIAlertViewDelegate>
 @property (nonatomic, strong) NSArray *scannedLocalFiles; // 用于临时存储扫描到的 iTunes 共享文件
@@ -120,7 +121,8 @@
             }
             
             if (m3uFiles.count == 0) {
-                [self showToast:@"未找到任何 m3u 文件\n请先通过电脑 iTunes 拖入文件"];
+                // 优化：统一调用自定义模块的 Toast
+                [ToastHelper showToastWithMessage:@"未找到任何 m3u 文件\n请先通过电脑 iTunes 拖入文件"];
                 return;
             }
             
@@ -151,7 +153,8 @@
             self.tempURLString = @"";
             [self showNamingAlertWithTag:204 presetName:[fileName stringByDeletingPathExtension]];
         } else {
-            [self showToast:@"读取失败，请检查文件格式是否正确"];
+            // 优化：统一调用自定义模块的 Toast
+            [ToastHelper showToastWithMessage:@"读取失败，请检查文件格式是否正确"];
         }
         return;
     }
@@ -168,7 +171,8 @@
         } else if ([title isEqualToString:@"设为当前源"]) {
             [[AppDataManager sharedManager] setActiveSourceById:sourceDict[@"id"]];
             [self.tableView reloadData];
-            [self showToast:@"已切换直播源"];
+            // 优化：统一调用自定义模块的 Toast
+            [ToastHelper showToastWithMessage:@"已切换直播源"];
         } else if ([title isEqualToString:@"重命名"]) {
             UIAlertView *alert = [[UIAlertView alloc] initWithTitle:@"重命名" message:@"请输入新的名称" delegate:self cancelButtonTitle:@"取消" otherButtonTitles:@"确定", nil];
             alert.alertViewStyle = UIAlertViewStylePlainTextInput;
@@ -196,7 +200,8 @@
         NSString *urlStr = [alertView textFieldAtIndex:0].text;
         NSURL *url = [NSURL URLWithString:urlStr];
         if (!url) {
-            [self showToast:@"网址无效"];
+            // 优化：统一调用自定义模块的 Toast
+            [ToastHelper showToastWithMessage:@"网址无效"];
             return;
         }
         
@@ -214,7 +219,8 @@
                     self.tempURLString = urlStr;
                     [self showNamingAlertWithTag:203 presetName:nil];
                 } else {
-                    [self showToast:@"下载失败，请检查网络"];
+                    // 优化：统一调用自定义模块的 Toast
+                    [ToastHelper showToastWithMessage:@"下载失败，请检查网络"];
                 }
             });
         });
@@ -224,7 +230,8 @@
         
         // 统一调用 AppDataManager 新增源
         [[AppDataManager sharedManager] addSourceWithName:name content:self.tempM3UData url:self.tempURLString];
-        [self showToast:@"直播源已成功保存！"];
+        // 优化：统一调用自定义模块的 Toast
+        [ToastHelper showToastWithMessage:@"直播源已成功保存！"];
         
         self.sources = [[AppDataManager sharedManager] getAllSources];
         [self.tableView reloadData];
@@ -263,7 +270,8 @@
             if (m3uData) {
                 [[AppDataManager sharedManager] updateSourceContentAtIndex:index withContent:m3uData];
                 self.sources = [[AppDataManager sharedManager] getAllSources];
-                [self showToast:@"刷新同步成功"];
+                // 优化：统一调用自定义模块的 Toast
+                [ToastHelper showToastWithMessage:@"刷新同步成功"];
             } else {
                 UIAlertView *alert = [[UIAlertView alloc] initWithTitle:@"错误" message:@"刷新失败，请检查网络" delegate:nil cancelButtonTitle:@"确定" otherButtonTitles:nil];
                 [alert show];
@@ -272,12 +280,6 @@
     });
 }
 
-- (void)showToast:(NSString *)message {
-    UIAlertView *toast = [[UIAlertView alloc] initWithTitle:nil message:message delegate:nil cancelButtonTitle:nil otherButtonTitles:nil];
-    [toast show];
-    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1.5 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-        [toast dismissWithClickedButtonIndex:0 animated:YES];
-    });
-}
+// 优化：删除本文件自带的残留 showToast 方法，转为统一依赖 ToastHelper 模块
 
 @end
