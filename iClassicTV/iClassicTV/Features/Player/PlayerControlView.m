@@ -92,7 +92,7 @@
     backBtn.frame = CGRectMake(5, 0, 60, 44);
     [backBtn setTitle:@"< 返回" forState:UIControlStateNormal];
     [backBtn setTitleColor:[UIColor whiteColor] forState:UIControlStateNormal];
-    backBtn.titleLabel.font = [UIFont systemFontOfSize:17]; // 优化：采用 17 号字体贴近系统原生返回按钮
+    backBtn.titleLabel.font = [UIFont systemFontOfSize:17];
     [backBtn addTarget:self action:@selector(backBtnTapped) forControlEvents:UIControlEventTouchUpInside];
     [self.topBar addSubview:backBtn];
     
@@ -100,7 +100,7 @@
     self.titleLabel.textColor = [UIColor whiteColor];
     self.titleLabel.textAlignment = NSTextAlignmentCenter;
     self.titleLabel.backgroundColor = [UIColor clearColor];
-    self.titleLabel.font = [UIFont boldSystemFontOfSize:17]; // 优化：采用 17 号粗体贴近系统原生标题
+    self.titleLabel.font = [UIFont boldSystemFontOfSize:17];
     self.titleLabel.autoresizingMask = UIViewAutoresizingFlexibleWidth;
     [self.topBar addSubview:self.titleLabel];
     
@@ -171,26 +171,37 @@
     
     BOOL isIOS7 = [[[UIDevice currentDevice] systemVersion] floatValue] >= 7.0;
     
-    // 修复：新增动态调整文字和按钮颜色，彻底还原系统原生样式
+    // 优化：彻底分离 iOS 6 和 iOS 7+ 的样式逻辑，防止 iOS 6 变成蓝色默认导航栏
     UIColor *titleColor = [UIColor whiteColor];
     UIColor *backBtnColor = [UIColor whiteColor];
+    UIBarStyle targetBarStyle = UIBarStyleBlack; // iOS 6 经典黑底，或全屏深色
     
-    if (!isFullscreen && isIOS7) {
-        // iOS 7+ 竖屏模式：配合 UIBarStyleDefault 原生浅色导航栏，文字必须为黑色，返回按钮为系统原生蓝色
-        titleColor = [UIColor blackColor];
-        backBtnColor = [UIColor colorWithRed:0.0 green:122.0/255.0 blue:1.0 alpha:1.0];
+    if (isIOS7) {
+        if (!isFullscreen) {
+            // iOS 7+ 竖屏模式：浅色导航栏，黑色文字，蓝色返回按钮
+            titleColor = [UIColor blackColor];
+            backBtnColor = [UIColor colorWithRed:0.0 green:122.0/255.0 blue:1.0 alpha:1.0];
+            targetBarStyle = UIBarStyleDefault;
+        } else {
+            // iOS 7+ 全屏模式：深色毛玻璃，保持白色文字和按钮
+            targetBarStyle = UIBarStyleBlack;
+        }
+    } else {
+        // iOS 6：无论是竖屏还是全屏，统一保持 UIBarStyleBlack 经典高光深色
+        targetBarStyle = UIBarStyleBlack;
     }
     
     for (UIView *subview in self.topBar.subviews) {
         if (subview.tag == 999) {
             UINavigationBar *navBg = (UINavigationBar *)subview;
-            // 修复：不再强制隐藏导航栏背景，而是根据全屏状态动态切换它的原生主题风格
             navBg.hidden = NO;
-            navBg.barStyle = isFullscreen ? UIBarStyleBlack : UIBarStyleDefault;
+            // 修复：应用精准的 barStyle 逻辑
+            navBg.barStyle = targetBarStyle;
             
             if (isFullscreen) {
                 subview.frame = self.topBar.bounds;
             } else if (!isIOS7) {
+                // iOS 6 竖屏不向上延伸到状态栏
                 subview.frame = CGRectMake(0, 20, self.bounds.size.width, 44);
             } else {
                 subview.frame = self.topBar.bounds;
