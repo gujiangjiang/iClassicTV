@@ -64,21 +64,15 @@
     static NSString *CellId = @"ChannelCell";
     UITableViewCell *cell = [tableView dequeueReusableCellWithIdentifier:CellId];
     if (!cell) {
-        cell = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleSubtitle reuseIdentifier:CellId];
+        // 优化：统一使用 Default 样式，不再显示多余的副标题区域，使频道名称垂直居中更美观
+        cell = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleDefault reuseIdentifier:CellId];
     }
     
     Channel *ch = self.channels[indexPath.row];
     cell.textLabel.text = ch.name;
     
-    if (ch.urls.count > 1) {
-        cell.accessoryType = UITableViewCellAccessoryDetailDisclosureButton;
-        cell.detailTextLabel.text = [NSString stringWithFormat:@"📺 多线路支持 (%lu 条)", (unsigned long)ch.urls.count];
-        cell.detailTextLabel.textColor = [UIColor colorWithRed:0.0 green:0.5 blue:1.0 alpha:1.0];
-    } else {
-        cell.accessoryType = UITableViewCellAccessoryNone;
-        cell.detailTextLabel.text = @"标准线路";
-        cell.detailTextLabel.textColor = [UIColor grayColor];
-    }
+    // 优化：统一视图逻辑，不论单线还是多线，列表均不再显示具体线路数量，且全部统一提供箭头以供点击进入线路选择
+    cell.accessoryType = UITableViewCellAccessoryDetailDisclosureButton;
     
     NSString *logoKey = ch.logo.length > 0 ? ch.logo : ch.name;
     UIImage *cachedImage = [self.imageCache objectForKey:logoKey];
