@@ -42,6 +42,8 @@
     [sheet showInView:self.view];
 }
 
+#pragma mark - Table View Data Source
+
 - (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section {
     return self.sources.count;
 }
@@ -74,6 +76,30 @@
     return cell;
 }
 
+// 开启侧滑删除功能
+- (BOOL)tableView:(UITableView *)tableView canEditRowAtIndexPath:(NSIndexPath *)indexPath {
+    return YES;
+}
+
+// 处理侧滑删除动作
+- (void)tableView:(UITableView *)tableView commitEditingStyle:(UITableViewCellEditingStyle)editingStyle forRowAtIndexPath:(NSIndexPath *)indexPath {
+    if (editingStyle == UITableViewCellEditingStyleDelete) {
+        // 记录当前要操作的索引
+        self.selectedIndexPath = indexPath;
+        
+        // 弹出确认删除的提示框
+        UIAlertView *deleteAlert = [[UIAlertView alloc] initWithTitle:@"确认删除"
+                                                              message:@"您确定要删除该直播源吗？"
+                                                             delegate:self
+                                                    cancelButtonTitle:@"取消"
+                                                    otherButtonTitles:@"删除", nil];
+        deleteAlert.tag = 401;
+        [deleteAlert show];
+    }
+}
+
+#pragma mark - Table View Delegate
+
 - (void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath {
     [tableView deselectRowAtIndexPath:indexPath animated:YES];
     self.selectedIndexPath = indexPath;
@@ -90,6 +116,8 @@
     sheet.tag = 100;
     [sheet showInView:self.view];
 }
+
+#pragma mark - UIActionSheetDelegate
 
 - (void)actionSheet:(UIActionSheet *)actionSheet clickedButtonAtIndex:(NSInteger)buttonIndex {
     if (buttonIndex == actionSheet.cancelButtonIndex) return;
@@ -161,9 +189,9 @@
         NSDictionary *sourceDict = self.sources[self.selectedIndexPath.row];
         
         if ([title isEqualToString:@"删除"]) {
-            // 新增：弹出确认删除的提示框防止误操作
+            // 弹出确认删除的提示框防止误操作
             UIAlertView *deleteAlert = [[UIAlertView alloc] initWithTitle:@"确认删除" message:@"您确定要删除该直播源吗？" delegate:self cancelButtonTitle:@"取消" otherButtonTitles:@"删除", nil];
-            deleteAlert.tag = 401; // 分配一个新的 tag
+            deleteAlert.tag = 401;
             [deleteAlert show];
         } else if ([title isEqualToString:@"设为当前源"]) {
             [[AppDataManager sharedManager] setActiveSourceById:sourceDict[@"id"]];
@@ -182,11 +210,13 @@
     }
 }
 
+#pragma mark - UIAlertViewDelegate
+
 - (void)alertView:(UIAlertView *)alertView clickedButtonAtIndex:(NSInteger)buttonIndex {
     if (buttonIndex == alertView.cancelButtonIndex) return;
     
     if (alertView.tag == 401) {
-        // 新增：处理删除确认逻辑
+        // 执行删除逻辑
         [[AppDataManager sharedManager] deleteSourceAtIndex:self.selectedIndexPath.row];
         self.sources = [[AppDataManager sharedManager] getAllSources];
         [self.tableView reloadData];
