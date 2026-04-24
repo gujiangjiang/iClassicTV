@@ -33,4 +33,7 @@
 - (void)showStatusMessage:(NSString *)message;
 - (void)hideStatusMessage;
 
+// 新增：主动注销自动隐藏定时器，防止在关闭播放器时引发内存泄漏或野指针异常
+- (void)cancelAutoHideTimer;
+
 @end

@@ -221,6 +221,10 @@
     
     [self.timer invalidate];
     self.timer = nil;
+    
+    // 新增：主动注销 UI 控制层的自动隐藏定时器，防止组件延迟销毁或内存泄漏
+    [self.controlView cancelAutoHideTimer];
+    
     [self.player stop];
     [[NSNotificationCenter defaultCenter] removeObserver:self];
     
