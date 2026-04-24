@@ -161,9 +161,10 @@
         NSDictionary *sourceDict = self.sources[self.selectedIndexPath.row];
         
         if ([title isEqualToString:@"删除"]) {
-            [[AppDataManager sharedManager] deleteSourceAtIndex:self.selectedIndexPath.row];
-            self.sources = [[AppDataManager sharedManager] getAllSources];
-            [self.tableView reloadData];
+            // 新增：弹出确认删除的提示框防止误操作
+            UIAlertView *deleteAlert = [[UIAlertView alloc] initWithTitle:@"确认删除" message:@"您确定要删除该直播源吗？" delegate:self cancelButtonTitle:@"取消" otherButtonTitles:@"删除", nil];
+            deleteAlert.tag = 401; // 分配一个新的 tag
+            [deleteAlert show];
         } else if ([title isEqualToString:@"设为当前源"]) {
             [[AppDataManager sharedManager] setActiveSourceById:sourceDict[@"id"]];
             [self.tableView reloadData];
@@ -184,7 +185,12 @@
 - (void)alertView:(UIAlertView *)alertView clickedButtonAtIndex:(NSInteger)buttonIndex {
     if (buttonIndex == alertView.cancelButtonIndex) return;
     
-    if (alertView.tag == 301) {
+    if (alertView.tag == 401) {
+        // 新增：处理删除确认逻辑
+        [[AppDataManager sharedManager] deleteSourceAtIndex:self.selectedIndexPath.row];
+        self.sources = [[AppDataManager sharedManager] getAllSources];
+        [self.tableView reloadData];
+    } else if (alertView.tag == 301) {
         UITextField *tf = [alertView textFieldAtIndex:0];
         if (tf.text.length > 0) {
             [[AppDataManager sharedManager] updateSourceNameAtIndex:self.selectedIndexPath.row withName:tf.text];

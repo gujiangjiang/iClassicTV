@@ -10,7 +10,8 @@
 #import "UserAgentManager.h"
 
 @interface UAManagerViewController () <UIAlertViewDelegate>
-
+// 新增：用于记录准备要删除的行
+@property (nonatomic, strong) NSIndexPath *uaIndexPathToDelete;
 @end
 
 @implementation UAManagerViewController
@@ -32,6 +33,7 @@
                                           cancelButtonTitle:@"取消"
                                           otherButtonTitles:@"保存", nil];
     alert.alertViewStyle = UIAlertViewStyleLoginAndPasswordInput;
+    alert.tag = 100; // 新增：设置 tag 区分弹窗来源
     
     UITextField *nameField = [alert textFieldAtIndex:0];
     nameField.placeholder = @"标识名称 (例如: PC 浏览器)";
@@ -46,17 +48,33 @@
 #pragma mark - UIAlertViewDelegate
 
 - (void)alertView:(UIAlertView *)alertView clickedButtonAtIndex:(NSInteger)buttonIndex {
-    if (buttonIndex == 1) { // 点击了保存
-        UITextField *nameField = [alertView textFieldAtIndex:0];
-        UITextField *uaField = [alertView textFieldAtIndex:1];
-        
-        NSString *name = [nameField.text stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
-        NSString *ua = [uaField.text stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
-        
-        if (name.length > 0 && ua.length > 0) {
-            [[UserAgentManager sharedManager] addUAWithName:name uaString:ua];
-            [self.tableView reloadData];
+    if (alertView.tag == 100) {
+        // 原有逻辑：处理添加 User-Agent
+        if (buttonIndex == 1) { // 点击了保存
+            UITextField *nameField = [alertView textFieldAtIndex:0];
+            UITextField *uaField = [alertView textFieldAtIndex:1];
+            
+            NSString *name = [nameField.text stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
+            NSString *ua = [uaField.text stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
+            
+            if (name.length > 0 && ua.length > 0) {
+                [[UserAgentManager sharedManager] addUAWithName:name uaString:ua];
+                [self.tableView reloadData];
+            }
         }
+    } else if (alertView.tag == 101) {
+        // 新增逻辑：处理删除确认
+        if (buttonIndex != alertView.cancelButtonIndex && self.uaIndexPathToDelete) {
+            BOOL success = [[UserAgentManager sharedManager] deleteUAAtIndex:self.uaIndexPathToDelete.row];
+            if (success) {
+                [self.tableView deleteRowsAtIndexPaths:@[self.uaIndexPathToDelete] withRowAnimation:UITableViewRowAnimationFade];
+                // 延时刷新一下全局状态，防止当前使用的项被删除后打钩状态没及时更新回默认项
+                dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.3 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+                    [self.tableView reloadData];
+                });
+            }
+        }
+        self.uaIndexPathToDelete = nil; // 无论是否删除，都清空记录
     }
 }
 
@@ -118,15 +136,15 @@
 
 - (void)tableView:(UITableView *)tableView commitEditingStyle:(UITableViewCellEditingStyle)editingStyle forRowAtIndexPath:(NSIndexPath *)indexPath {
     if (editingStyle == UITableViewCellEditingStyleDelete) {
-        // 删除数据并在界面上移除该行
-        BOOL success = [[UserAgentManager sharedManager] deleteUAAtIndex:indexPath.row];
-        if (success) {
-            [tableView deleteRowsAtIndexPaths:@[indexPath] withRowAnimation:UITableViewRowAnimationFade];
-            // 延时刷新一下全局状态，防止当前使用的项被删除后打钩状态没及时更新回默认项
-            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.3 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-                [self.tableView reloadData];
-            });
-        }
+        // 新增：弹出确认提示框，而不是直接删除数据
+        self.uaIndexPathToDelete = indexPath;
+        UIAlertView *deleteAlert = [[UIAlertView alloc] initWithTitle:@"确认删除"
+                                                              message:@"您确定要删除该 User-Agent 吗？"
+                                                             delegate:self
+                                                    cancelButtonTitle:@"取消"
+                                                    otherButtonTitles:@"删除", nil];
+        deleteAlert.tag = 101;
+        [deleteAlert show];
     }
 }
 
