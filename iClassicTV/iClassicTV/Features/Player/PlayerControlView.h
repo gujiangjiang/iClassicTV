@@ -10,33 +10,25 @@
 
 @class PlayerControlView;
 
-// 定义代理协议，将 UI 上的操作事件传递给控制器
 @protocol PlayerControlViewDelegate <NSObject>
-@optional
-- (void)controlViewDidTapBack:(PlayerControlView *)controlView;
+// 移除了 controlViewDidTapBack:，因为返回操作现在由控制器原生导航栏接管
 - (void)controlViewDidTapPlayPause:(PlayerControlView *)controlView;
 - (void)controlViewDidTapFullscreen:(PlayerControlView *)controlView;
 - (void)controlView:(PlayerControlView *)controlView sliderValueDidChange:(float)value;
 - (void)controlView:(PlayerControlView *)controlView controlsHiddenDidChange:(BOOL)isHidden;
 @end
 
-// 独立的播放器 UI 交互面板组件
 @interface PlayerControlView : UIView
 
 @property (nonatomic, weak) id<PlayerControlViewDelegate> delegate;
+@property (nonatomic, assign, readonly) BOOL isLocked; // 暴露给控制器用于辅助判断顶部导航栏的隐藏逻辑
 
-// 供控制器调用的 UI 更新接口
-- (void)setChannelTitle:(NSString *)title;
+- (void)updateLayoutForFullscreen:(BOOL)isFullscreen videoFrame:(CGRect)videoFrame;
 - (void)updateProgressWithValue:(float)value;
 - (void)updatePlayButtonState:(BOOL)isPlaying;
 - (void)updateFullscreenButtonState:(BOOL)isFullscreen;
 - (void)showStatusMessage:(NSString *)message;
 - (void)hideStatusMessage;
-
-// 新增：主动注销自动隐藏定时器，防止在关闭播放器时引发内存泄漏或野指针异常
 - (void)cancelAutoHideTimer;
-
-// 新增：布局更新接口，用于支持非全屏半屏显示的动态适配
-- (void)updateLayoutForFullscreen:(BOOL)isFullscreen videoFrame:(CGRect)videoFrame;
 
 @end

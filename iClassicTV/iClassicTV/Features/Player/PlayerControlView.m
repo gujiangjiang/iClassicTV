@@ -12,18 +12,16 @@
 @interface PlayerControlView ()
 
 @property (nonatomic, strong) UIView *gestureCatcherView;
-@property (nonatomic, strong) UIView *topBar;
 @property (nonatomic, strong) UIView *bottomBar;
 @property (nonatomic, strong) UIButton *playBtn;
 @property (nonatomic, strong) UISlider *progressBar;
 @property (nonatomic, strong) UIButton *fullBtn;
 @property (nonatomic, strong) UILabel *statusLabel;
-@property (nonatomic, strong) UILabel *titleLabel;
 @property (nonatomic, strong) UIButton *lockBtn;
 
 @property (nonatomic, assign) BOOL isLocked;
 @property (nonatomic, assign) BOOL isControlsHidden;
-@property (nonatomic, assign) BOOL currentIsFullscreen; // 记录当前是否全屏
+@property (nonatomic, assign) BOOL currentIsFullscreen;
 @property (nonatomic, strong) NSTimer *autoHideTimer;
 
 @end
@@ -43,7 +41,6 @@
     return self;
 }
 
-// 根据系统版本应用对应的背景风格 (iOS7毛玻璃 / iOS6拟物黑)
 - (void)applyBlurEffectToView:(UIView *)view {
     BOOL isIOS7 = [[[UIDevice currentDevice] systemVersion] floatValue] >= 7.0;
     if (isIOS7) {
@@ -52,23 +49,21 @@
         blurBar.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
         blurBar.barStyle = UIBarStyleBlack;
         blurBar.translucent = YES;
-        [view insertSubview:blurBar atIndex:0]; // 垫在最底层实现毛玻璃
+        [view insertSubview:blurBar atIndex:0];
     } else {
         view.backgroundColor = [UIColor colorWithWhite:0.0 alpha:0.7];
     }
 }
 
 - (void)setupUI {
-    // 1. 状态反馈提示层
+    // 1. 状态反馈层
     self.statusLabel = [[UILabel alloc] initWithFrame:CGRectMake(0, 0, 280, 100)];
-    self.statusLabel.center = CGPointMake(self.bounds.size.width / 2, self.bounds.size.height / 2);
     self.statusLabel.autoresizingMask = UIViewAutoresizingFlexibleTopMargin | UIViewAutoresizingFlexibleBottomMargin | UIViewAutoresizingFlexibleLeftMargin | UIViewAutoresizingFlexibleRightMargin;
     self.statusLabel.textAlignment = NSTextAlignmentCenter;
     self.statusLabel.textColor = [UIColor whiteColor];
     self.statusLabel.font = [UIFont boldSystemFontOfSize:16];
     self.statusLabel.numberOfLines = 0;
     self.statusLabel.backgroundColor = [UIColor clearColor];
-    self.statusLabel.text = @"加载中...";
     [self addSubview:self.statusLabel];
     
     // 2. 手势拦截层
@@ -76,37 +71,9 @@
     self.gestureCatcherView.backgroundColor = [UIColor clearColor];
     [self addSubview:self.gestureCatcherView];
     
-    // 3. 顶部导航栏
-    self.topBar = [[UIView alloc] initWithFrame:CGRectMake(0, 0, self.bounds.size.width, 44)];
-    self.topBar.backgroundColor = [UIColor clearColor];
-    [self addSubview:self.topBar];
-    
-    // 嵌入系统原生的 UINavigationBar 作为顶栏的原生背景渲染层
-    UINavigationBar *topNavBg = [[UINavigationBar alloc] initWithFrame:self.topBar.bounds];
-    topNavBg.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
-    topNavBg.barStyle = UIBarStyleBlack;
-    topNavBg.tag = 999;
-    [self.topBar addSubview:topNavBg];
-    
-    UIButton *backBtn = [UIButton buttonWithType:UIButtonTypeCustom];
-    backBtn.frame = CGRectMake(5, 0, 60, 44);
-    [backBtn setTitle:@"< 返回" forState:UIControlStateNormal];
-    [backBtn setTitleColor:[UIColor whiteColor] forState:UIControlStateNormal];
-    backBtn.titleLabel.font = [UIFont systemFontOfSize:17];
-    [backBtn addTarget:self action:@selector(backBtnTapped) forControlEvents:UIControlEventTouchUpInside];
-    [self.topBar addSubview:backBtn];
-    
-    self.titleLabel = [[UILabel alloc] initWithFrame:CGRectMake(70, 0, self.bounds.size.width - 140, 44)];
-    self.titleLabel.textColor = [UIColor whiteColor];
-    self.titleLabel.textAlignment = NSTextAlignmentCenter;
-    self.titleLabel.backgroundColor = [UIColor clearColor];
-    self.titleLabel.font = [UIFont boldSystemFontOfSize:17];
-    self.titleLabel.autoresizingMask = UIViewAutoresizingFlexibleWidth;
-    [self.topBar addSubview:self.titleLabel];
-    
-    // 4. 底部控制栏
+    // 3. 底部控制栏
     self.bottomBar = [[UIView alloc] initWithFrame:CGRectMake(0, self.bounds.size.height - 50, self.bounds.size.width, 50)];
-    [self applyBlurEffectToView:self.bottomBar]; // 底部悬浮区域仍然保持透明沉浸感
+    [self applyBlurEffectToView:self.bottomBar];
     [self addSubview:self.bottomBar];
     
     self.playBtn = [UIButton buttonWithType:UIButtonTypeCustom];
@@ -134,9 +101,9 @@
     [self.fullBtn addTarget:self action:@selector(fullscreenBtnTapped) forControlEvents:UIControlEventTouchUpInside];
     [self.bottomBar addSubview:self.fullBtn];
     
-    // 5. 左侧锁定按钮
+    // 4. 左侧锁定按钮
     self.lockBtn = [UIButton buttonWithType:UIButtonTypeCustom];
-    self.lockBtn.frame = CGRectMake(20, (self.bounds.size.height - 40) / 2, 40, 40);
+    self.lockBtn.frame = CGRectMake(20, 0, 40, 40);
     self.lockBtn.backgroundColor = [UIColor colorWithWhite:0.0 alpha:0.3];
     self.lockBtn.layer.cornerRadius = 20;
     self.lockBtn.alpha = 0.6;
@@ -144,7 +111,7 @@
     [self.lockBtn addTarget:self action:@selector(toggleLock) forControlEvents:UIControlEventTouchUpInside];
     [self addSubview:self.lockBtn];
     
-    // 6. 添加手势控制
+    // 5. 手势
     UITapGestureRecognizer *doubleTap = [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(handleDoubleTap:)];
     doubleTap.numberOfTapsRequired = 2;
     [self.gestureCatcherView addGestureRecognizer:doubleTap];
@@ -155,66 +122,12 @@
     [self.gestureCatcherView addGestureRecognizer:singleTap];
 }
 
-// 动态重算控制组件的 Frame 以适应半屏/全屏
 - (void)updateLayoutForFullscreen:(BOOL)isFullscreen videoFrame:(CGRect)videoFrame {
     self.currentIsFullscreen = isFullscreen;
     
     if (!isFullscreen && self.isLocked) {
         self.isLocked = NO;
         [self.lockBtn setImage:[UIImage dynamicLockIconWithState:NO] forState:UIControlStateNormal];
-    }
-    
-    CGFloat topBarHeight = isFullscreen ? 44.0 : 64.0;
-    CGFloat yOffset = isFullscreen ? 0.0 : 20.0;
-    
-    self.topBar.frame = CGRectMake(0, 0, self.bounds.size.width, topBarHeight);
-    
-    BOOL isIOS7 = [[[UIDevice currentDevice] systemVersion] floatValue] >= 7.0;
-    
-    // 优化：彻底分离 iOS 6 和 iOS 7+ 的样式逻辑，防止 iOS 6 变成蓝色默认导航栏
-    UIColor *titleColor = [UIColor whiteColor];
-    UIColor *backBtnColor = [UIColor whiteColor];
-    UIBarStyle targetBarStyle = UIBarStyleBlack; // iOS 6 经典黑底，或全屏深色
-    
-    if (isIOS7) {
-        if (!isFullscreen) {
-            // iOS 7+ 竖屏模式：浅色导航栏，黑色文字，蓝色返回按钮
-            titleColor = [UIColor blackColor];
-            backBtnColor = [UIColor colorWithRed:0.0 green:122.0/255.0 blue:1.0 alpha:1.0];
-            targetBarStyle = UIBarStyleDefault;
-        } else {
-            // iOS 7+ 全屏模式：深色毛玻璃，保持白色文字和按钮
-            targetBarStyle = UIBarStyleBlack;
-        }
-    } else {
-        // iOS 6：无论是竖屏还是全屏，统一保持 UIBarStyleBlack 经典高光深色
-        targetBarStyle = UIBarStyleBlack;
-    }
-    
-    for (UIView *subview in self.topBar.subviews) {
-        if (subview.tag == 999) {
-            UINavigationBar *navBg = (UINavigationBar *)subview;
-            navBg.hidden = NO;
-            // 修复：应用精准的 barStyle 逻辑
-            navBg.barStyle = targetBarStyle;
-            
-            if (isFullscreen) {
-                subview.frame = self.topBar.bounds;
-            } else if (!isIOS7) {
-                // iOS 6 竖屏不向上延伸到状态栏
-                subview.frame = CGRectMake(0, 20, self.bounds.size.width, 44);
-            } else {
-                subview.frame = self.topBar.bounds;
-            }
-        } else if ([subview isKindOfClass:[UIButton class]]) {
-            UIButton *btn = (UIButton *)subview;
-            btn.frame = CGRectMake(5, yOffset, 60, 44);
-            [btn setTitleColor:backBtnColor forState:UIControlStateNormal];
-        } else if ([subview isKindOfClass:[UILabel class]]) {
-            UILabel *lbl = (UILabel *)subview;
-            lbl.frame = CGRectMake(70, yOffset, self.bounds.size.width - 140, 44);
-            lbl.textColor = titleColor;
-        }
     }
     
     self.bottomBar.frame = CGRectMake(0, CGRectGetMaxY(videoFrame) - 50, self.bounds.size.width, 50);
@@ -227,40 +140,11 @@
     [self setControlsHidden:self.isControlsHidden];
 }
 
-#pragma mark - 公开更新接口
-
-- (void)setChannelTitle:(NSString *)title {
-    self.titleLabel.text = title;
-}
-
-- (void)updateProgressWithValue:(float)value {
-    self.progressBar.value = value;
-}
-
-- (void)updatePlayButtonState:(BOOL)isPlaying {
-    [self.playBtn setTitle:(isPlaying ? @"暂停" : @"播放") forState:UIControlStateNormal];
-}
-
-- (void)updateFullscreenButtonState:(BOOL)isFullscreen {
-    [self.fullBtn setTitle:(isFullscreen ? @"退出全屏" : @"全屏") forState:UIControlStateNormal];
-}
-
-- (void)showStatusMessage:(NSString *)message {
-    self.statusLabel.text = message;
-    self.statusLabel.hidden = NO;
-}
-
-- (void)hideStatusMessage {
-    self.statusLabel.hidden = YES;
-}
-
-#pragma mark - UI 交互事件转发
-
-- (void)backBtnTapped {
-    if ([self.delegate respondsToSelector:@selector(controlViewDidTapBack:)]) {
-        [self.delegate controlViewDidTapBack:self];
-    }
-}
+- (void)updateProgressWithValue:(float)value { self.progressBar.value = value; }
+- (void)updatePlayButtonState:(BOOL)isPlaying { [self.playBtn setTitle:(isPlaying ? @"暂停" : @"播放") forState:UIControlStateNormal]; }
+- (void)updateFullscreenButtonState:(BOOL)isFullscreen { [self.fullBtn setTitle:(isFullscreen ? @"退出全屏" : @"全屏") forState:UIControlStateNormal]; }
+- (void)showStatusMessage:(NSString *)message { self.statusLabel.text = message; self.statusLabel.hidden = NO; }
+- (void)hideStatusMessage { self.statusLabel.hidden = YES; }
 
 - (void)playBtnTapped {
     [self startAutoHideTimer];
@@ -300,8 +184,6 @@
     [self fullscreenBtnTapped];
 }
 
-#pragma mark - 自动隐藏逻辑
-
 - (void)startAutoHideTimer {
     [self cancelAutoHideTimer];
     self.autoHideTimer = [NSTimer scheduledTimerWithTimeInterval:5.0 target:self selector:@selector(autoHideControls) userInfo:nil repeats:NO];
@@ -326,28 +208,22 @@
     
     [UIView animateWithDuration:0.3 animations:^{
         if (self.isLocked) {
-            self.topBar.alpha = 0.0;
             self.bottomBar.alpha = 0.0;
             self.lockBtn.alpha = hidden ? 0.0 : 0.6;
         } else {
-            self.topBar.alpha = (!self.currentIsFullscreen) ? 1.0 : (hidden ? 0.0 : 1.0);
             self.bottomBar.alpha = hidden ? 0.0 : 1.0;
             self.lockBtn.alpha = hidden ? 0.0 : 0.6;
         }
     }];
     
-    self.topBar.userInteractionEnabled = !self.isLocked;
     self.bottomBar.userInteractionEnabled = !self.isLocked && !hidden;
     
     if ([self.delegate respondsToSelector:@selector(controlView:controlsHiddenDidChange:)]) {
         [self.delegate controlView:self controlsHiddenDidChange:hidden];
     }
     
-    if (!hidden) {
-        [self startAutoHideTimer];
-    } else {
-        [self cancelAutoHideTimer];
-    }
+    if (!hidden) [self startAutoHideTimer];
+    else [self cancelAutoHideTimer];
 }
 
 - (void)dealloc {
