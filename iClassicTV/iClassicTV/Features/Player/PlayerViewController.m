@@ -30,6 +30,11 @@
     [super viewDidLoad];
     self.view.backgroundColor = [UIColor blackColor];
     
+    // 修复：适配 iOS 6，确保视图占据全屏（包括状态栏区域），避免状态栏隐藏时引发布局跳动
+    if ([self respondsToSelector:@selector(setWantsFullScreenLayout:)]) {
+        self.wantsFullScreenLayout = YES;
+    }
+    
     self.isFullscreen = NO;
     self.originalOrientation = [UIApplication sharedApplication].statusBarOrientation;
     
@@ -90,6 +95,13 @@
         UIInterfaceOrientation targetOrientation = [PlayerConfigManager preferredInterfaceOrientation];
         [self forceRotateToOrientation:targetOrientation];
     }
+    
+    // 修复：全屏状态改变后，立刻主动刷新状态栏的显隐状态，实现真正的沉浸式全屏
+    if ([self respondsToSelector:@selector(setNeedsStatusBarAppearanceUpdate)]) {
+        [self setNeedsStatusBarAppearanceUpdate];
+    } else {
+        [[UIApplication sharedApplication] setStatusBarHidden:[self prefersStatusBarHidden] withAnimation:UIStatusBarAnimationFade];
+    }
 }
 
 - (void)controlView:(PlayerControlView *)controlView sliderValueDidChange:(float)value {
@@ -104,7 +116,8 @@
     if ([self respondsToSelector:@selector(setNeedsStatusBarAppearanceUpdate)]) {
         [self setNeedsStatusBarAppearanceUpdate];
     } else {
-        [[UIApplication sharedApplication] setStatusBarHidden:isHidden withAnimation:UIStatusBarAnimationFade];
+        // 修复：使用全新 prefersStatusBarHidden 逻辑来决定是否隐藏
+        [[UIApplication sharedApplication] setStatusBarHidden:[self prefersStatusBarHidden] withAnimation:UIStatusBarAnimationFade];
     }
 }
 
@@ -205,7 +218,8 @@
 }
 
 - (BOOL)prefersStatusBarHidden {
-    return self.isControlsHidden;
+    // 修复：只要是全屏模式，就永远强制隐藏状态栏；非全屏时才跟随控制面板的显隐状态
+    return self.isFullscreen || self.isControlsHidden;
 }
 
 - (void)closePlayer {
@@ -222,7 +236,7 @@
     [self.timer invalidate];
     self.timer = nil;
     
-    // 新增：主动注销 UI 控制层的自动隐藏定时器，防止组件延迟销毁或内存泄漏
+    // 主动注销 UI 控制层的自动隐藏定时器，防止组件延迟销毁或内存泄漏
     [self.controlView cancelAutoHideTimer];
     
     [self.player stop];
