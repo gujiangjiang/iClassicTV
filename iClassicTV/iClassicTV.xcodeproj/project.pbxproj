@@ -29,6 +29,7 @@
 		48317BAF2F9A78E9002489FE /* UIImage+LogoHelper.m in Sources */ = {isa = PBXBuildFile; fileRef = 48317B992F9A78E9002489FE /* UIImage+LogoHelper.m */; };
 		48317BB02F9A78E9002489FE /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = 48317B9B2F9A78E9002489FE /* InfoPlist.strings */; };
 		48317BB22F9A78E9002489FE /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 48317B9F2F9A78E9002489FE /* Images.xcassets */; };
+		4843BC1E2F9BD8C0007A0595 /* en-US.json in Resources */ = {isa = PBXBuildFile; fileRef = 4843BC1D2F9BD8C0007A0595 /* en-US.json */; };
 		48C2CB602F9BB73000A9379F /* UserAgentManager.m in Sources */ = {isa = PBXBuildFile; fileRef = 48C2CB5F2F9BB73000A9379F /* UserAgentManager.m */; };
 		48C2CB632F9BB76900A9379F /* UAManagerViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 48C2CB622F9BB76900A9379F /* UAManagerViewController.m */; };
 		48C2CB662F9BB9E200A9379F /* NetworkManager.m in Sources */ = {isa = PBXBuildFile; fileRef = 48C2CB652F9BB9E200A9379F /* NetworkManager.m */; };
@@ -43,7 +44,6 @@
 		48FBEB1B2F9BCCA300DD08EE /* DataManagementViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 48FBEB1A2F9BCCA300DD08EE /* DataManagementViewController.m */; };
 		48FBEB1E2F9BD2D200DD08EE /* AlertHelper.m in Sources */ = {isa = PBXBuildFile; fileRef = 48FBEB1D2F9BD2D200DD08EE /* AlertHelper.m */; };
 		48FBEB212F9BD55100DD08EE /* zh-CN.json in Resources */ = {isa = PBXBuildFile; fileRef = 48FBEB202F9BD55100DD08EE /* zh-CN.json */; };
-		48FBEB232F9BD56A00DD08EE /* en.json in Resources */ = {isa = PBXBuildFile; fileRef = 48FBEB222F9BD56A00DD08EE /* en.json */; };
 		48FBEB262F9BD59800DD08EE /* LanguageManager.m in Sources */ = {isa = PBXBuildFile; fileRef = 48FBEB252F9BD59800DD08EE /* LanguageManager.m */; };
 /* End PBXBuildFile section */
 
@@ -101,6 +101,7 @@
 		48317B9D2F9A78E9002489FE /* iClassicTV-Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = "iClassicTV-Info.plist"; sourceTree = "<group>"; };
 		48317B9E2F9A78E9002489FE /* iClassicTV-Prefix.pch */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "iClassicTV-Prefix.pch"; sourceTree = "<group>"; };
 		48317B9F2F9A78E9002489FE /* Images.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Images.xcassets; sourceTree = "<group>"; };
+		4843BC1D2F9BD8C0007A0595 /* en-US.json */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.json; path = "en-US.json"; sourceTree = "<group>"; };
 		48C2CB5E2F9BB73000A9379F /* UserAgentManager.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = UserAgentManager.h; path = ../Features/Settings/UserAgentManager.h; sourceTree = "<group>"; };
 		48C2CB5F2F9BB73000A9379F /* UserAgentManager.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = UserAgentManager.m; path = ../Features/Settings/UserAgentManager.m; sourceTree = "<group>"; };
 		48C2CB612F9BB76900A9379F /* UAManagerViewController.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = UAManagerViewController.h; sourceTree = "<group>"; };
@@ -121,7 +122,6 @@
 		48FBEB1C2F9BD2D200DD08EE /* AlertHelper.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = AlertHelper.h; sourceTree = "<group>"; };
 		48FBEB1D2F9BD2D200DD08EE /* AlertHelper.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = AlertHelper.m; sourceTree = "<group>"; };
 		48FBEB202F9BD55100DD08EE /* zh-CN.json */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.json; path = "zh-CN.json"; sourceTree = "<group>"; };
-		48FBEB222F9BD56A00DD08EE /* en.json */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.json; path = en.json; sourceTree = "<group>"; };
 		48FBEB242F9BD59800DD08EE /* LanguageManager.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = LanguageManager.h; sourceTree = "<group>"; };
 		48FBEB252F9BD59800DD08EE /* LanguageManager.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = LanguageManager.m; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -337,7 +337,7 @@
 			isa = PBXGroup;
 			children = (
 				48FBEB202F9BD55100DD08EE /* zh-CN.json */,
-				48FBEB222F9BD56A00DD08EE /* en.json */,
+				4843BC1D2F9BD8C0007A0595 /* en-US.json */,
 			);
 			name = i18n;
 			sourceTree = "<group>";
@@ -419,7 +419,7 @@
 			files = (
 				48FBEB212F9BD55100DD08EE /* zh-CN.json in Resources */,
 				48317BB22F9A78E9002489FE /* Images.xcassets in Resources */,
-				48FBEB232F9BD56A00DD08EE /* en.json in Resources */,
+				4843BC1E2F9BD8C0007A0595 /* en-US.json in Resources */,
 				48317BB02F9A78E9002489FE /* InfoPlist.strings in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

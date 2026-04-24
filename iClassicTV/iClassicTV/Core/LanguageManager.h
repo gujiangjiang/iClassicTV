@@ -15,8 +15,11 @@
 
 + (instancetype)sharedManager;
 
-// 获取当前激活的语言代码（例如 @"zh-CN" 或 @"en"）
+// 当前实际在使用的语言代码（例如 @"zh-CN" 或 @"en-US"）
 @property (nonatomic, copy, readonly) NSString *currentLanguageCode;
+
+// 用户保存的设置选项（@"system" 代表跟随系统，否则就是具体的语言代码）
+@property (nonatomic, copy, readonly) NSString *savedLanguageCode;
 
 /**
  * 根据指定的 key 从 JSON 文件中获取对应的多语言字符串
@@ -24,8 +27,19 @@
 - (NSString *)localizedStringForKey:(NSString *)key;
 
 /**
+ * 获取所有受支持的语言列表
+ * 返回数组，元素为字典，包含 code 和 name (动态从 json 读取)
+ */
+- (NSArray *)availableLanguages;
+
+/**
+ * 获取当前正在使用的语言的展示名称（比如："简体中文"）
+ */
+- (NSString *)currentLanguageDisplayName;
+
+/**
  * 手动切换语言
- * @param languageCode 例如 @"zh-CN" 或 @"en"
+ * @param languageCode 例如 @"zh-CN"、@"en-US"，或者传入 @"system" 代表跟随系统
  */
 - (void)changeLanguageTo:(NSString *)languageCode;
 

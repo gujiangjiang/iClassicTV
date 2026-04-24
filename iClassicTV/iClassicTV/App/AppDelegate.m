@@ -14,7 +14,7 @@
 #import "AppDataManager.h"
 #import "NSString+EncodingHelper.h"
 #import "UIViewController+ScrollToTop.h"
-#import "LanguageManager.h" // 新增多语言
+#import "LanguageManager.h"
 
 @implementation AppDelegate
 
@@ -36,14 +36,26 @@
     
     self.tabBarController = [[UITabBarController alloc] init];
     self.tabBarController.viewControllers = @[nav1, nav2];
-    
     self.tabBarController.delegate = self;
     
     self.window.rootViewController = self.tabBarController;
     self.window.backgroundColor = [UIColor whiteColor];
     [self.window makeKeyAndVisible];
     
+    // 新增：监听语言切换通知，动态刷新系统底部的 TabBar 标题
+    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(languageDidChange) name:@"LanguageDidChangeNotification" object:nil];
+    
     return YES;
+}
+
+- (void)languageDidChange {
+    if (self.tabBarController.viewControllers.count >= 2) {
+        UIViewController *nav1 = self.tabBarController.viewControllers[0];
+        nav1.tabBarItem.title = LocalizedString(@"channel_list");
+        
+        UIViewController *nav2 = self.tabBarController.viewControllers[1];
+        nav2.tabBarItem.title = LocalizedString(@"settings");
+    }
 }
 
 #pragma mark - UITabBarControllerDelegate
@@ -85,6 +97,10 @@
         }
     }
     return NO;
+}
+
+- (void)dealloc {
+    [[NSNotificationCenter defaultCenter] removeObserver:self];
 }
 
 @end

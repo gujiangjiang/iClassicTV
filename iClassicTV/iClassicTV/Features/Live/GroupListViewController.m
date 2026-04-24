@@ -10,55 +10,61 @@
 #import "ChannelListViewController.h"
 #import "M3UParser.h"
 #import "Channel.h"
-// 引入数据管理模块，实现数据迁移逻辑的解耦
 #import "AppDataManager.h"
-#import "NSString+EncodingHelper.h" // 引入字符串编码处理辅助模块
-// 新增：引入网络统一管理模块
+#import "NSString+EncodingHelper.h"
 #import "NetworkManager.h"
-// 新增：引入滚动处理通用模块
 #import "UIViewController+ScrollToTop.h"
-#import "LanguageManager.h" // 引入多语言模块
+#import "LanguageManager.h"
 
 @implementation GroupListViewController
 
 - (void)viewDidLoad {
     [super viewDidLoad];
-    self.title = LocalizedString(@"channel_list"); // 优化：默认标题改为频道列表
-    self.navigationItem.title = LocalizedString(@"loading"); // 优化：单独设置顶部导航栏的初始标题
     self.tableView = [[UITableView alloc] initWithFrame:self.view.bounds style:UITableViewStyleGrouped];
     
-    // 调用通用模块，为当前导航栏标题栏注册双击回到最上方的功能
     [self enableNavigationBarDoubleTapToScrollTop];
     
-    // 监听数据更新通知
+    // 监听数据与多语言的更新
+    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(handleLanguageChange) name:@"LanguageDidChangeNotification" object:nil];
     [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(loadDataFromUserDefaults) name:@"M3UDataUpdated" object:nil];
+    
+    // 手动触发一次初始化界面文本
+    [self handleLanguageChange];
+}
+
+// 新增：专门处理语言改变时的页面 UI 刷新
+- (void)handleLanguageChange {
+    self.title = LocalizedString(@"channel_list");
+    
+    // 强制设置推送至下一级页面（频道页）时的左上角返回按钮文本，确保其支持多语言
+    UIBarButtonItem *backItem = [[UIBarButtonItem alloc] initWithTitle:LocalizedString(@"back") style:UIBarButtonItemStyleBordered target:nil action:nil];
+    self.navigationItem.backBarButtonItem = backItem;
+    
+    // 重新加载数据，以便刷新空白提示（tips）等多语言文本
     [self loadDataFromUserDefaults];
 }
 
 - (void)loadDataFromUserDefaults {
-    // 调用独立模块处理旧版数据无缝迁移，保持控制器代码简洁
     [[AppDataManager sharedManager] migrateLegacyDataIfNeeded];
     
-    // 直接通过 AppDataManager 获取当前激活源的数据
     NSDictionary *activeSource = [[AppDataManager sharedManager] getActiveSourceInfo];
     NSString *activeM3U = activeSource[@"content"];
     NSString *activeName = activeSource[@"name"];
     NSString *activeUrl = activeSource[@"url"];
     
-    // 逻辑：只有当存在直播源列表，且当前激活的源是“网络源”时，才显示右上角的同步刷新按钮
     NSArray *allSources = [[AppDataManager sharedManager] getAllSources];
     if (allSources.count > 0 && activeUrl.length > 0) {
         UIBarButtonItem *refreshBtn = [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemRefresh target:self action:@selector(refreshActiveSourceFromServer)];
         self.navigationItem.rightBarButtonItem = refreshBtn;
     } else {
-        self.navigationItem.rightBarButtonItem = nil; // 无源或本地源则隐藏按钮
+        self.navigationItem.rightBarButtonItem = nil;
     }
     
-    // 显示网络活动指示器（状态栏小圈圈）
+    self.navigationItem.title = LocalizedString(@"loading");
     [[UIApplication sharedApplication] setNetworkActivityIndicatorVisible:YES];
     
     dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
-        NSArray *parsedChannels = [M3UParser parseM3UString:activeM3U]; // activeM3U 可能为空，解析器会返回空数组
+        NSArray *parsedChannels = [M3UParser parseM3UString:activeM3U];
         
         NSMutableDictionary *dict = [NSMutableDictionary dictionary];
         NSMutableArray *orderedGroupNames = [NSMutableArray array];
@@ -79,11 +85,9 @@
             [self.tableView reloadData];
             [[UIApplication sharedApplication] setNetworkActivityIndicatorVisible:NO];
             
-            // 动态显示源的名称及空白状态提示
             if (self.groupNames.count == 0) {
-                self.navigationItem.title = LocalizedString(@"no_sources_title"); // 修改无源时的标题更符合语境
+                self.navigationItem.title = LocalizedString(@"no_sources_title");
                 
-                // 构建好看的空白提示引导视图
                 UIView *emptyView = [[UIView alloc] initWithFrame:self.tableView.bounds];
                 emptyView.backgroundColor = [UIColor clearColor];
                 
@@ -107,7 +111,6 @@
     });
 }
 
-// 核心优化：执行真正的网络同步刷新
 - (void)refreshActiveSourceFromServer {
     NSDictionary *activeSource = [[AppDataManager sharedManager] getActiveSourceInfo];
     NSString *urlStr = activeSource[@"url"];
@@ -116,14 +119,12 @@
     NSURL *url = [NSURL URLWithString:[urlStr stringByAddingPercentEscapesUsingEncoding:NSUTF8StringEncoding]];
     if (!url) return;
     
-    // 显示 iOS 6 风格的 HUD 提示
     UIAlertView *hud = [[UIAlertView alloc] initWithTitle:LocalizedString(@"syncing") message:LocalizedString(@"syncing_msg") delegate:nil cancelButtonTitle:nil otherButtonTitles:nil];
     [hud show];
     
     [[UIApplication sharedApplication] setNetworkActivityIndicatorVisible:YES];
     
     dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
-        // 使用独立的网络模块下载文件，内部自动处理 UTF-8 和 GBK 编码回退
         NSString *m3uData = [[NetworkManager sharedManager] downloadStringSyncFromURL:url];
         
         dispatch_async(dispatch_get_main_queue(), ^{
@@ -131,7 +132,6 @@
             [[UIApplication sharedApplication] setNetworkActivityIndicatorVisible:NO];
             
             if (m3uData && m3uData.length > 0) {
-                // 查找当前源在列表中的索引并更新
                 NSMutableArray *sources = [[AppDataManager sharedManager] getAllSources];
                 NSInteger activeIndex = NSNotFound;
                 for (int i = 0; i < sources.count; i++) {
@@ -143,7 +143,6 @@
                 
                 if (activeIndex != NSNotFound) {
                     [[AppDataManager sharedManager] updateSourceContentAtIndex:activeIndex withContent:m3uData];
-                    // 此处 update 方法内部会发出 M3UDataUpdated 通知，从而自动触发界面的 loadDataFromUserDefaults
                 }
             } else {
                 UIAlertView *alert = [[UIAlertView alloc] initWithTitle:LocalizedString(@"sync_failed") message:LocalizedString(@"sync_failed_msg") delegate:nil cancelButtonTitle:LocalizedString(@"confirm") otherButtonTitles:nil];
