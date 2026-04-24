@@ -10,11 +10,11 @@
 #import "TextImportModalViewController.h"
 #import "AppDataManager.h"
 #import "NSString+EncodingHelper.h"
-#import "NetworkManager.h" // 引入全局独立的下载模块
+#import "NetworkManager.h"
 #import "ToastHelper.h"
 #import "UIViewController+ScrollToTop.h"
-#import "AlertHelper.h" // 引入通用弹窗模块
-#import "LanguageManager.h" // 新增：引入多语言模块
+#import "AlertHelper.h"
+#import "LanguageManager.h"
 
 @interface SourceManagerViewController () <UIActionSheetDelegate, UIAlertViewDelegate>
 @property (nonatomic, strong) NSArray *scannedLocalFiles;
@@ -78,15 +78,12 @@
     return cell;
 }
 
-// 开启侧滑删除功能
 - (BOOL)tableView:(UITableView *)tableView canEditRowAtIndexPath:(NSIndexPath *)indexPath {
     return YES;
 }
 
-// 处理侧滑删除动作
 - (void)tableView:(UITableView *)tableView commitEditingStyle:(UITableViewCellEditingStyle)editingStyle forRowAtIndexPath:(NSIndexPath *)indexPath {
     if (editingStyle == UITableViewCellEditingStyleDelete) {
-        // 使用公共的 AlertHelper 模块实现侧滑删除确认，多语言支持
         __weak typeof(self) weakSelf = self;
         [AlertHelper showConfirmAlertWithTitle:LocalizedString(@"confirm_delete")
                                        message:LocalizedString(@"confirm_delete_source")
@@ -181,7 +178,8 @@
             self.tempURLString = @"";
             [self showNamingAlertWithTag:204 presetName:[fileName stringByDeletingPathExtension]];
         } else {
-            [ToastHelper showToastWithMessage:LocalizedString(@"read_failed")];
+            // 优化：统一使用了合并后的 file_read_error
+            [ToastHelper showToastWithMessage:LocalizedString(@"file_read_error")];
         }
         return;
     }
@@ -191,7 +189,6 @@
         NSDictionary *sourceDict = self.sources[self.selectedIndexPath.row];
         
         if ([title isEqualToString:LocalizedString(@"delete")]) {
-            // 使用公共 AlertHelper，替代原生多余 delegate 处理
             __weak typeof(self) weakSelf = self;
             [AlertHelper showConfirmAlertWithTitle:LocalizedString(@"confirm_delete")
                                            message:LocalizedString(@"confirm_delete_source")
@@ -301,7 +298,8 @@
                 self.sources = [[AppDataManager sharedManager] getAllSources];
                 [ToastHelper showToastWithMessage:LocalizedString(@"refresh_success")];
             } else {
-                UIAlertView *alert = [[UIAlertView alloc] initWithTitle:LocalizedString(@"error") message:LocalizedString(@"refresh_failed") delegate:nil cancelButtonTitle:LocalizedString(@"confirm") otherButtonTitles:nil];
+                // 优化：删除了原本独立的 error，直接复用了合并后的 sync_failed
+                UIAlertView *alert = [[UIAlertView alloc] initWithTitle:LocalizedString(@"sync_failed") message:LocalizedString(@"refresh_failed") delegate:nil cancelButtonTitle:LocalizedString(@"confirm") otherButtonTitles:nil];
                 [alert show];
             }
         });

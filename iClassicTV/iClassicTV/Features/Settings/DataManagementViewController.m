@@ -8,13 +8,13 @@
 
 #import "DataManagementViewController.h"
 #import "AppDataManager.h"
-#import "AlertHelper.h" // 引入通用弹窗模块
-#import "LanguageManager.h" // 新增：引入多语言模块
+#import "AlertHelper.h"
+#import "LanguageManager.h"
 
 @interface DataManagementViewController () <UIActionSheetDelegate>
 @property (nonatomic, strong) NSArray *sections;
-@property (nonatomic, strong) NSArray *scannedBackupFiles; // 保存扫描到的备份文件名
-@property (nonatomic, copy) NSString *selectedBackupFileName; // 选中的待恢复文件名
+@property (nonatomic, strong) NSArray *scannedBackupFiles;
+@property (nonatomic, copy) NSString *selectedBackupFileName;
 @end
 
 @implementation DataManagementViewController
@@ -26,7 +26,8 @@
 
 - (void)viewDidLoad {
     [super viewDidLoad];
-    self.title = LocalizedString(@"data_manager_title");
+    // 优化：使用了合并后的 data_management_and_backup 键
+    self.title = LocalizedString(@"data_management_and_backup");
     
     self.sections = @[
                       @{@"title": LocalizedString(@"backup_restore_section"), @"rows": @[LocalizedString(@"backup_current"), LocalizedString(@"restore_from_backup"), LocalizedString(@"clear_all_backups")]},
@@ -51,7 +52,6 @@
     
     cell.textLabel.text = self.sections[indexPath.section][@"rows"][indexPath.row];
     
-    // 危险操作区域特殊标记（第2分组全部，以及第1分组的清空备份项）
     if (indexPath.section == 1 || (indexPath.section == 0 && indexPath.row == 2)) {
         cell.accessoryType = UITableViewCellAccessoryNone;
         cell.textLabel.textAlignment = NSTextAlignmentCenter;
@@ -75,9 +75,10 @@
         } else if (indexPath.row == 1) {
             [self scanAndPerformRestore];
         } else if (indexPath.row == 2) {
-            [AlertHelper showConfirmAlertWithTitle:LocalizedString(@"clear_backup_title")
+            // 优化：删除了专门的删除标题和删除确认词，合并使用了清空列表项词和全局 delete 词汇
+            [AlertHelper showConfirmAlertWithTitle:LocalizedString(@"clear_all_backups")
                                            message:LocalizedString(@"confirm_clear_backups")
-                                      confirmTitle:LocalizedString(@"confirm_delete_btn")
+                                      confirmTitle:LocalizedString(@"delete")
                                        cancelTitle:LocalizedString(@"cancel")
                                       confirmBlock:^{
                                           [weakSelf clearAllBackupFiles];
@@ -94,7 +95,8 @@
                 break;
             }
             case 1: {
-                [AlertHelper showConfirmAlertWithTitle:LocalizedString(@"clear_channel_icons") message:LocalizedString(@"confirm_clear_icons") confirmTitle:LocalizedString(@"confirm") cancelTitle:LocalizedString(@"cancel") confirmBlock:^{
+                // 优化：弹窗标题直接复用对应的清空列表词汇
+                [AlertHelper showConfirmAlertWithTitle:LocalizedString(@"clear_all_icons") message:LocalizedString(@"confirm_clear_icons") confirmTitle:LocalizedString(@"confirm") cancelTitle:LocalizedString(@"cancel") confirmBlock:^{
                     [[AppDataManager sharedManager] clearAllChannelIcons];
                     UIAlertView *successAlert = [[UIAlertView alloc] initWithTitle:LocalizedString(@"cleared") message:LocalizedString(@"all_icons_cleared") delegate:nil cancelButtonTitle:LocalizedString(@"confirm") otherButtonTitles:nil];
                     [successAlert show];
@@ -154,7 +156,6 @@
     NSUserDefaults *defs = [NSUserDefaults standardUserDefaults];
     NSMutableDictionary *backupData = [NSMutableDictionary dictionary];
     
-    // 1. 收集需备份的数据
     NSArray *sources = [defs objectForKey:@"ios6_iptv_sources"];
     if (sources) backupData[@"ios6_iptv_sources"] = sources;
     
@@ -168,7 +169,6 @@
     backupData[@"PlayerOrientationPref"] = @([defs integerForKey:@"PlayerOrientationPref"]);
     backupData[@"PlayerTypePref"] = @([defs integerForKey:@"PlayerTypePref"]);
     
-    // 2. 转换为 JSON
     NSError *error = nil;
     NSData *jsonData = [NSJSONSerialization dataWithJSONObject:backupData options:NSJSONWritingPrettyPrinted error:&error];
     if (!jsonData) {
@@ -177,7 +177,6 @@
         return;
     }
     
-    // 3. 生成文件名并保存至 Documents (iTunes 文件共享目录)
     NSDateFormatter *formatter = [[NSDateFormatter alloc] init];
     [formatter setDateFormat:@"yyyyMMdd_HHmmss"];
     NSString *fileName = [NSString stringWithFormat:@"iClassicTV_Backup_%@.json", [formatter stringFromDate:[NSDate date]]];
@@ -186,7 +185,6 @@
     
     BOOL success = [jsonData writeToFile:filePath atomically:YES];
     if (success) {
-        // 4. 调用原生分享组件
         NSURL *fileURL = [NSURL fileURLWithPath:filePath];
         UIActivityViewController *activityVC = [[UIActivityViewController alloc] initWithActivityItems:@[fileURL] applicationActivities:nil];
         [self presentViewController:activityVC animated:YES completion:nil];
@@ -202,7 +200,6 @@
     NSArray *files = [[NSFileManager defaultManager] contentsOfDirectoryAtPath:docDir error:nil];
     NSMutableArray *jsonFiles = [NSMutableArray array];
     
-    // 过滤出所有的 JSON 备份文件
     for (NSString *file in files) {
         if ([[file.pathExtension lowercaseString] isEqualToString:@"json"] && [file hasPrefix:@"iClassicTV_Backup_"]) {
             [jsonFiles addObject:file];
@@ -215,7 +212,6 @@
         return;
     }
     
-    // 按照文件修改时间降序排序（最新的在最前）
     [jsonFiles sortUsingComparator:^NSComparisonResult(NSString *file1, NSString *file2) {
         NSString *path1 = [docDir stringByAppendingPathComponent:file1];
         NSString *path2 = [docDir stringByAppendingPathComponent:file2];
@@ -226,13 +222,11 @@
     
     self.scannedBackupFiles = jsonFiles;
     
-    // 如果只有一个文件，直接提示确认恢复；否则弹出列表让用户选择
     if (jsonFiles.count == 1) {
         self.selectedBackupFileName = jsonFiles.firstObject;
         [self showRestoreConfirmationAlert];
     } else {
         UIActionSheet *sheet = [[UIActionSheet alloc] initWithTitle:LocalizedString(@"select_backup_to_restore") delegate:self cancelButtonTitle:nil destructiveButtonTitle:nil otherButtonTitles:nil];
-        // 为了防止界面过长，最多显示最近的 5 个备份
         NSInteger displayCount = MIN(jsonFiles.count, 5);
         for (NSInteger i = 0; i < displayCount; i++) {
             [sheet addButtonWithTitle:jsonFiles[i]];
@@ -273,7 +267,6 @@
         return;
     }
     
-    // 开始写入恢复数据
     NSUserDefaults *defs = [NSUserDefaults standardUserDefaults];
     
     if (backupData[@"ios6_iptv_sources"]) [defs setObject:backupData[@"ios6_iptv_sources"] forKey:@"ios6_iptv_sources"];
@@ -285,14 +278,12 @@
     
     [defs synchronize];
     
-    // 通知全局数据刷新
     [[NSNotificationCenter defaultCenter] postNotificationName:@"M3UDataUpdated" object:nil];
     
     UIAlertView *successAlert = [[UIAlertView alloc] initWithTitle:LocalizedString(@"restore_success") message:LocalizedString(@"config_restored") delegate:nil cancelButtonTitle:LocalizedString(@"confirm") otherButtonTitles:nil];
     [successAlert show];
 }
 
-#pragma mark - 动作表代理
 - (void)actionSheet:(UIActionSheet *)actionSheet clickedButtonAtIndex:(NSInteger)buttonIndex {
     if (actionSheet.tag == 301 && buttonIndex != actionSheet.cancelButtonIndex) {
         self.selectedBackupFileName = self.scannedBackupFiles[buttonIndex];

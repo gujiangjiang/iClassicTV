@@ -42,7 +42,6 @@
     self.window.backgroundColor = [UIColor whiteColor];
     [self.window makeKeyAndVisible];
     
-    // 新增：监听语言切换通知，动态刷新系统底部的 TabBar 标题
     [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(languageDidChange) name:@"LanguageDidChangeNotification" object:nil];
     
     return YES;
@@ -91,7 +90,8 @@
                 
                 return YES;
             } else {
-                UIAlertView *alert = [[UIAlertView alloc] initWithTitle:LocalizedString(@"import_failed") message:LocalizedString(@"read_failed_or_empty") delegate:nil cancelButtonTitle:LocalizedString(@"confirm") otherButtonTitles:nil];
+                // 优化：使用了合并后的 file_read_error 错误提示键
+                UIAlertView *alert = [[UIAlertView alloc] initWithTitle:LocalizedString(@"import_failed") message:LocalizedString(@"file_read_error") delegate:nil cancelButtonTitle:LocalizedString(@"confirm") otherButtonTitles:nil];
                 [alert show];
             }
         }
