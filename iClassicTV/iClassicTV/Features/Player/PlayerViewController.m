@@ -254,4 +254,18 @@
     return UIInterfaceOrientationMaskAllButUpsideDown;
 }
 
+// 新增：监听设备旋转的动画周期，为内部视图（特别是 PlayerControlView）强制增加平滑的过渡动画
+- (void)willAnimateRotationToInterfaceOrientation:(UIInterfaceOrientation)toInterfaceOrientation duration:(NSTimeInterval)duration {
+    [super willAnimateRotationToInterfaceOrientation:toInterfaceOrientation duration:duration];
+    
+    // 优化：利用系统旋转的 duration 时间，让界面元素的布局更新平滑化
+    // 解决连续点击全屏切换时 [UIDevice currentDevice] setValue:... 导致的布局瞬间闪跳、生硬的问题
+    [UIView animateWithDuration:duration
+                          delay:0.0
+                        options:UIViewAnimationOptionCurveEaseInOut
+                     animations:^{
+                         [self.view layoutIfNeeded];
+                     } completion:nil];
+}
+
 @end
