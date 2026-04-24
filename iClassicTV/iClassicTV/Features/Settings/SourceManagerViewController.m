@@ -10,10 +10,11 @@
 #import "TextImportModalViewController.h"
 #import "AppDataManager.h"
 #import "NSString+EncodingHelper.h"
-#import "NetworkManager.h" // 新增：引入全局独立的下载模块
+#import "NetworkManager.h" // 引入全局独立的下载模块
 #import "ToastHelper.h"
 #import "UIViewController+ScrollToTop.h"
-#import "AlertHelper.h" // 新增：引入通用弹窗模块
+#import "AlertHelper.h" // 引入通用弹窗模块
+#import "LanguageManager.h" // 新增：引入多语言模块
 
 @interface SourceManagerViewController () <UIActionSheetDelegate, UIAlertViewDelegate>
 @property (nonatomic, strong) NSArray *scannedLocalFiles;
@@ -23,7 +24,7 @@
 
 - (void)viewDidLoad {
     [super viewDidLoad];
-    self.title = @"我的直播源";
+    self.title = LocalizedString(@"source_manager_title");
     
     UIBarButtonItem *addBtn = [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemAdd target:self action:@selector(showAddOptions)];
     self.navigationItem.rightBarButtonItem = addBtn;
@@ -38,7 +39,7 @@
 }
 
 - (void)showAddOptions {
-    UIActionSheet *sheet = [[UIActionSheet alloc] initWithTitle:@"添加直播源" delegate:self cancelButtonTitle:@"取消" destructiveButtonTitle:nil otherButtonTitles:@"添加网络直播源", @"添加本地文本源", @"从 iTunes 共享导入", nil];
+    UIActionSheet *sheet = [[UIActionSheet alloc] initWithTitle:LocalizedString(@"add_source") delegate:self cancelButtonTitle:LocalizedString(@"cancel") destructiveButtonTitle:nil otherButtonTitles:LocalizedString(@"add_network_source"), LocalizedString(@"add_local_text_source"), LocalizedString(@"import_from_itunes"), nil];
     sheet.tag = 101;
     [sheet showInView:self.view];
 }
@@ -71,7 +72,7 @@
     if ([source[@"url"] length] > 0) {
         cell.detailTextLabel.text = source[@"url"];
     } else {
-        cell.detailTextLabel.text = @"本地/外部导入源";
+        cell.detailTextLabel.text = LocalizedString(@"local_external_source");
     }
     
     return cell;
@@ -85,12 +86,12 @@
 // 处理侧滑删除动作
 - (void)tableView:(UITableView *)tableView commitEditingStyle:(UITableViewCellEditingStyle)editingStyle forRowAtIndexPath:(NSIndexPath *)indexPath {
     if (editingStyle == UITableViewCellEditingStyleDelete) {
-        // 优化：使用公共的 AlertHelper 模块实现侧滑删除确认，代码更清爽
+        // 使用公共的 AlertHelper 模块实现侧滑删除确认，多语言支持
         __weak typeof(self) weakSelf = self;
-        [AlertHelper showConfirmAlertWithTitle:@"确认删除"
-                                       message:@"您确定要删除该直播源吗？"
-                                  confirmTitle:@"删除"
-                                   cancelTitle:@"取消"
+        [AlertHelper showConfirmAlertWithTitle:LocalizedString(@"confirm_delete")
+                                       message:LocalizedString(@"confirm_delete_source")
+                                  confirmTitle:LocalizedString(@"delete")
+                                   cancelTitle:LocalizedString(@"cancel")
                                   confirmBlock:^{
                                       [[AppDataManager sharedManager] deleteSourceAtIndex:indexPath.row];
                                       weakSelf.sources = [[AppDataManager sharedManager] getAllSources];
@@ -106,12 +107,12 @@
     self.selectedIndexPath = indexPath;
     NSDictionary *source = self.sources[indexPath.row];
     
-    UIActionSheet *sheet = [[UIActionSheet alloc] initWithTitle:@"操作" delegate:self cancelButtonTitle:nil destructiveButtonTitle:@"删除" otherButtonTitles:@"设为当前源", @"重命名", nil];
+    UIActionSheet *sheet = [[UIActionSheet alloc] initWithTitle:LocalizedString(@"operation") delegate:self cancelButtonTitle:nil destructiveButtonTitle:LocalizedString(@"delete") otherButtonTitles:LocalizedString(@"set_as_current"), LocalizedString(@"rename"), nil];
     
     if ([source[@"url"] length] > 0) {
-        [sheet addButtonWithTitle:@"刷新同步"];
+        [sheet addButtonWithTitle:LocalizedString(@"refresh_sync")];
     }
-    [sheet addButtonWithTitle:@"取消"];
+    [sheet addButtonWithTitle:LocalizedString(@"cancel")];
     sheet.cancelButtonIndex = sheet.numberOfButtons - 1;
     
     sheet.tag = 100;
@@ -125,7 +126,7 @@
     
     if (actionSheet.tag == 101) {
         if (buttonIndex == 0) {
-            UIAlertView *alert = [[UIAlertView alloc] initWithTitle:@"网络直播源" message:@"请输入 M3U 网址 (http://...)" delegate:self cancelButtonTitle:@"取消" otherButtonTitles:@"下载", nil];
+            UIAlertView *alert = [[UIAlertView alloc] initWithTitle:LocalizedString(@"network_source") message:LocalizedString(@"enter_m3u_url") delegate:self cancelButtonTitle:LocalizedString(@"cancel") otherButtonTitles:LocalizedString(@"download"), nil];
             alert.alertViewStyle = UIAlertViewStylePlainTextInput;
             [alert textFieldAtIndex:0].keyboardType = UIKeyboardTypeURL;
             alert.tag = 201;
@@ -151,16 +152,16 @@
             }
             
             if (m3uFiles.count == 0) {
-                [ToastHelper showToastWithMessage:@"未找到任何 m3u 文件\n请先通过电脑 iTunes 拖入文件"];
+                [ToastHelper showToastWithMessage:LocalizedString(@"no_m3u_found")];
                 return;
             }
             
             self.scannedLocalFiles = m3uFiles;
-            UIActionSheet *fileSheet = [[UIActionSheet alloc] initWithTitle:@"请选择要导入的共享文件" delegate:self cancelButtonTitle:nil destructiveButtonTitle:nil otherButtonTitles:nil];
+            UIActionSheet *fileSheet = [[UIActionSheet alloc] initWithTitle:LocalizedString(@"select_shared_file") delegate:self cancelButtonTitle:nil destructiveButtonTitle:nil otherButtonTitles:nil];
             for (NSString *file in m3uFiles) {
                 [fileSheet addButtonWithTitle:file];
             }
-            [fileSheet addButtonWithTitle:@"取消"];
+            [fileSheet addButtonWithTitle:LocalizedString(@"cancel")];
             fileSheet.cancelButtonIndex = fileSheet.numberOfButtons - 1;
             fileSheet.tag = 102;
             [fileSheet showInView:self.view];
@@ -180,7 +181,7 @@
             self.tempURLString = @"";
             [self showNamingAlertWithTag:204 presetName:[fileName stringByDeletingPathExtension]];
         } else {
-            [ToastHelper showToastWithMessage:@"读取失败，请检查文件格式是否正确"];
+            [ToastHelper showToastWithMessage:LocalizedString(@"read_failed")];
         }
         return;
     }
@@ -189,30 +190,30 @@
         NSString *title = [actionSheet buttonTitleAtIndex:buttonIndex];
         NSDictionary *sourceDict = self.sources[self.selectedIndexPath.row];
         
-        if ([title isEqualToString:@"删除"]) {
-            // 优化：使用公共 AlertHelper，替代原生多余 delegate 处理
+        if ([title isEqualToString:LocalizedString(@"delete")]) {
+            // 使用公共 AlertHelper，替代原生多余 delegate 处理
             __weak typeof(self) weakSelf = self;
-            [AlertHelper showConfirmAlertWithTitle:@"确认删除"
-                                           message:@"您确定要删除该直播源吗？"
-                                      confirmTitle:@"删除"
-                                       cancelTitle:@"取消"
+            [AlertHelper showConfirmAlertWithTitle:LocalizedString(@"confirm_delete")
+                                           message:LocalizedString(@"confirm_delete_source")
+                                      confirmTitle:LocalizedString(@"delete")
+                                       cancelTitle:LocalizedString(@"cancel")
                                       confirmBlock:^{
                                           [[AppDataManager sharedManager] deleteSourceAtIndex:weakSelf.selectedIndexPath.row];
                                           weakSelf.sources = [[AppDataManager sharedManager] getAllSources];
                                           [weakSelf.tableView reloadData];
                                       } cancelBlock:nil];
-        } else if ([title isEqualToString:@"设为当前源"]) {
+        } else if ([title isEqualToString:LocalizedString(@"set_as_current")]) {
             [[AppDataManager sharedManager] setActiveSourceById:sourceDict[@"id"]];
             [self.tableView reloadData];
-            [ToastHelper showToastWithMessage:@"已切换直播源"];
-        } else if ([title isEqualToString:@"重命名"]) {
-            UIAlertView *alert = [[UIAlertView alloc] initWithTitle:@"重命名" message:@"请输入新的名称" delegate:self cancelButtonTitle:@"取消" otherButtonTitles:@"确定", nil];
+            [ToastHelper showToastWithMessage:LocalizedString(@"source_switched")];
+        } else if ([title isEqualToString:LocalizedString(@"rename")]) {
+            UIAlertView *alert = [[UIAlertView alloc] initWithTitle:LocalizedString(@"rename") message:LocalizedString(@"enter_new_name") delegate:self cancelButtonTitle:LocalizedString(@"cancel") otherButtonTitles:LocalizedString(@"confirm"), nil];
             alert.alertViewStyle = UIAlertViewStylePlainTextInput;
             UITextField *tf = [alert textFieldAtIndex:0];
             tf.text = sourceDict[@"name"];
             alert.tag = 301;
             [alert show];
-        } else if ([title isEqualToString:@"刷新同步"]) {
+        } else if ([title isEqualToString:LocalizedString(@"refresh_sync")]) {
             [self refreshSource:sourceDict atIndex:self.selectedIndexPath.row];
         }
     }
@@ -223,7 +224,6 @@
 - (void)alertView:(UIAlertView *)alertView clickedButtonAtIndex:(NSInteger)buttonIndex {
     if (buttonIndex == alertView.cancelButtonIndex) return;
     
-    // 注：确认删除的逻辑已迁移至 AlertHelper 中处理，此处只保留文本输入和提示相关的弹窗
     if (alertView.tag == 301) {
         UITextField *tf = [alertView textFieldAtIndex:0];
         if (tf.text.length > 0) {
@@ -235,15 +235,14 @@
         NSString *urlStr = [alertView textFieldAtIndex:0].text;
         NSURL *url = [NSURL URLWithString:urlStr];
         if (!url) {
-            [ToastHelper showToastWithMessage:@"网址无效"];
+            [ToastHelper showToastWithMessage:LocalizedString(@"invalid_url")];
             return;
         }
         
-        UIAlertView *hud = [[UIAlertView alloc] initWithTitle:@"下载中..." message:@"请稍候\n\n" delegate:nil cancelButtonTitle:nil otherButtonTitles:nil];
+        UIAlertView *hud = [[UIAlertView alloc] initWithTitle:LocalizedString(@"downloading") message:LocalizedString(@"please_wait") delegate:nil cancelButtonTitle:nil otherButtonTitles:nil];
         [hud show];
         
         dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
-            // 优化：彻底换成独立的 NetworkManager 进行统一的下载调用
             NSString *m3uData = [[NetworkManager sharedManager] downloadStringSyncFromURL:url];
             
             dispatch_async(dispatch_get_main_queue(), ^{
@@ -253,16 +252,16 @@
                     self.tempURLString = urlStr;
                     [self showNamingAlertWithTag:203 presetName:nil];
                 } else {
-                    [ToastHelper showToastWithMessage:@"下载失败，请检查网络"];
+                    [ToastHelper showToastWithMessage:LocalizedString(@"download_failed")];
                 }
             });
         });
     } else if (alertView.tag == 203 || alertView.tag == 204) {
         NSString *name = [alertView textFieldAtIndex:0].text;
-        if (name.length == 0) name = @"未命名直播源";
+        if (name.length == 0) name = LocalizedString(@"unnamed_source");
         
         [[AppDataManager sharedManager] addSourceWithName:name content:self.tempM3UData url:self.tempURLString];
-        [ToastHelper showToastWithMessage:@"直播源已成功保存！"];
+        [ToastHelper showToastWithMessage:LocalizedString(@"source_saved")];
         
         self.sources = [[AppDataManager sharedManager] getAllSources];
         [self.tableView reloadData];
@@ -270,7 +269,7 @@
 }
 
 - (void)showNamingAlertWithTag:(NSInteger)tag presetName:(NSString *)presetName {
-    UIAlertView *nameAlert = [[UIAlertView alloc] initWithTitle:@"保存直播源" message:@"请为该直播源命名" delegate:self cancelButtonTitle:@"取消" otherButtonTitles:@"保存", nil];
+    UIAlertView *nameAlert = [[UIAlertView alloc] initWithTitle:LocalizedString(@"save_source") message:LocalizedString(@"name_the_source") delegate:self cancelButtonTitle:LocalizedString(@"cancel") otherButtonTitles:LocalizedString(@"save"), nil];
     nameAlert.alertViewStyle = UIAlertViewStylePlainTextInput;
     
     if (presetName && presetName.length > 0) {
@@ -289,11 +288,10 @@
     NSURL *url = [NSURL URLWithString:source[@"url"]];
     if (!url) return;
     
-    UIAlertView *hud = [[UIAlertView alloc] initWithTitle:@"刷新中..." message:@"请稍候\n\n" delegate:nil cancelButtonTitle:nil otherButtonTitles:nil];
+    UIAlertView *hud = [[UIAlertView alloc] initWithTitle:LocalizedString(@"refreshing") message:LocalizedString(@"please_wait") delegate:nil cancelButtonTitle:nil otherButtonTitles:nil];
     [hud show];
     
     dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
-        // 优化：彻底换成独立的 NetworkManager 进行统一的下载调用
         NSString *m3uData = [[NetworkManager sharedManager] downloadStringSyncFromURL:url];
         
         dispatch_async(dispatch_get_main_queue(), ^{
@@ -301,9 +299,9 @@
             if (m3uData) {
                 [[AppDataManager sharedManager] updateSourceContentAtIndex:index withContent:m3uData];
                 self.sources = [[AppDataManager sharedManager] getAllSources];
-                [ToastHelper showToastWithMessage:@"刷新同步成功"];
+                [ToastHelper showToastWithMessage:LocalizedString(@"refresh_success")];
             } else {
-                UIAlertView *alert = [[UIAlertView alloc] initWithTitle:@"错误" message:@"刷新失败，请检查网络" delegate:nil cancelButtonTitle:@"确定" otherButtonTitles:nil];
+                UIAlertView *alert = [[UIAlertView alloc] initWithTitle:LocalizedString(@"error") message:LocalizedString(@"refresh_failed") delegate:nil cancelButtonTitle:LocalizedString(@"confirm") otherButtonTitles:nil];
                 [alert show];
             }
         });

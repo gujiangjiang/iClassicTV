@@ -8,7 +8,8 @@
 
 #import "DataManagementViewController.h"
 #import "AppDataManager.h"
-#import "AlertHelper.h" // 新增：引入通用弹窗模块
+#import "AlertHelper.h" // 引入通用弹窗模块
+#import "LanguageManager.h" // 新增：引入多语言模块
 
 @interface DataManagementViewController () <UIActionSheetDelegate>
 @property (nonatomic, strong) NSArray *sections;
@@ -25,12 +26,11 @@
 
 - (void)viewDidLoad {
     [super viewDidLoad];
-    self.title = @"数据管理与备份";
+    self.title = LocalizedString(@"data_manager_title");
     
-    // 优化：重新排版和细化数据清理项，加入本地备份清理
     self.sections = @[
-                      @{@"title": @"配置备份与恢复 (iTunes共享空间)", @"rows": @[@"备份当前配置 (导出并分享)", @"从备份恢复配置 (从iTunes读取)", @"清空所有本地备份文件"]},
-                      @{@"title": @"数据清理 (危险操作)", @"rows": @[@"清空所有直播源", @"清空所有频道图像", @"清空所有缓存", @"清空记忆与偏好", @"恢复所有设置"]}
+                      @{@"title": LocalizedString(@"backup_restore_section"), @"rows": @[LocalizedString(@"backup_current"), LocalizedString(@"restore_from_backup"), LocalizedString(@"clear_all_backups")]},
+                      @{@"title": LocalizedString(@"data_cleanup_section"), @"rows": @[LocalizedString(@"clear_all_sources"), LocalizedString(@"clear_all_icons"), LocalizedString(@"clear_all_cache"), LocalizedString(@"clear_preferences"), LocalizedString(@"restore_all_settings")]}
                       ];
 }
 
@@ -39,7 +39,7 @@
 - (NSString *)tableView:(UITableView *)tableView titleForHeaderInSection:(NSInteger)section { return self.sections[section][@"title"]; }
 - (NSString *)tableView:(UITableView *)tableView titleForFooterInSection:(NSInteger)section {
     if (section == 0) {
-        return @"备份将包含您添加的所有直播源、自定义的 User-Agent 列表以及全屏/播放器等设置偏好。导出的文件可通过 iTunes 文件共享进行管理，或在此处直接清空。";
+        return LocalizedString(@"backup_footer_desc");
     }
     return nil;
 }
@@ -75,54 +75,52 @@
         } else if (indexPath.row == 1) {
             [self scanAndPerformRestore];
         } else if (indexPath.row == 2) {
-            // 优化：使用公共的 AlertHelper 封装确认逻辑
-            [AlertHelper showConfirmAlertWithTitle:@"清空备份"
-                                           message:@"确定要永久删除本设备上的所有备份文件吗？"
-                                      confirmTitle:@"确定删除"
-                                       cancelTitle:@"取消"
+            [AlertHelper showConfirmAlertWithTitle:LocalizedString(@"clear_backup_title")
+                                           message:LocalizedString(@"confirm_clear_backups")
+                                      confirmTitle:LocalizedString(@"confirm_delete_btn")
+                                       cancelTitle:LocalizedString(@"cancel")
                                       confirmBlock:^{
                                           [weakSelf clearAllBackupFiles];
                                       } cancelBlock:nil];
         }
     } else if (indexPath.section == 1) {
-        // 细化后的清理操作分配对应的确认逻辑（利用 Block 可以直接在此处理，无需维护繁杂的 switch case 和 tag）
         switch (indexPath.row) {
             case 0: {
-                [AlertHelper showConfirmAlertWithTitle:@"清空直播源" message:@"确定要清空所有的直播源吗？" confirmTitle:@"确定" cancelTitle:@"取消" confirmBlock:^{
+                [AlertHelper showConfirmAlertWithTitle:LocalizedString(@"clear_all_sources") message:LocalizedString(@"confirm_clear_sources") confirmTitle:LocalizedString(@"confirm") cancelTitle:LocalizedString(@"cancel") confirmBlock:^{
                     [[AppDataManager sharedManager] clearAllSources];
-                    UIAlertView *successAlert = [[UIAlertView alloc] initWithTitle:@"已清空" message:@"所有直播源已清空" delegate:nil cancelButtonTitle:@"确定" otherButtonTitles:nil];
+                    UIAlertView *successAlert = [[UIAlertView alloc] initWithTitle:LocalizedString(@"cleared") message:LocalizedString(@"all_sources_cleared") delegate:nil cancelButtonTitle:LocalizedString(@"confirm") otherButtonTitles:nil];
                     [successAlert show];
                 } cancelBlock:nil];
                 break;
             }
             case 1: {
-                [AlertHelper showConfirmAlertWithTitle:@"清空频道图像" message:@"确定要清空已缓存的频道图像吗？" confirmTitle:@"确定" cancelTitle:@"取消" confirmBlock:^{
+                [AlertHelper showConfirmAlertWithTitle:LocalizedString(@"clear_channel_icons") message:LocalizedString(@"confirm_clear_icons") confirmTitle:LocalizedString(@"confirm") cancelTitle:LocalizedString(@"cancel") confirmBlock:^{
                     [[AppDataManager sharedManager] clearAllChannelIcons];
-                    UIAlertView *successAlert = [[UIAlertView alloc] initWithTitle:@"已清空" message:@"所有频道图像缓存已清空" delegate:nil cancelButtonTitle:@"确定" otherButtonTitles:nil];
+                    UIAlertView *successAlert = [[UIAlertView alloc] initWithTitle:LocalizedString(@"cleared") message:LocalizedString(@"all_icons_cleared") delegate:nil cancelButtonTitle:LocalizedString(@"confirm") otherButtonTitles:nil];
                     [successAlert show];
                 } cancelBlock:nil];
                 break;
             }
             case 2: {
-                [AlertHelper showConfirmAlertWithTitle:@"清空所有缓存" message:@"确定要清空应用的所有网络和临时缓存吗？" confirmTitle:@"确定" cancelTitle:@"取消" confirmBlock:^{
+                [AlertHelper showConfirmAlertWithTitle:LocalizedString(@"clear_all_cache") message:LocalizedString(@"confirm_clear_cache") confirmTitle:LocalizedString(@"confirm") cancelTitle:LocalizedString(@"cancel") confirmBlock:^{
                     [[AppDataManager sharedManager] clearAllGeneralCache];
-                    UIAlertView *successAlert = [[UIAlertView alloc] initWithTitle:@"已清空" message:@"应用缓存已完全清空" delegate:nil cancelButtonTitle:@"确定" otherButtonTitles:nil];
+                    UIAlertView *successAlert = [[UIAlertView alloc] initWithTitle:LocalizedString(@"cleared") message:LocalizedString(@"cache_cleared") delegate:nil cancelButtonTitle:LocalizedString(@"confirm") otherButtonTitles:nil];
                     [successAlert show];
                 } cancelBlock:nil];
                 break;
             }
             case 3: {
-                [AlertHelper showConfirmAlertWithTitle:@"清空记忆偏好" message:@"确定要清空所有的线路记忆与播放偏好吗？" confirmTitle:@"确定" cancelTitle:@"取消" confirmBlock:^{
+                [AlertHelper showConfirmAlertWithTitle:LocalizedString(@"clear_preferences") message:LocalizedString(@"confirm_clear_prefs") confirmTitle:LocalizedString(@"confirm") cancelTitle:LocalizedString(@"cancel") confirmBlock:^{
                     [[AppDataManager sharedManager] clearAllPreferencesCache];
-                    UIAlertView *successAlert = [[UIAlertView alloc] initWithTitle:@"已清空" message:@"记忆与偏好已清空" delegate:nil cancelButtonTitle:@"确定" otherButtonTitles:nil];
+                    UIAlertView *successAlert = [[UIAlertView alloc] initWithTitle:LocalizedString(@"cleared") message:LocalizedString(@"prefs_cleared") delegate:nil cancelButtonTitle:LocalizedString(@"confirm") otherButtonTitles:nil];
                     [successAlert show];
                 } cancelBlock:nil];
                 break;
             }
             case 4: {
-                [AlertHelper showConfirmAlertWithTitle:@"恢复所有设置" message:@"确定要恢复所有设置到默认状态吗？(不影响直播源)" confirmTitle:@"确定" cancelTitle:@"取消" confirmBlock:^{
+                [AlertHelper showConfirmAlertWithTitle:LocalizedString(@"restore_all_settings") message:LocalizedString(@"confirm_restore_settings") confirmTitle:LocalizedString(@"confirm") cancelTitle:LocalizedString(@"cancel") confirmBlock:^{
                     [[AppDataManager sharedManager] restoreAllSettings];
-                    UIAlertView *successAlert = [[UIAlertView alloc] initWithTitle:@"已恢复" message:@"各项设置已恢复至默认" delegate:nil cancelButtonTitle:@"确定" otherButtonTitles:nil];
+                    UIAlertView *successAlert = [[UIAlertView alloc] initWithTitle:LocalizedString(@"restored") message:LocalizedString(@"settings_restored") delegate:nil cancelButtonTitle:LocalizedString(@"confirm") otherButtonTitles:nil];
                     [successAlert show];
                 } cancelBlock:nil];
                 break;
@@ -146,8 +144,8 @@
         }
     }
     
-    NSString *msg = count > 0 ? [NSString stringWithFormat:@"成功清空了 %d 个备份文件", count] : @"没有找到需要清理的备份文件";
-    UIAlertView *alert = [[UIAlertView alloc] initWithTitle:@"清理完成" message:msg delegate:nil cancelButtonTitle:@"确定" otherButtonTitles:nil];
+    NSString *msg = count > 0 ? [NSString stringWithFormat:LocalizedString(@"cleared_n_backups"), count] : LocalizedString(@"no_backups_to_clear");
+    UIAlertView *alert = [[UIAlertView alloc] initWithTitle:LocalizedString(@"cleanup_complete") message:msg delegate:nil cancelButtonTitle:LocalizedString(@"confirm") otherButtonTitles:nil];
     [alert show];
 }
 
@@ -174,7 +172,7 @@
     NSError *error = nil;
     NSData *jsonData = [NSJSONSerialization dataWithJSONObject:backupData options:NSJSONWritingPrettyPrinted error:&error];
     if (!jsonData) {
-        UIAlertView *alert = [[UIAlertView alloc] initWithTitle:@"导出失败" message:@"配置文件序列化失败" delegate:nil cancelButtonTitle:@"确定" otherButtonTitles:nil];
+        UIAlertView *alert = [[UIAlertView alloc] initWithTitle:LocalizedString(@"export_failed") message:LocalizedString(@"config_serialize_failed") delegate:nil cancelButtonTitle:LocalizedString(@"confirm") otherButtonTitles:nil];
         [alert show];
         return;
     }
@@ -193,7 +191,7 @@
         UIActivityViewController *activityVC = [[UIActivityViewController alloc] initWithActivityItems:@[fileURL] applicationActivities:nil];
         [self presentViewController:activityVC animated:YES completion:nil];
     } else {
-        UIAlertView *alert = [[UIAlertView alloc] initWithTitle:@"导出失败" message:@"无法将文件写入本地目录" delegate:nil cancelButtonTitle:@"确定" otherButtonTitles:nil];
+        UIAlertView *alert = [[UIAlertView alloc] initWithTitle:LocalizedString(@"export_failed") message:LocalizedString(@"cannot_write_local") delegate:nil cancelButtonTitle:LocalizedString(@"confirm") otherButtonTitles:nil];
         [alert show];
     }
 }
@@ -212,7 +210,7 @@
     }
     
     if (jsonFiles.count == 0) {
-        UIAlertView *alert = [[UIAlertView alloc] initWithTitle:@"未找到备份文件" message:@"请先通过 iTunes 的【文件共享】功能，将备份的 json 文件拖入应用目录中。" delegate:nil cancelButtonTitle:@"确定" otherButtonTitles:nil];
+        UIAlertView *alert = [[UIAlertView alloc] initWithTitle:LocalizedString(@"no_backup_found") message:LocalizedString(@"please_import_backup") delegate:nil cancelButtonTitle:LocalizedString(@"confirm") otherButtonTitles:nil];
         [alert show];
         return;
     }
@@ -233,13 +231,13 @@
         self.selectedBackupFileName = jsonFiles.firstObject;
         [self showRestoreConfirmationAlert];
     } else {
-        UIActionSheet *sheet = [[UIActionSheet alloc] initWithTitle:@"选择要恢复的备份文件" delegate:self cancelButtonTitle:nil destructiveButtonTitle:nil otherButtonTitles:nil];
+        UIActionSheet *sheet = [[UIActionSheet alloc] initWithTitle:LocalizedString(@"select_backup_to_restore") delegate:self cancelButtonTitle:nil destructiveButtonTitle:nil otherButtonTitles:nil];
         // 为了防止界面过长，最多显示最近的 5 个备份
         NSInteger displayCount = MIN(jsonFiles.count, 5);
         for (NSInteger i = 0; i < displayCount; i++) {
             [sheet addButtonWithTitle:jsonFiles[i]];
         }
-        [sheet addButtonWithTitle:@"取消"];
+        [sheet addButtonWithTitle:LocalizedString(@"cancel")];
         sheet.cancelButtonIndex = displayCount;
         sheet.tag = 301;
         [sheet showInView:self.view];
@@ -247,14 +245,13 @@
 }
 
 - (void)showRestoreConfirmationAlert {
-    NSString *msg = [NSString stringWithFormat:@"确定要恢复备份文件 [%@] 吗？\n当前的所有设置和直播源将被完全覆盖！", self.selectedBackupFileName];
+    NSString *msg = [NSString stringWithFormat:LocalizedString(@"confirm_restore_msg"), self.selectedBackupFileName];
     
-    // 优化：使用公共的 AlertHelper 封装恢复确认
     __weak typeof(self) weakSelf = self;
-    [AlertHelper showConfirmAlertWithTitle:@"确认恢复"
+    [AlertHelper showConfirmAlertWithTitle:LocalizedString(@"confirm_restore")
                                    message:msg
-                              confirmTitle:@"立即恢复"
-                               cancelTitle:@"取消"
+                              confirmTitle:LocalizedString(@"restore_now")
+                               cancelTitle:LocalizedString(@"cancel")
                               confirmBlock:^{
                                   [weakSelf executeRestore];
                               } cancelBlock:nil];
@@ -271,7 +268,7 @@
     NSDictionary *backupData = [NSJSONSerialization JSONObjectWithData:jsonData options:kNilOptions error:&error];
     
     if (error || ![backupData isKindOfClass:[NSDictionary class]]) {
-        UIAlertView *alert = [[UIAlertView alloc] initWithTitle:@"恢复失败" message:@"备份文件格式不正确或已损坏" delegate:nil cancelButtonTitle:@"确定" otherButtonTitles:nil];
+        UIAlertView *alert = [[UIAlertView alloc] initWithTitle:LocalizedString(@"restore_failed") message:LocalizedString(@"backup_invalid") delegate:nil cancelButtonTitle:LocalizedString(@"confirm") otherButtonTitles:nil];
         [alert show];
         return;
     }
@@ -291,7 +288,7 @@
     // 通知全局数据刷新
     [[NSNotificationCenter defaultCenter] postNotificationName:@"M3UDataUpdated" object:nil];
     
-    UIAlertView *successAlert = [[UIAlertView alloc] initWithTitle:@"恢复成功" message:@"配置已成功恢复！" delegate:nil cancelButtonTitle:@"确定" otherButtonTitles:nil];
+    UIAlertView *successAlert = [[UIAlertView alloc] initWithTitle:LocalizedString(@"restore_success") message:LocalizedString(@"config_restored") delegate:nil cancelButtonTitle:LocalizedString(@"confirm") otherButtonTitles:nil];
     [successAlert show];
 }
 
@@ -302,7 +299,5 @@
         [self showRestoreConfirmationAlert];
     }
 }
-
-// 注：由于所有清空和确认操作已被 AlertHelper 的 Block 接管，原有的 UIAlertViewDelegate 方法被完全精简，移除了冗杂的 tag 判断
 
 @end

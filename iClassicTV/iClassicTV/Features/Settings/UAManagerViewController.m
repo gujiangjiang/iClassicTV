@@ -8,7 +8,8 @@
 
 #import "UAManagerViewController.h"
 #import "UserAgentManager.h"
-#import "AlertHelper.h" // 新增：引入通用弹窗模块
+#import "AlertHelper.h" // 引入通用弹窗模块
+#import "LanguageManager.h" // 新增：引入多语言模块
 
 @interface UAManagerViewController () <UIAlertViewDelegate>
 
@@ -18,7 +19,7 @@
 
 - (void)viewDidLoad {
     [super viewDidLoad];
-    self.title = @"User-Agent 设置";
+    self.title = LocalizedString(@"ua_manager_title");
     
     // 右上角添加新增按钮
     UIBarButtonItem *addBtn = [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemAdd target:self action:@selector(addUATapped)];
@@ -27,19 +28,19 @@
 
 - (void)addUATapped {
     // 兼容 iOS 6/7 的弹窗输入方式：借用登录密码框样式，并强行将密码框改为明文显示
-    UIAlertView *alert = [[UIAlertView alloc] initWithTitle:@"添加自定义 User-Agent"
+    UIAlertView *alert = [[UIAlertView alloc] initWithTitle:LocalizedString(@"add_custom_ua")
                                                     message:nil
                                                    delegate:self
-                                          cancelButtonTitle:@"取消"
-                                          otherButtonTitles:@"保存", nil];
+                                          cancelButtonTitle:LocalizedString(@"cancel")
+                                          otherButtonTitles:LocalizedString(@"save"), nil];
     alert.alertViewStyle = UIAlertViewStyleLoginAndPasswordInput;
     alert.tag = 100;
     
     UITextField *nameField = [alert textFieldAtIndex:0];
-    nameField.placeholder = @"标识名称 (例如: PC 浏览器)";
+    nameField.placeholder = LocalizedString(@"ua_name_placeholder");
     
     UITextField *uaField = [alert textFieldAtIndex:1];
-    uaField.placeholder = @"完整的 User-Agent 字符串";
+    uaField.placeholder = LocalizedString(@"ua_string_placeholder");
     uaField.secureTextEntry = NO; // 取消密码的星号遮挡，作为普通输入框使用
     
     [alert show];
@@ -49,7 +50,6 @@
 
 - (void)alertView:(UIAlertView *)alertView clickedButtonAtIndex:(NSInteger)buttonIndex {
     if (alertView.tag == 100) {
-        // 处理添加 User-Agent (删除确认已由 AlertHelper 独立处理)
         if (buttonIndex == 1) { // 点击了保存
             UITextField *nameField = [alertView textFieldAtIndex:0];
             UITextField *uaField = [alertView textFieldAtIndex:1];
@@ -123,12 +123,12 @@
 
 - (void)tableView:(UITableView *)tableView commitEditingStyle:(UITableViewCellEditingStyle)editingStyle forRowAtIndexPath:(NSIndexPath *)indexPath {
     if (editingStyle == UITableViewCellEditingStyleDelete) {
-        // 优化：调用 AlertHelper 直接处理回调，不再需要维护复杂的 tag 和实例变量
+        // 调用 AlertHelper 直接处理回调
         __weak typeof(self) weakSelf = self;
-        [AlertHelper showConfirmAlertWithTitle:@"确认删除"
-                                       message:@"您确定要删除该 User-Agent 吗？"
-                                  confirmTitle:@"删除"
-                                   cancelTitle:@"取消"
+        [AlertHelper showConfirmAlertWithTitle:LocalizedString(@"confirm_delete")
+                                       message:LocalizedString(@"confirm_delete_ua")
+                                  confirmTitle:LocalizedString(@"delete")
+                                   cancelTitle:LocalizedString(@"cancel")
                                   confirmBlock:^{
                                       BOOL success = [[UserAgentManager sharedManager] deleteUAAtIndex:indexPath.row];
                                       if (success) {
