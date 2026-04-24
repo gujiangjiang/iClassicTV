@@ -23,7 +23,7 @@
 
 @property (nonatomic, assign) BOOL isLocked;
 @property (nonatomic, assign) BOOL isControlsHidden;
-@property (nonatomic, assign) BOOL currentIsFullscreen; // 新增：记录当前是否全屏
+@property (nonatomic, assign) BOOL currentIsFullscreen; // 记录当前是否全屏
 @property (nonatomic, strong) NSTimer *autoHideTimer;
 
 @end
@@ -43,7 +43,7 @@
     return self;
 }
 
-// 新增：根据系统版本应用对应的背景风格 (iOS7毛玻璃 / iOS6拟物黑)
+// 根据系统版本应用对应的背景风格 (iOS7毛玻璃 / iOS6拟物黑)
 - (void)applyBlurEffectToView:(UIView *)view {
     BOOL isIOS7 = [[[UIDevice currentDevice] systemVersion] floatValue] >= 7.0;
     if (isIOS7) {
@@ -81,12 +81,11 @@
     self.topBar.backgroundColor = [UIColor clearColor];
     [self addSubview:self.topBar];
     
-    // 修复：废弃普通的视图毛玻璃背景，直接嵌入系统原生的 UINavigationBar 作为顶栏背景
-    // 这完美解决了“缺少顶栏”的视觉问题，在竖屏模式下彻底还原 iOS6/7 最真实的顶栏原生质感
+    // 嵌入系统原生的 UINavigationBar 作为全屏模式下的顶栏背景
     UINavigationBar *topNavBg = [[UINavigationBar alloc] initWithFrame:self.topBar.bounds];
     topNavBg.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
-    topNavBg.barStyle = UIBarStyleBlack; // 保持深色主题与白色文字的契合
-    topNavBg.tag = 999; // 打个标记，方便布局刷新时单独处理它
+    topNavBg.barStyle = UIBarStyleBlack;
+    topNavBg.tag = 999;
     [self.topBar addSubview:topNavBg];
     
     UIButton *backBtn = [UIButton buttonWithType:UIButtonTypeCustom];
@@ -156,32 +155,31 @@
     [self.gestureCatcherView addGestureRecognizer:singleTap];
 }
 
-// 新增：动态重算控制组件的 Frame 以适应半屏/全屏
+// 动态重算控制组件的 Frame 以适应半屏/全屏
 - (void)updateLayoutForFullscreen:(BOOL)isFullscreen videoFrame:(CGRect)videoFrame {
     self.currentIsFullscreen = isFullscreen;
     
-    // 竖屏半屏时解开可能遗留的锁定状态
     if (!isFullscreen && self.isLocked) {
         self.isLocked = NO;
         [self.lockBtn setImage:[UIImage dynamicLockIconWithState:NO] forState:UIControlStateNormal];
     }
     
-    // 全屏时隐藏了状态栏，非全屏时显示状态栏。动态补偿高度避免内容被遮挡
+    // 优化：根据横竖屏决定 TopBar 是否渲染背景
     CGFloat topBarHeight = isFullscreen ? 44.0 : 64.0;
     CGFloat yOffset = isFullscreen ? 0.0 : 20.0;
     
     self.topBar.frame = CGRectMake(0, 0, self.bounds.size.width, topBarHeight);
     
-    // 调整 topBar 内部元素的垂直偏移，并精细适配原生导航栏的尺寸
     BOOL isIOS7 = [[[UIDevice currentDevice] systemVersion] floatValue] >= 7.0;
     for (UIView *subview in self.topBar.subviews) {
-        if (subview.tag == 999) { // 针对新添加的 UINavigationBar 背景做兼容适配
-            if (!isIOS7 && !isFullscreen) {
-                // 修复：iOS 6 竖屏时系统导航栏不支持延伸至状态栏下方，高度必须强制设为 44，并向下偏移 20
-                subview.frame = CGRectMake(0, 20, self.bounds.size.width, 44);
-            } else {
-                // iOS 7+ 或者是横屏（无状态栏/透明状态栏），直接填满 topBar 完美适配
+        if (subview.tag == 999) {
+            // 优化：竖屏模式下彻底隐藏导航栏背景渲染，直接透出底层的原生背景质感
+            subview.hidden = !isFullscreen;
+            
+            if (isFullscreen) {
                 subview.frame = self.topBar.bounds;
+            } else if (!isIOS7) {
+                subview.frame = CGRectMake(0, 20, self.bounds.size.width, 44);
             }
         } else if ([subview isKindOfClass:[UIButton class]]) {
             subview.frame = CGRectMake(5, yOffset, 60, 44);
@@ -190,20 +188,13 @@
         }
     }
     
-    // BottomBar 紧贴视频区域底部悬浮
     self.bottomBar.frame = CGRectMake(0, CGRectGetMaxY(videoFrame) - 50, self.bounds.size.width, 50);
-    
-    // 触控感应区域与视频区域重叠
     self.gestureCatcherView.frame = videoFrame;
     
-    // 锁定按钮仅在全屏可用并居左对齐
     self.lockBtn.hidden = !isFullscreen;
     self.lockBtn.center = CGPointMake(40, CGRectGetMidY(videoFrame));
-    
-    // 状态文字在视频居中
     self.statusLabel.center = CGPointMake(CGRectGetMidX(videoFrame), CGRectGetMidY(videoFrame));
     
-    // 触发一次隐藏状态校验，确保非全屏时顶部常显
     [self setControlsHidden:self.isControlsHidden];
 }
 
@@ -310,7 +301,6 @@
             self.bottomBar.alpha = 0.0;
             self.lockBtn.alpha = hidden ? 0.0 : 0.6;
         } else {
-            // 优化：竖屏非全屏模式下，顶部栏作为系统导航栏功能，决不能被隐藏
             self.topBar.alpha = (!self.currentIsFullscreen) ? 1.0 : (hidden ? 0.0 : 1.0);
             self.bottomBar.alpha = hidden ? 0.0 : 1.0;
             self.lockBtn.alpha = hidden ? 0.0 : 0.6;
@@ -320,7 +310,6 @@
     self.topBar.userInteractionEnabled = !self.isLocked;
     self.bottomBar.userInteractionEnabled = !self.isLocked && !hidden;
     
-    // 通知控制器 UI 隐藏状态改变，以便控制器更新状态栏
     if ([self.delegate respondsToSelector:@selector(controlView:controlsHiddenDidChange:)]) {
         [self.delegate controlView:self controlsHiddenDidChange:hidden];
     }

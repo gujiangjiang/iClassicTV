@@ -17,8 +17,8 @@
 @property (nonatomic, strong) MPMoviePlayerController *player;
 @property (nonatomic, strong) PlayerControlView *controlView; // UI 面板层
 
-@property (nonatomic, strong) UIView *backgroundView; // 新增：底层背景容器，用于竖屏留白区域渲染
-@property (nonatomic, strong) UILabel *tipsLabel;     // 新增：竖屏预留区域提示文字
+@property (nonatomic, strong) UIView *backgroundView; // 底层背景容器，用于竖屏留白区域渲染
+@property (nonatomic, strong) UILabel *tipsLabel;     // 竖屏预留区域提示文字
 
 @property (nonatomic, strong) NSTimer *timer;
 @property (nonatomic, assign) BOOL isFullscreen;
@@ -39,7 +39,6 @@
     
     // 新增：加入统一的底层背景视图，方便管理非全屏时的界面空白处样式
     self.backgroundView = [[UIView alloc] initWithFrame:self.view.bounds];
-    // 优化：移除自动拉伸属性，完全交由 viewWillLayoutSubviews 进行精准的坐标计算，防止背景穿透
     [self.view addSubview:self.backgroundView];
     
     // 新增：用于在非全屏下方预留空间显示的提示文案
@@ -60,7 +59,7 @@
     NSURL *url = [NSURL URLWithString:[self.videoURLString stringByAddingPercentEscapesUsingEncoding:NSUTF8StringEncoding]];
     self.player = [[MPMoviePlayerController alloc] initWithContentURL:url];
     self.player.controlStyle = MPMovieControlStyleNone; // 隐藏系统自带 UI
-    [self.view addSubview:self.player.view]; // 优化：Frame 交由 viewWillLayoutSubviews 动态算计
+    [self.view addSubview:self.player.view];
     
     // 3. 挂载分离出去的独立 UI 组件
     self.controlView = [[PlayerControlView alloc] initWithFrame:self.view.bounds];
@@ -104,8 +103,8 @@
         CGFloat videoHeight = self.view.bounds.size.width * 9.0 / 16.0;
         videoFrame = CGRectMake(0, topBarHeight, self.view.bounds.size.width, videoHeight);
         
-        // 修复：让竖屏时的背景视图从 topBar 下方开始绘制，避免灰色背景向上穿透到半透明顶栏，彻底解决“蒙了一层灰皮”的问题
-        self.backgroundView.frame = CGRectMake(0, topBarHeight, self.view.bounds.size.width, self.view.bounds.size.height - topBarHeight);
+        // 优化：竖屏时背景视图铺满全屏，作为底色（原生质感），不再需要计算 y 轴偏移
+        self.backgroundView.frame = self.view.bounds;
         
         // 分离系统风格，iOS 7 显示淡雅灰色，iOS 6 显示经典的带纹理的亚麻布深灰
         BOOL isIOS7 = [[[UIDevice currentDevice] systemVersion] floatValue] >= 7.0;
@@ -168,7 +167,6 @@
     if ([self respondsToSelector:@selector(setNeedsStatusBarAppearanceUpdate)]) {
         [self setNeedsStatusBarAppearanceUpdate];
     } else {
-        // 修复：使用全新 prefersStatusBarHidden 逻辑来决定是否隐藏
         [[UIApplication sharedApplication] setStatusBarHidden:[self prefersStatusBarHidden] withAnimation:UIStatusBarAnimationFade];
     }
 }
@@ -270,9 +268,9 @@
 }
 
 - (BOOL)prefersStatusBarHidden {
-    // 优化：竖屏半屏下必须常驻显示状态栏防跳动；横屏全屏下跟随播放面板控制是否隐藏
-    if (!self.isFullscreen) return NO;
-    return self.isControlsHidden;
+    // 优化：全屏模式下必须始终隐藏状态栏，防止其在控制面板显示时同步出现并产生重叠
+    if (self.isFullscreen) return YES;
+    return NO; // 竖屏模式正常显示状态栏，提供原生体验
 }
 
 - (void)closePlayer {
@@ -289,7 +287,6 @@
     [self.timer invalidate];
     self.timer = nil;
     
-    // 主动注销 UI 控制层的自动隐藏定时器，防止组件延迟销毁或内存泄漏
     [self.controlView cancelAutoHideTimer];
     
     [self.player stop];
@@ -307,12 +304,9 @@
     return UIInterfaceOrientationMaskAllButUpsideDown;
 }
 
-// 新增：监听设备旋转的动画周期，为内部视图（特别是 PlayerControlView）强制增加平滑的过渡动画
 - (void)willAnimateRotationToInterfaceOrientation:(UIInterfaceOrientation)toInterfaceOrientation duration:(NSTimeInterval)duration {
     [super willAnimateRotationToInterfaceOrientation:toInterfaceOrientation duration:duration];
     
-    // 优化：利用系统旋转的 duration 时间，让界面元素的布局更新平滑化
-    // 解决连续点击全屏切换时 [UIDevice currentDevice] setValue:... 导致的布局瞬间闪跳、生硬的问题
     [UIView animateWithDuration:duration
                           delay:0.0
                         options:UIViewAnimationOptionCurveEaseInOut
