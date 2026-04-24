@@ -44,10 +44,46 @@
     NSUserDefaults *defs = [NSUserDefaults standardUserDefaults];
     NSDictionary *defaultsDict = [defs dictionaryRepresentation];
     for (NSString *key in [defaultsDict allKeys]) {
+        // 清理保存的线路记忆
         if ([key hasPrefix:@"SourcePref_"]) {
             [defs removeObjectForKey:key];
         }
     }
+    [defs synchronize];
+}
+
+// 新增：清空图像缓存逻辑
+- (void)clearAllChannelIcons {
+    // 图像通常缓存在 Caches 目录下，遍历并清空
+    NSString *cacheDir = [NSSearchPathForDirectoriesInDomains(NSCachesDirectory, NSUserDomainMask, YES) firstObject];
+    NSArray *files = [[NSFileManager defaultManager] contentsOfDirectoryAtPath:cacheDir error:nil];
+    for (NSString *file in files) {
+        NSString *path = [cacheDir stringByAppendingPathComponent:file];
+        [[NSFileManager defaultManager] removeItemAtPath:path error:nil];
+    }
+}
+
+// 新增：清空通用网络与临时缓存逻辑
+- (void)clearAllGeneralCache {
+    // 1. 清空临时目录
+    NSString *tempDir = NSTemporaryDirectory();
+    NSArray *files = [[NSFileManager defaultManager] contentsOfDirectoryAtPath:tempDir error:nil];
+    for (NSString *file in files) {
+        NSString *path = [tempDir stringByAppendingPathComponent:file];
+        [[NSFileManager defaultManager] removeItemAtPath:path error:nil];
+    }
+    // 2. 清空全局 URL Cache
+    [[NSURLCache sharedURLCache] removeAllCachedResponses];
+}
+
+// 新增：恢复所有默认设置逻辑
+- (void)restoreAllSettings {
+    NSUserDefaults *defs = [NSUserDefaults standardUserDefaults];
+    // 移除各项自定义设置偏好，让系统下次读取时自动使用默认值
+    [defs removeObjectForKey:@"kUAManagerListKey"];
+    [defs removeObjectForKey:@"kUAManagerSelectedIndexKey"];
+    [defs removeObjectForKey:@"PlayerOrientationPref"];
+    [defs removeObjectForKey:@"PlayerTypePref"];
     [defs synchronize];
 }
 

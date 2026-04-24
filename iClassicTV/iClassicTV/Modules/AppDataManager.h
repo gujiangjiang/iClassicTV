@@ -22,6 +22,15 @@
 // 清空所有线路记忆与偏好缓存
 - (void)clearAllPreferencesCache;
 
+// 新增：清空所有频道图像缓存
+- (void)clearAllChannelIcons;
+
+// 新增：清空所有网络与临时缓存
+- (void)clearAllGeneralCache;
+
+// 新增：恢复所有默认设置
+- (void)restoreAllSettings;
+
 // 新增：获取所有直播源列表
 - (NSMutableArray *)getAllSources;
 

@@ -26,9 +26,10 @@
     [super viewDidLoad];
     self.title = @"数据管理与备份";
     
+    // 优化：重新排版和细化数据清理项，加入本地备份清理
     self.sections = @[
-                      @{@"title": @"配置备份与恢复 (iTunes共享空间)", @"rows": @[@"备份当前配置 (导出并分享)", @"从备份恢复配置 (从iTunes读取)"]},
-                      @{@"title": @"数据清理 (危险操作)", @"rows": @[@"清空所有直播源", @"清空缓存 (记忆与偏好)"]}
+                      @{@"title": @"配置备份与恢复 (iTunes共享空间)", @"rows": @[@"备份当前配置 (导出并分享)", @"从备份恢复配置 (从iTunes读取)", @"清空所有本地备份文件"]},
+                      @{@"title": @"数据清理 (危险操作)", @"rows": @[@"清空所有直播源", @"清空所有频道图像", @"清空所有缓存", @"清空记忆与偏好", @"恢复所有设置"]}
                       ];
 }
 
@@ -37,7 +38,7 @@
 - (NSString *)tableView:(UITableView *)tableView titleForHeaderInSection:(NSInteger)section { return self.sections[section][@"title"]; }
 - (NSString *)tableView:(UITableView *)tableView titleForFooterInSection:(NSInteger)section {
     if (section == 0) {
-        return @"备份将包含您添加的所有直播源、自定义的 User-Agent 列表以及全屏/播放器等设置偏好。导出的文件可通过 iTunes 文件共享进行管理。";
+        return @"备份将包含您添加的所有直播源、自定义的 User-Agent 列表以及全屏/播放器等设置偏好。导出的文件可通过 iTunes 文件共享进行管理，或在此处直接清空。";
     }
     return nil;
 }
@@ -48,15 +49,16 @@
     if (!cell) cell = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleDefault reuseIdentifier:CellIdentifier];
     
     cell.textLabel.text = self.sections[indexPath.section][@"rows"][indexPath.row];
-    cell.textLabel.textAlignment = NSTextAlignmentLeft;
-    cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
-    cell.textLabel.textColor = [UIColor blackColor];
     
-    // 危险操作区域特殊标记
-    if (indexPath.section == 1) {
+    // 危险操作区域特殊标记（第2分组全部，以及第1分组的清空备份项）
+    if (indexPath.section == 1 || (indexPath.section == 0 && indexPath.row == 2)) {
         cell.accessoryType = UITableViewCellAccessoryNone;
         cell.textLabel.textAlignment = NSTextAlignmentCenter;
         cell.textLabel.textColor = [UIColor redColor];
+    } else {
+        cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
+        cell.textLabel.textAlignment = NSTextAlignmentLeft;
+        cell.textLabel.textColor = [UIColor blackColor];
     }
     
     return cell;
@@ -70,16 +72,53 @@
             [self performExportConfiguration];
         } else if (indexPath.row == 1) {
             [self scanAndPerformRestore];
+        } else if (indexPath.row == 2) {
+            UIAlertView *alert = [[UIAlertView alloc] initWithTitle:@"清空备份" message:@"确定要永久删除本设备上的所有备份文件吗？" delegate:self cancelButtonTitle:@"取消" otherButtonTitles:@"确定删除", nil];
+            alert.tag = 201; [alert show];
         }
     } else if (indexPath.section == 1) {
-        if (indexPath.row == 0) {
-            UIAlertView *alert = [[UIAlertView alloc] initWithTitle:@"警告" message:@"确定要清空所有的直播源吗？" delegate:self cancelButtonTitle:@"取消" otherButtonTitles:@"确定清空", nil];
-            alert.tag = 101; [alert show];
-        } else if (indexPath.row == 1) {
-            UIAlertView *alert = [[UIAlertView alloc] initWithTitle:@"清空缓存" message:@"确定要清空所有的线路记忆偏好吗？" delegate:self cancelButtonTitle:@"取消" otherButtonTitles:@"确定", nil];
-            alert.tag = 102; [alert show];
+        // 细化后的清理操作分配对应的 tag
+        NSString *title = @"";
+        NSString *msg = @"";
+        NSInteger tag = 0;
+        
+        switch (indexPath.row) {
+            case 0:
+                title = @"清空直播源"; msg = @"确定要清空所有的直播源吗？"; tag = 202; break;
+            case 1:
+                title = @"清空频道图像"; msg = @"确定要清空已缓存的频道图像吗？"; tag = 203; break;
+            case 2:
+                title = @"清空所有缓存"; msg = @"确定要清空应用的所有网络和临时缓存吗？"; tag = 204; break;
+            case 3:
+                title = @"清空记忆偏好"; msg = @"确定要清空所有的线路记忆与播放偏好吗？"; tag = 205; break;
+            case 4:
+                title = @"恢复所有设置"; msg = @"确定要恢复所有设置到默认状态吗？(不影响直播源)"; tag = 206; break;
+        }
+        
+        UIAlertView *alert = [[UIAlertView alloc] initWithTitle:title message:msg delegate:self cancelButtonTitle:@"取消" otherButtonTitles:@"确定", nil];
+        alert.tag = tag;
+        [alert show];
+    }
+}
+
+#pragma mark - 清空备份逻辑
+- (void)clearAllBackupFiles {
+    NSString *docDir = [NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES) firstObject];
+    NSArray *files = [[NSFileManager defaultManager] contentsOfDirectoryAtPath:docDir error:nil];
+    int count = 0;
+    
+    for (NSString *file in files) {
+        if ([[file.pathExtension lowercaseString] isEqualToString:@"json"] && [file hasPrefix:@"iClassicTV_Backup_"]) {
+            NSString *filePath = [docDir stringByAppendingPathComponent:file];
+            if ([[NSFileManager defaultManager] removeItemAtPath:filePath error:nil]) {
+                count++;
+            }
         }
     }
+    
+    NSString *msg = count > 0 ? [NSString stringWithFormat:@"成功清空了 %d 个备份文件", count] : @"没有找到需要清理的备份文件";
+    UIAlertView *alert = [[UIAlertView alloc] initWithTitle:@"清理完成" message:msg delegate:nil cancelButtonTitle:@"确定" otherButtonTitles:nil];
+    [alert show];
 }
 
 #pragma mark - 导出与分享逻辑
@@ -229,17 +268,31 @@
 
 - (void)alertView:(UIAlertView *)alertView clickedButtonAtIndex:(NSInteger)buttonIndex {
     if (buttonIndex != alertView.cancelButtonIndex) {
-        if (alertView.tag == 101) {
+        if (alertView.tag == 103) {
+            // 执行恢复逻辑
+            [self executeRestore];
+        } else if (alertView.tag == 201) {
+            [self clearAllBackupFiles];
+        } else if (alertView.tag == 202) {
             [[AppDataManager sharedManager] clearAllSources];
             UIAlertView *successAlert = [[UIAlertView alloc] initWithTitle:@"已清空" message:@"所有直播源已清空" delegate:nil cancelButtonTitle:@"确定" otherButtonTitles:nil];
             [successAlert show];
-        } else if (alertView.tag == 102) {
-            [[AppDataManager sharedManager] clearAllPreferencesCache];
-            UIAlertView *successAlert = [[UIAlertView alloc] initWithTitle:@"已清空" message:@"记忆缓存已清空" delegate:nil cancelButtonTitle:@"确定" otherButtonTitles:nil];
+        } else if (alertView.tag == 203) {
+            [[AppDataManager sharedManager] clearAllChannelIcons];
+            UIAlertView *successAlert = [[UIAlertView alloc] initWithTitle:@"已清空" message:@"所有频道图像缓存已清空" delegate:nil cancelButtonTitle:@"确定" otherButtonTitles:nil];
             [successAlert show];
-        } else if (alertView.tag == 103) {
-            // 执行恢复逻辑
-            [self executeRestore];
+        } else if (alertView.tag == 204) {
+            [[AppDataManager sharedManager] clearAllGeneralCache];
+            UIAlertView *successAlert = [[UIAlertView alloc] initWithTitle:@"已清空" message:@"应用缓存已完全清空" delegate:nil cancelButtonTitle:@"确定" otherButtonTitles:nil];
+            [successAlert show];
+        } else if (alertView.tag == 205) {
+            [[AppDataManager sharedManager] clearAllPreferencesCache];
+            UIAlertView *successAlert = [[UIAlertView alloc] initWithTitle:@"已清空" message:@"记忆与偏好已清空" delegate:nil cancelButtonTitle:@"确定" otherButtonTitles:nil];
+            [successAlert show];
+        } else if (alertView.tag == 206) {
+            [[AppDataManager sharedManager] restoreAllSettings];
+            UIAlertView *successAlert = [[UIAlertView alloc] initWithTitle:@"已恢复" message:@"各项设置已恢复至默认" delegate:nil cancelButtonTitle:@"确定" otherButtonTitles:nil];
+            [successAlert show];
         }
     }
 }
