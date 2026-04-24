@@ -8,6 +8,7 @@
 
 #import "NSString+EncodingHelper.h"
 #import "SSLBypassHelper.h" // 新增：引入 SSLBypassHelper 以确保 https 链接也能绕过 iOS 6 证书校验
+#import "UserAgentManager.h" // 新增：引入 UA 管理器以获取动态 UA
 
 @implementation NSString (EncodingHelper)
 
@@ -18,8 +19,9 @@
     NSMutableURLRequest *request = [NSMutableURLRequest requestWithURL:url];
     [request setTimeoutInterval:15.0];
     
-    // 优化：伪装 User-Agent，防止部分服务器拒绝非浏览器的空 UA 请求
-    [request setValue:@"Mozilla/5.0 (iPhone; CPU iPhone OS 6_0 like Mac OS X) AppleWebKit/536.26 Version/6.0 Mobile/10A5376e Safari/8536.25" forHTTPHeaderField:@"User-Agent"];
+    // 优化：使用 UserAgentManager 单例获取用户选择的或系统适配的默认动态 UA，彻底移除硬编码
+    NSString *userAgent = [[UserAgentManager sharedManager] currentUA];
+    [request setValue:userAgent forHTTPHeaderField:@"User-Agent"];
     
     // 针对 HTTPS 链接应用 SSL 绕过策略
     if ([url.scheme.lowercaseString isEqualToString:@"https"]) {

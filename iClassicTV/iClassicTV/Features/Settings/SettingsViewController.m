@@ -9,6 +9,7 @@
 #import "SettingsViewController.h"
 #import "SourceManagerViewController.h"
 #import "AboutViewController.h"
+#import "UAManagerViewController.h" // 新增：引入 UA 管理模块
 #import "AppDataManager.h" // 引入数据管理模块
 // 新增：引入滚动处理通用模块
 #import "UIViewController+ScrollToTop.h"
@@ -28,9 +29,10 @@
     // 新增：调用通用模块，为当前导航栏标题栏注册双击回到最上方的功能
     [self enableNavigationBarDoubleTapToScrollTop];
     
+    // 优化：在软件设置列表中插入 "User-Agent 设置"
     self.sections = @[
                       @{@"title": @"直播源设置", @"rows": @[@"我的直播源 (管理与添加)"]},
-                      @{@"title": @"软件设置", @"rows": @[@"默认全屏逻辑", @"默认播放器", @"清空所有直播源", @"清空缓存 (记忆与偏好)"]},
+                      @{@"title": @"软件设置", @"rows": @[@"默认全屏逻辑", @"默认播放器", @"User-Agent 设置", @"清空所有直播源", @"清空缓存 (记忆与偏好)"]},
                       @{@"title": @"关于", @"rows": @[@"关于 iClassicTV"]}
                       ];
 }
@@ -47,7 +49,8 @@
     cell.textLabel.text = self.sections[indexPath.section][@"rows"][indexPath.row];
     cell.detailTextLabel.text = @"";
     
-    if (indexPath.section == 1 && (indexPath.row == 2 || indexPath.row == 3)) {
+    // 优化：更新清空操作的行索引 (改为 3 和 4)
+    if (indexPath.section == 1 && (indexPath.row == 3 || indexPath.row == 4)) {
         cell.accessoryType = UITableViewCellAccessoryNone;
         cell.textLabel.textAlignment = NSTextAlignmentCenter;
         cell.textLabel.textColor = [UIColor redColor];
@@ -81,9 +84,13 @@
             UIActionSheet *sheet = [[UIActionSheet alloc] initWithTitle:@"默认播放器" delegate:self cancelButtonTitle:@"取消" destructiveButtonTitle:nil otherButtonTitles:@"自定义播放器 (推荐)", @"iOS原生播放器", nil];
             sheet.tag = 202; [sheet showInView:self.view];
         } else if (indexPath.row == 2) {
+            // 新增：跳转到独立的 User-Agent 设置页面
+            UAManagerViewController *uaVC = [[UAManagerViewController alloc] initWithStyle:UITableViewStyleGrouped];
+            [self.navigationController pushViewController:uaVC animated:YES];
+        } else if (indexPath.row == 3) {
             UIAlertView *alert = [[UIAlertView alloc] initWithTitle:@"警告" message:@"确定要清空所有的直播源吗？" delegate:self cancelButtonTitle:@"取消" otherButtonTitles:@"确定清空", nil];
             alert.tag = 101; [alert show];
-        } else if (indexPath.row == 3) {
+        } else if (indexPath.row == 4) {
             UIAlertView *alert = [[UIAlertView alloc] initWithTitle:@"清空缓存" message:@"确定要清空所有的线路记忆偏好吗？" delegate:self cancelButtonTitle:@"取消" otherButtonTitles:@"确定", nil];
             alert.tag = 102; [alert show];
         }
