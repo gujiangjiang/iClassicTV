@@ -115,7 +115,12 @@
     
     dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
         NSError *error = nil;
+        // 优化：优先尝试 UTF-8 编码，失败则回退尝试 GBK 编码下载
         NSString *m3uData = [NSString stringWithContentsOfURL:url encoding:NSUTF8StringEncoding error:&error];
+        if (!m3uData) {
+            NSStringEncoding gbkEncoding = CFStringConvertEncodingToNSStringEncoding(kCFStringEncodingGB_18030_2000);
+            m3uData = [NSString stringWithContentsOfURL:url encoding:gbkEncoding error:nil];
+        }
         
         dispatch_async(dispatch_get_main_queue(), ^{
             [hud dismissWithClickedButtonIndex:0 animated:YES];

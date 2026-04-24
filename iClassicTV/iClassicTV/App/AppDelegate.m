@@ -48,7 +48,12 @@
         NSString *extension = [[url pathExtension] lowercaseString];
         if ([extension isEqualToString:@"m3u"] || [extension isEqualToString:@"m3u8"]) {
             NSError *error = nil;
+            // 优化：优先尝试 UTF-8 编码，失败则回退尝试 GBK 编码读取
             NSString *content = [NSString stringWithContentsOfURL:url encoding:NSUTF8StringEncoding error:&error];
+            if (!content) {
+                NSStringEncoding gbkEncoding = CFStringConvertEncodingToNSStringEncoding(kCFStringEncodingGB_18030_2000);
+                content = [NSString stringWithContentsOfURL:url encoding:gbkEncoding error:nil];
+            }
             
             if (content && content.length > 0) {
                 // 以源文件名作为基础进行命名备注

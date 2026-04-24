@@ -143,7 +143,13 @@
         NSString *filePath = [docsPath stringByAppendingPathComponent:fileName];
         
         NSError *error = nil;
+        // 优化：优先尝试 UTF-8 编码，失败则回退尝试 GBK 编码读取
         NSString *content = [NSString stringWithContentsOfFile:filePath encoding:NSUTF8StringEncoding error:&error];
+        if (!content) {
+            NSStringEncoding gbkEncoding = CFStringConvertEncodingToNSStringEncoding(kCFStringEncodingGB_18030_2000);
+            content = [NSString stringWithContentsOfFile:filePath encoding:gbkEncoding error:nil];
+        }
+        
         if (content && content.length > 0) {
             self.tempM3UData = content;
             self.tempURLString = @"";
@@ -203,7 +209,12 @@
         
         dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
             NSError *error = nil;
+            // 优化：优先尝试 UTF-8 编码，失败则回退尝试 GBK 编码下载
             NSString *m3uData = [NSString stringWithContentsOfURL:url encoding:NSUTF8StringEncoding error:&error];
+            if (!m3uData) {
+                NSStringEncoding gbkEncoding = CFStringConvertEncodingToNSStringEncoding(kCFStringEncodingGB_18030_2000);
+                m3uData = [NSString stringWithContentsOfURL:url encoding:gbkEncoding error:nil];
+            }
             
             dispatch_async(dispatch_get_main_queue(), ^{
                 [hud dismissWithClickedButtonIndex:0 animated:YES];
@@ -254,7 +265,13 @@
     
     dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
         NSError *error = nil;
+        // 优化：优先尝试 UTF-8 编码，失败则回退尝试 GBK 编码下载
         NSString *m3uData = [NSString stringWithContentsOfURL:url encoding:NSUTF8StringEncoding error:&error];
+        if (!m3uData) {
+            NSStringEncoding gbkEncoding = CFStringConvertEncodingToNSStringEncoding(kCFStringEncodingGB_18030_2000);
+            m3uData = [NSString stringWithContentsOfURL:url encoding:gbkEncoding error:nil];
+        }
+        
         dispatch_async(dispatch_get_main_queue(), ^{
             [hud dismissWithClickedButtonIndex:0 animated:YES];
             if (m3uData) {
