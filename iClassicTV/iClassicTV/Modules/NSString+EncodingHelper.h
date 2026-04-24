@@ -10,11 +10,6 @@
 
 @interface NSString (EncodingHelper)
 
-/// 尝试使用 UTF-8 读取网络 URL 内容，若失败则自动回退使用 GB18030/GBK 编码读取
-/// @param url 网络或本地的 URL 对象
-/// @return 解析后的字符串内容，如果全部失败则返回 nil
-+ (NSString *)stringWithContentsOfURLWithFallback:(NSURL *)url;
-
 /// 尝试使用 UTF-8 读取本地文件路径内容，若失败则自动回退使用 GB18030/GBK 编码读取
 /// @param path 本地文件路径
 /// @return 解析后的字符串内容，如果全部失败则返回 nil

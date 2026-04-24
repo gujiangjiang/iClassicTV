@@ -69,8 +69,8 @@
     if (url.isFileURL) {
         NSString *extension = [[url pathExtension] lowercaseString];
         if ([extension isEqualToString:@"m3u"] || [extension isEqualToString:@"m3u8"]) {
-            // 优化：使用独立模块读取文件，自动处理 UTF-8 和 GBK 编码回退
-            NSString *content = [NSString stringWithContentsOfURLWithFallback:url];
+            // 优化：外部传入的是本地文件，直接使用本地文件路径读取方式并保留编码回退支持
+            NSString *content = [NSString stringWithContentsOfFileWithFallback:[url path]];
             
             if (content && content.length > 0) {
                 // 以源文件名作为基础进行命名备注

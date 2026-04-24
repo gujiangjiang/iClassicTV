@@ -9,13 +9,13 @@
 #import "SourceManagerViewController.h"
 #import "TextImportModalViewController.h"
 #import "AppDataManager.h"
-#import "NSString+EncodingHelper.h" // 引入字符串编码处理辅助模块
-#import "ToastHelper.h" // 新增：全局引入独立的 Toast 模块，统一交互样式
-// 新增：引入滚动处理通用模块
+#import "NSString+EncodingHelper.h"
+#import "NetworkManager.h" // 新增：引入全局独立的下载模块
+#import "ToastHelper.h"
 #import "UIViewController+ScrollToTop.h"
 
 @interface SourceManagerViewController () <UIActionSheetDelegate, UIAlertViewDelegate>
-@property (nonatomic, strong) NSArray *scannedLocalFiles; // 用于临时存储扫描到的 iTunes 共享文件
+@property (nonatomic, strong) NSArray *scannedLocalFiles;
 @end
 
 @implementation SourceManagerViewController
@@ -27,13 +27,11 @@
     UIBarButtonItem *addBtn = [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemAdd target:self action:@selector(showAddOptions)];
     self.navigationItem.rightBarButtonItem = addBtn;
     
-    // 新增：调用通用模块，为当前导航栏标题栏注册双击回到最上方的功能
     [self enableNavigationBarDoubleTapToScrollTop];
 }
 
 - (void)viewWillAppear:(BOOL)animated {
     [super viewWillAppear:animated];
-    // 统一通过 AppDataManager 获取数据
     self.sources = [[AppDataManager sharedManager] getAllSources];
     [self.tableView reloadData];
 }
@@ -96,7 +94,6 @@
 - (void)actionSheet:(UIActionSheet *)actionSheet clickedButtonAtIndex:(NSInteger)buttonIndex {
     if (buttonIndex == actionSheet.cancelButtonIndex) return;
     
-    // 处理添加按钮
     if (actionSheet.tag == 101) {
         if (buttonIndex == 0) {
             UIAlertView *alert = [[UIAlertView alloc] initWithTitle:@"网络直播源" message:@"请输入 M3U 网址 (http://...)" delegate:self cancelButtonTitle:@"取消" otherButtonTitles:@"下载", nil];
@@ -114,7 +111,6 @@
             UINavigationController *nav = [[UINavigationController alloc] initWithRootViewController:textVC];
             [self presentViewController:nav animated:YES completion:nil];
         } else if (buttonIndex == 2) {
-            // 扫描 iTunes 共享目录中的 M3U 文件
             NSString *docsPath = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES).firstObject;
             NSArray *files = [[NSFileManager defaultManager] contentsOfDirectoryAtPath:docsPath error:nil];
             NSMutableArray *m3uFiles = [NSMutableArray array];
@@ -126,7 +122,6 @@
             }
             
             if (m3uFiles.count == 0) {
-                // 优化：统一调用自定义模块的 Toast
                 [ToastHelper showToastWithMessage:@"未找到任何 m3u 文件\n请先通过电脑 iTunes 拖入文件"];
                 return;
             }
@@ -144,13 +139,11 @@
         return;
     }
     
-    // 处理从 iTunes 共享文件列表中的点击选择
     if (actionSheet.tag == 102) {
         NSString *fileName = self.scannedLocalFiles[buttonIndex];
         NSString *docsPath = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES).firstObject;
         NSString *filePath = [docsPath stringByAppendingPathComponent:fileName];
         
-        // 优化：使用独立模块读取文件，自动处理 UTF-8 和 GBK 编码回退
         NSString *content = [NSString stringWithContentsOfFileWithFallback:filePath];
         
         if (content && content.length > 0) {
@@ -158,13 +151,11 @@
             self.tempURLString = @"";
             [self showNamingAlertWithTag:204 presetName:[fileName stringByDeletingPathExtension]];
         } else {
-            // 优化：统一调用自定义模块的 Toast
             [ToastHelper showToastWithMessage:@"读取失败，请检查文件格式是否正确"];
         }
         return;
     }
     
-    // 处理单元格点击操作 (全部通过 AppDataManager 处理)
     if (actionSheet.tag == 100) {
         NSString *title = [actionSheet buttonTitleAtIndex:buttonIndex];
         NSDictionary *sourceDict = self.sources[self.selectedIndexPath.row];
@@ -176,7 +167,6 @@
         } else if ([title isEqualToString:@"设为当前源"]) {
             [[AppDataManager sharedManager] setActiveSourceById:sourceDict[@"id"]];
             [self.tableView reloadData];
-            // 优化：统一调用自定义模块的 Toast
             [ToastHelper showToastWithMessage:@"已切换直播源"];
         } else if ([title isEqualToString:@"重命名"]) {
             UIAlertView *alert = [[UIAlertView alloc] initWithTitle:@"重命名" message:@"请输入新的名称" delegate:self cancelButtonTitle:@"取消" otherButtonTitles:@"确定", nil];
@@ -205,7 +195,6 @@
         NSString *urlStr = [alertView textFieldAtIndex:0].text;
         NSURL *url = [NSURL URLWithString:urlStr];
         if (!url) {
-            // 优化：统一调用自定义模块的 Toast
             [ToastHelper showToastWithMessage:@"网址无效"];
             return;
         }
@@ -214,8 +203,8 @@
         [hud show];
         
         dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
-            // 优化：使用独立模块下载文件，自动处理 UTF-8 和 GBK 编码回退
-            NSString *m3uData = [NSString stringWithContentsOfURLWithFallback:url];
+            // 优化：彻底换成独立的 NetworkManager 进行统一的下载调用
+            NSString *m3uData = [[NetworkManager sharedManager] downloadStringSyncFromURL:url];
             
             dispatch_async(dispatch_get_main_queue(), ^{
                 [hud dismissWithClickedButtonIndex:0 animated:YES];
@@ -224,7 +213,6 @@
                     self.tempURLString = urlStr;
                     [self showNamingAlertWithTag:203 presetName:nil];
                 } else {
-                    // 优化：统一调用自定义模块的 Toast
                     [ToastHelper showToastWithMessage:@"下载失败，请检查网络"];
                 }
             });
@@ -233,9 +221,7 @@
         NSString *name = [alertView textFieldAtIndex:0].text;
         if (name.length == 0) name = @"未命名直播源";
         
-        // 统一调用 AppDataManager 新增源
         [[AppDataManager sharedManager] addSourceWithName:name content:self.tempM3UData url:self.tempURLString];
-        // 优化：统一调用自定义模块的 Toast
         [ToastHelper showToastWithMessage:@"直播源已成功保存！"];
         
         self.sources = [[AppDataManager sharedManager] getAllSources];
@@ -267,15 +253,14 @@
     [hud show];
     
     dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
-        // 优化：使用独立模块下载文件，自动处理 UTF-8 和 GBK 编码回退
-        NSString *m3uData = [NSString stringWithContentsOfURLWithFallback:url];
+        // 优化：彻底换成独立的 NetworkManager 进行统一的下载调用
+        NSString *m3uData = [[NetworkManager sharedManager] downloadStringSyncFromURL:url];
         
         dispatch_async(dispatch_get_main_queue(), ^{
             [hud dismissWithClickedButtonIndex:0 animated:YES];
             if (m3uData) {
                 [[AppDataManager sharedManager] updateSourceContentAtIndex:index withContent:m3uData];
                 self.sources = [[AppDataManager sharedManager] getAllSources];
-                // 优化：统一调用自定义模块的 Toast
                 [ToastHelper showToastWithMessage:@"刷新同步成功"];
             } else {
                 UIAlertView *alert = [[UIAlertView alloc] initWithTitle:@"错误" message:@"刷新失败，请检查网络" delegate:nil cancelButtonTitle:@"确定" otherButtonTitles:nil];

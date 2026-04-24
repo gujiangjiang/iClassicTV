@@ -31,6 +31,7 @@
 		48317BB22F9A78E9002489FE /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 48317B9F2F9A78E9002489FE /* Images.xcassets */; };
 		48C2CB602F9BB73000A9379F /* UserAgentManager.m in Sources */ = {isa = PBXBuildFile; fileRef = 48C2CB5F2F9BB73000A9379F /* UserAgentManager.m */; };
 		48C2CB632F9BB76900A9379F /* UAManagerViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 48C2CB622F9BB76900A9379F /* UAManagerViewController.m */; };
+		48C2CB662F9BB9E200A9379F /* NetworkManager.m in Sources */ = {isa = PBXBuildFile; fileRef = 48C2CB652F9BB9E200A9379F /* NetworkManager.m */; };
 		48D63F292F97DE1F002AD06E /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 48D63F282F97DE1F002AD06E /* Foundation.framework */; };
 		48D63F2B2F97DE1F002AD06E /* CoreGraphics.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 48D63F2A2F97DE1F002AD06E /* CoreGraphics.framework */; };
 		48D63F2D2F97DE1F002AD06E /* UIKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 48D63F2C2F97DE1F002AD06E /* UIKit.framework */; };
@@ -99,6 +100,8 @@
 		48C2CB5F2F9BB73000A9379F /* UserAgentManager.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = UserAgentManager.m; path = ../Features/Settings/UserAgentManager.m; sourceTree = "<group>"; };
 		48C2CB612F9BB76900A9379F /* UAManagerViewController.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = UAManagerViewController.h; sourceTree = "<group>"; };
 		48C2CB622F9BB76900A9379F /* UAManagerViewController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = UAManagerViewController.m; sourceTree = "<group>"; };
+		48C2CB642F9BB9E200A9379F /* NetworkManager.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = NetworkManager.h; sourceTree = "<group>"; };
+		48C2CB652F9BB9E200A9379F /* NetworkManager.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = NetworkManager.m; sourceTree = "<group>"; };
 		48D63F252F97DE1F002AD06E /* iClassicTV.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = iClassicTV.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		48D63F282F97DE1F002AD06E /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = System/Library/Frameworks/Foundation.framework; sourceTree = SDKROOT; };
 		48D63F2A2F97DE1F002AD06E /* CoreGraphics.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreGraphics.framework; path = System/Library/Frameworks/CoreGraphics.framework; sourceTree = SDKROOT; };
@@ -245,6 +248,8 @@
 				481612752F9B900D00067C15 /* NSString+EncodingHelper.m */,
 				4816127A2F9BA81800067C15 /* UIViewController+ScrollToTop.h */,
 				4816127B2F9BA82300067C15 /* UIViewController+ScrollToTop.m */,
+				48C2CB642F9BB9E200A9379F /* NetworkManager.h */,
+				48C2CB652F9BB9E200A9379F /* NetworkManager.m */,
 			);
 			path = Modules;
 			sourceTree = "<group>";
@@ -417,6 +422,7 @@
 				48317BAE2F9A78E9002489FE /* ToastHelper.m in Sources */,
 				48317BA62F9A78E9002489FE /* AboutViewController.m in Sources */,
 				482FAB242F9A891A00B4F9D8 /* PlayerControlView.m in Sources */,
+				48C2CB662F9BB9E200A9379F /* NetworkManager.m in Sources */,
 				48317BA32F9A78E9002489FE /* ChannelListViewController.m in Sources */,
 				48317BA92F9A78E9002489FE /* TextImportModalViewController.m in Sources */,
 				482FAB212F9A857900B4F9D8 /* UIImage+DynamicIcon.m in Sources */,
