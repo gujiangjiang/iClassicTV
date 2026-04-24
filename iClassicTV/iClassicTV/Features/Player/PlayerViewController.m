@@ -39,7 +39,7 @@
     
     // 新增：加入统一的底层背景视图，方便管理非全屏时的界面空白处样式
     self.backgroundView = [[UIView alloc] initWithFrame:self.view.bounds];
-    self.backgroundView.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+    // 优化：移除自动拉伸属性，完全交由 viewWillLayoutSubviews 进行精准的坐标计算，防止背景穿透
     [self.view addSubview:self.backgroundView];
     
     // 新增：用于在非全屏下方预留空间显示的提示文案
@@ -95,6 +95,7 @@
     if (self.isFullscreen) {
         // 横屏：纯粹沉浸式全屏
         videoFrame = self.view.bounds;
+        self.backgroundView.frame = self.view.bounds;
         self.backgroundView.backgroundColor = [UIColor blackColor];
         self.tipsLabel.hidden = YES;
     } else {
@@ -102,6 +103,9 @@
         CGFloat topBarHeight = 64.0;
         CGFloat videoHeight = self.view.bounds.size.width * 9.0 / 16.0;
         videoFrame = CGRectMake(0, topBarHeight, self.view.bounds.size.width, videoHeight);
+        
+        // 修复：让竖屏时的背景视图从 topBar 下方开始绘制，避免灰色背景向上穿透到半透明顶栏，彻底解决“蒙了一层灰皮”的问题
+        self.backgroundView.frame = CGRectMake(0, topBarHeight, self.view.bounds.size.width, self.view.bounds.size.height - topBarHeight);
         
         // 分离系统风格，iOS 7 显示淡雅灰色，iOS 6 显示经典的带纹理的亚麻布深灰
         BOOL isIOS7 = [[[UIDevice currentDevice] systemVersion] floatValue] >= 7.0;

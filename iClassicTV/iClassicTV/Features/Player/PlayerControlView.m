@@ -78,8 +78,16 @@
     
     // 3. 顶部导航栏
     self.topBar = [[UIView alloc] initWithFrame:CGRectMake(0, 0, self.bounds.size.width, 44)];
-    [self applyBlurEffectToView:self.topBar];
+    self.topBar.backgroundColor = [UIColor clearColor];
     [self addSubview:self.topBar];
+    
+    // 修复：废弃普通的视图毛玻璃背景，直接嵌入系统原生的 UINavigationBar 作为顶栏背景
+    // 这完美解决了“缺少顶栏”的视觉问题，在竖屏模式下彻底还原 iOS6/7 最真实的顶栏原生质感
+    UINavigationBar *topNavBg = [[UINavigationBar alloc] initWithFrame:self.topBar.bounds];
+    topNavBg.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+    topNavBg.barStyle = UIBarStyleBlack; // 保持深色主题与白色文字的契合
+    topNavBg.tag = 999; // 打个标记，方便布局刷新时单独处理它
+    [self.topBar addSubview:topNavBg];
     
     UIButton *backBtn = [UIButton buttonWithType:UIButtonTypeCustom];
     backBtn.frame = CGRectMake(5, 0, 60, 44);
@@ -99,7 +107,7 @@
     
     // 4. 底部控制栏
     self.bottomBar = [[UIView alloc] initWithFrame:CGRectMake(0, self.bounds.size.height - 50, self.bounds.size.width, 50)];
-    [self applyBlurEffectToView:self.bottomBar];
+    [self applyBlurEffectToView:self.bottomBar]; // 底部悬浮区域仍然保持透明沉浸感
     [self addSubview:self.bottomBar];
     
     self.playBtn = [UIButton buttonWithType:UIButtonTypeCustom];
@@ -164,9 +172,18 @@
     
     self.topBar.frame = CGRectMake(0, 0, self.bounds.size.width, topBarHeight);
     
-    // 调整 topBar 内部元素的垂直偏移
+    // 调整 topBar 内部元素的垂直偏移，并精细适配原生导航栏的尺寸
+    BOOL isIOS7 = [[[UIDevice currentDevice] systemVersion] floatValue] >= 7.0;
     for (UIView *subview in self.topBar.subviews) {
-        if ([subview isKindOfClass:[UIButton class]]) {
+        if (subview.tag == 999) { // 针对新添加的 UINavigationBar 背景做兼容适配
+            if (!isIOS7 && !isFullscreen) {
+                // 修复：iOS 6 竖屏时系统导航栏不支持延伸至状态栏下方，高度必须强制设为 44，并向下偏移 20
+                subview.frame = CGRectMake(0, 20, self.bounds.size.width, 44);
+            } else {
+                // iOS 7+ 或者是横屏（无状态栏/透明状态栏），直接填满 topBar 完美适配
+                subview.frame = self.topBar.bounds;
+            }
+        } else if ([subview isKindOfClass:[UIButton class]]) {
             subview.frame = CGRectMake(5, yOffset, 60, 44);
         } else if ([subview isKindOfClass:[UILabel class]]) {
             subview.frame = CGRectMake(70, yOffset, self.bounds.size.width - 140, 44);
