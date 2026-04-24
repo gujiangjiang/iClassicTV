@@ -14,6 +14,8 @@ static NSString * const kCurrentLanguageKey = @"iClassicTV_CurrentLanguage";
 @property (nonatomic, strong) NSDictionary *languageDict;
 @property (nonatomic, copy) NSString *currentLanguageCode;
 @property (nonatomic, copy) NSString *savedLanguageCode;
+// 新增缓存的可用语言代码列表，避免频繁读取磁盘文件
+@property (nonatomic, strong) NSArray *cachedAvailableLanguageCodes;
 @end
 
 @implementation LanguageManager
@@ -34,24 +36,63 @@ static NSString * const kCurrentLanguageKey = @"iClassicTV_CurrentLanguage";
         NSString *savedLanguage = [[NSUserDefaults standardUserDefaults] objectForKey:kCurrentLanguageKey];
         self.savedLanguageCode = savedLanguage.length > 0 ? savedLanguage : @"system";
         
+        [self loadAvailableLanguageCodes]; // 动态加载可用的语言包列表
         [self resolveCurrentLanguageCode];
         [self loadLanguageDict];
     }
     return self;
 }
 
+// 动态扫描 mainBundle 中的所有 json 文件，识别有效的语言包
+- (void)loadAvailableLanguageCodes {
+    NSArray *jsonPaths = [[NSBundle mainBundle] pathsForResourcesOfType:@"json" inDirectory:nil];
+    NSMutableArray *codes = [NSMutableArray array];
+    
+    for (NSString *path in jsonPaths) {
+        NSString *code = [[path lastPathComponent] stringByDeletingPathExtension];
+        NSData *data = [NSData dataWithContentsOfFile:path];
+        if (data) {
+            NSError *error = nil;
+            NSDictionary *dict = [NSJSONSerialization JSONObjectWithData:data options:kNilOptions error:&error];
+            // 只有成功解析且包含 "language_display_name" 字段的 JSON 文件才视为合法的语言包
+            if (!error && [dict isKindOfClass:[NSDictionary class]] && dict[@"language_display_name"]) {
+                [codes addObject:code];
+            }
+        }
+    }
+    self.cachedAvailableLanguageCodes = codes;
+}
+
 - (void)resolveCurrentLanguageCode {
     if ([self.savedLanguageCode isEqualToString:@"system"]) {
         // 跟随系统逻辑：获取系统当前的语言列表
-        NSArray *languages = [NSLocale preferredLanguages];
-        NSString *systemLanguage = languages.firstObject;
+        NSArray *preferredLanguages = [NSLocale preferredLanguages];
+        NSString *matchedCode = nil;
         
-        // 简单判断：如果系统语言包含 "zh"，使用 zh-CN，否则一律用 en-US
-        if ([systemLanguage hasPrefix:@"zh"]) {
-            self.currentLanguageCode = @"zh-CN";
-        } else {
-            self.currentLanguageCode = @"en-US";
+        for (NSString *sysLang in preferredLanguages) {
+            // 1. 尝试完全匹配 (例如系统是 zh-CN，并且有 zh-CN.json)
+            if ([self.cachedAvailableLanguageCodes containsObject:sysLang]) {
+                matchedCode = sysLang;
+                break;
+            }
+            
+            // 2. 尝试前缀匹配 (例如系统是 zh-Hans-CN，尝试匹配可用的 zh-CN 或者 zh)
+            NSString *baseCode = [[sysLang componentsSeparatedByString:@"-"] firstObject];
+            for (NSString *availCode in self.cachedAvailableLanguageCodes) {
+                if ([availCode hasPrefix:baseCode]) {
+                    matchedCode = availCode;
+                    break;
+                }
+            }
+            
+            if (matchedCode) {
+                break;
+            }
         }
+        
+        // 存在匹配的语言包就使用匹配到的，不存在则回退到 en-US
+        self.currentLanguageCode = matchedCode ? matchedCode : @"en-US";
+        
     } else {
         // 用户指定了具体语言
         self.currentLanguageCode = self.savedLanguageCode;
@@ -91,11 +132,10 @@ static NSString * const kCurrentLanguageKey = @"iClassicTV_CurrentLanguage";
 }
 
 - (NSArray *)availableLanguages {
-    // 声明支持的语言包文件名
-    NSArray *supportedCodes = @[@"zh-CN", @"en-US"];
     NSMutableArray *list = [NSMutableArray array];
     
-    for (NSString *code in supportedCodes) {
+    // 动态使用缓存的语言包代码生成支持的语言列表
+    for (NSString *code in self.cachedAvailableLanguageCodes) {
         NSString *path = [[NSBundle mainBundle] pathForResource:code ofType:@"json"];
         if (path) {
             NSData *data = [NSData dataWithContentsOfFile:path];
