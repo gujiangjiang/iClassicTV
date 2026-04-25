@@ -7,6 +7,7 @@
 //
 
 #import "AlertHelper.h"
+#import "ToastHelper.h" // 新增：引入 ToastHelper 用于无按钮时的拦截处理
 #import <objc/runtime.h>
 
 // 私有的代理类，用于拦截 UIAlertView 的点击事件并转换为 Block 回调
@@ -41,6 +42,21 @@
                       cancelTitle:(NSString *)cancelTitle
                      confirmBlock:(AlertConfirmBlock)confirmBlock
                       cancelBlock:(AlertCancelBlock)cancelBlock {
+    
+    // 优化：如果确认按钮和取消按钮都为空，说明原本意图是展示一个无按钮的 Toast 提示
+    // 原生 UIAlertView 在 iOS 6 无按钮时会预留底部空白区域，因此在此拦截并转交由 ToastHelper 处理
+    if (!confirmTitle && !cancelTitle) {
+        NSString *toastMessage = @"";
+        if (title.length > 0 && message.length > 0) {
+            toastMessage = [NSString stringWithFormat:@"%@\n%@", title, message];
+        } else if (message.length > 0) {
+            toastMessage = message;
+        } else {
+            toastMessage = title;
+        }
+        [ToastHelper showToastWithMessage:toastMessage];
+        return;
+    }
     
     AlertHelperDelegate *delegate = [[AlertHelperDelegate alloc] init];
     delegate.confirmBlock = confirmBlock;
