@@ -15,7 +15,7 @@
 #import "EPGManager.h"
 #import "EPGProgram.h"
 #import "EPGManagerViewController.h"
-#import "NSString+EncodingHelper.h" // [优化] 引入编码助手以使用 toSafeURL
+#import "NSString+EncodingHelper.h"
 
 @interface TVPlaybackViewController () <TVPlaybackOverlayDelegate, PlayerEPGViewDelegate>
 
@@ -30,10 +30,14 @@
 
 @property (nonatomic, strong) PlayerEPGView *epgView;
 @property (nonatomic, strong) NSDateFormatter *epgTimeFormatter;
-@property (nonatomic, strong) NSDateFormatter *catchupTimeFormatter; // [优化] 缓存回看参数时间格式化器
-@property (nonatomic, strong) NSDateFormatter *displayTimeFormatter; // [优化] 缓存回看展示时间格式化器
+@property (nonatomic, strong) NSDateFormatter *catchupTimeFormatter;
+@property (nonatomic, strong) NSDateFormatter *displayTimeFormatter;
 
 @property (nonatomic, strong) EPGProgram *replayingProgram;
+
+@property (nonatomic, assign) UIBarStyle originalBarStyle;
+@property (nonatomic, assign) BOOL originalTranslucent;
+@property (nonatomic, assign) BOOL hasSavedOriginalNavState;
 
 @end
 
@@ -43,22 +47,17 @@
     [super viewDidLoad];
     self.view.backgroundColor = [UIColor blackColor];
     
-    // [修复] 适配 iOS7+ 下导航栏的边缘扩展，统一设置保证视频始终紧贴着导航栏下方显示，避免布局漂移
     if ([self respondsToSelector:@selector(setEdgesForExtendedLayout:)]) {
         self.edgesForExtendedLayout = UIRectEdgeNone;
     }
     
-    // [修复] 直接使用系统的标题和返回按钮，不再手动绘制假导航栏
+    // [修复] 移除手动创建的左侧按钮，交还给系统接管，这样原生的带有箭头的 back 按钮就会恢复显示
     self.title = self.channelTitle ?: LocalizedString(@"unknown_channel");
-    UIBarButtonItem *backItem = [[UIBarButtonItem alloc] initWithTitle:LocalizedString(@"back") style:UIBarButtonItemStyleBordered target:self action:@selector(closePlayer)];
-    self.navigationItem.leftBarButtonItem = backItem;
     
-    // 优化：确保全屏悬浮的节目单时间展示也使用配置的时区，对齐实际数据
     self.epgTimeFormatter = [[NSDateFormatter alloc] init];
     [self.epgTimeFormatter setTimeZone:[EPGManager sharedManager].epgTimeZone];
     [self.epgTimeFormatter setDateFormat:@"HH:mm"];
     
-    // [优化] 集中初始化所需的时间格式化器，避免每次点击时重复创建，提升性能
     self.catchupTimeFormatter = [[NSDateFormatter alloc] init];
     [self.catchupTimeFormatter setTimeZone:[EPGManager sharedManager].epgTimeZone];
     [self.catchupTimeFormatter setDateFormat:@"yyyyMMddHHmmss"];
@@ -82,7 +81,6 @@
     [[UIApplication sharedApplication] beginReceivingRemoteControlEvents];
     [self becomeFirstResponder];
     
-    // [优化] 调用统一定义的 toSafeURL 方法进行源地址转换
     NSURL *url = [self.videoURLString toSafeURL];
     
     self.player = [[MPMoviePlayerController alloc] initWithContentURL:url];
@@ -113,18 +111,25 @@
     [self.epgView reloadData];
     [self updateFullscreenEPGOverlay];
     
-    // [修复] 页面将要出现时，立刻根据当前设备方向初始化导航栏的样式和显示状态
+    if (!self.hasSavedOriginalNavState) {
+        self.originalBarStyle = self.navigationController.navigationBar.barStyle;
+        self.originalTranslucent = self.navigationController.navigationBar.translucent;
+        self.hasSavedOriginalNavState = YES;
+    }
+    
+    // [优化] 采纳建议：在播放器页面中，无论是横屏还是竖屏，统一强制使用黑色的沉浸式导航栏
+    self.navigationController.navigationBar.barStyle = UIBarStyleBlack;
+    BOOL isIOS7 = [[[UIDevice currentDevice] systemVersion] floatValue] >= 7.0;
+    
     UIInterfaceOrientation orientation = [UIApplication sharedApplication].statusBarOrientation;
     BOOL isLandscape = UIInterfaceOrientationIsLandscape(orientation);
     
+    // iOS6 下竖屏为了避免遮挡保留不透明，横屏半透明；iOS7 统一半透明
+    self.navigationController.navigationBar.translucent = (isLandscape || isIOS7) ? YES : NO;
+    
     if (isLandscape) {
-        self.navigationController.navigationBar.barStyle = UIBarStyleBlack;
-        self.navigationController.navigationBar.translucent = YES;
         [self.navigationController setNavigationBarHidden:self.isControlsHidden animated:animated];
     } else {
-        BOOL isIOS7 = [[[UIDevice currentDevice] systemVersion] floatValue] >= 7.0;
-        self.navigationController.navigationBar.barStyle = isIOS7 ? UIBarStyleDefault : UIBarStyleBlack;
-        self.navigationController.navigationBar.translucent = isIOS7 ? YES : NO;
         [self.navigationController setNavigationBarHidden:NO animated:animated];
     }
 }
@@ -132,11 +137,35 @@
 - (void)viewWillDisappear:(BOOL)animated {
     [super viewWillDisappear:animated];
     
-    // [修复] 离开播放器时，务必恢复系统默认导航栏状态和样式，防止返回列表页时导航栏丢失或意外透明
+    // [修复] 监听系统的返回事件。当用户点击原生左上角返回（导致当前页面即将被移出父控制器）时执行资源清理
+    if ([self isMovingFromParentViewController]) {
+        [self performCleanupBeforePop];
+    }
+    
     [self.navigationController setNavigationBarHidden:NO animated:animated];
-    BOOL isIOS7 = [[[UIDevice currentDevice] systemVersion] floatValue] >= 7.0;
-    self.navigationController.navigationBar.barStyle = isIOS7 ? UIBarStyleDefault : UIBarStyleBlack;
-    self.navigationController.navigationBar.translucent = isIOS7 ? YES : NO;
+    self.navigationController.navigationBar.barStyle = self.originalBarStyle;
+    self.navigationController.navigationBar.translucent = self.originalTranslucent;
+    
+    if (![self respondsToSelector:@selector(setNeedsStatusBarAppearanceUpdate)]) {
+        [[UIApplication sharedApplication] setStatusBarHidden:NO withAnimation:UIStatusBarAnimationFade];
+    }
+}
+
+// [修复] 专门用于退出前的资源清理和强制竖屏的方法，替代之前的 closePlayer
+- (void)performCleanupBeforePop {
+    [[UIApplication sharedApplication] endReceivingRemoteControlEvents];
+    [self resignFirstResponder];
+    if (NSClassFromString(@"MPNowPlayingInfoCenter")) [[MPNowPlayingInfoCenter defaultCenter] setNowPlayingInfo:nil];
+    
+    [self.timer invalidate];
+    self.timer = nil;
+    [self.overlayView cancelAutoHideTimer];
+    
+    [self.player stop];
+    [[NSNotificationCenter defaultCenter] removeObserver:self];
+    
+    // 强制切回竖屏，以免造成上一个页面横屏布局错乱
+    [self forceRotateToOrientation:UIInterfaceOrientationPortrait];
 }
 
 - (void)viewWillLayoutSubviews {
@@ -148,20 +177,26 @@
     [self.overlayView.bottomBar updateFullscreenButtonState:self.isFullscreen];
     
     CGRect videoFrame;
+    BOOL isIOS7 = [[[UIDevice currentDevice] systemVersion] floatValue] >= 7.0;
     
     if (self.isFullscreen) {
-        // [修复] 全屏模式下，此时由于系统的导航栏已被我们隐藏，整个 bounds 都是干净的显示区域
         videoFrame = self.view.bounds;
         self.backgroundView.frame = self.view.bounds;
         self.backgroundView.backgroundColor = [UIColor blackColor];
         
         self.epgView.hidden = YES;
+        
+        if (!isIOS7 && !self.navigationController.navigationBarHidden) {
+            CGRect navFrame = self.navigationController.navigationBar.frame;
+            if (navFrame.origin.y != 0) {
+                navFrame.origin.y = 0;
+                self.navigationController.navigationBar.frame = navFrame;
+            }
+        }
     } else {
-        // [修复] 竖屏模式下，受 edgesForExtendedLayout = None 影响，y=0 直接从导航栏下方开始，布局极其干净且兼容性极佳
         videoFrame = CGRectMake(0, 0, self.view.bounds.size.width, self.view.bounds.size.width * 9.0 / 16.0);
         
         self.backgroundView.frame = self.view.bounds;
-        BOOL isIOS7 = [[[UIDevice currentDevice] systemVersion] floatValue] >= 7.0;
         self.backgroundView.backgroundColor = isIOS7 ? [UIColor groupTableViewBackgroundColor] : [UIColor scrollViewTexturedBackgroundColor];
         
         CGFloat tableY = CGRectGetMaxY(videoFrame);
@@ -206,7 +241,6 @@
         self.epgView.replayingProgram = nil;
         self.overlayView.widgetsView.isCatchupMode = NO;
         
-        // [优化] 调用统一定义的 toSafeURL 方法进行转换
         NSURL *url = [self.videoURLString toSafeURL];
         
         [self.player setContentURL:url];
@@ -225,7 +259,6 @@
     self.epgView.replayingProgram = program;
     self.overlayView.widgetsView.isCatchupMode = YES;
     
-    // [优化] 复用全局缓存的时间格式化器
     NSString *bTime = [self.catchupTimeFormatter stringFromDate:program.startTime];
     NSString *eTime = [self.catchupTimeFormatter stringFromDate:program.endTime];
     
@@ -240,13 +273,11 @@
         finalURLStr = [finalURLStr stringByAppendingString:catchupParams];
     }
     
-    // [优化] 调用统一定义的 toSafeURL 方法进行转换
     NSURL *url = [finalURLStr toSafeURL];
     
     [self.player setContentURL:url];
     [self.player play];
     
-    // [优化] 复用全局缓存的 UI 展示时间格式化器
     NSString *displayTime = [self.displayTimeFormatter stringFromDate:program.startTime];
     
     [self.overlayView showStatusMessage:[NSString stringWithFormat:LocalizedString(@"replaying_time_format"), displayTime, program.title]];
@@ -307,11 +338,9 @@
 - (void)overlayControlsHiddenDidChange:(BOOL)isHidden {
     self.isControlsHidden = isHidden;
     
-    // [修复] 根据控制层状态，无缝利用系统 NavigationBar 做顶部控制栏（带有标题和返回键）
     if (self.overlayView.isLocked) {
         [self.navigationController setNavigationBarHidden:YES animated:YES];
     } else {
-        // 只有在全屏模式下才动态隐藏系统导航栏，竖屏下始终保持显示
         BOOL shouldHide = self.isFullscreen ? isHidden : NO;
         [self.navigationController setNavigationBarHidden:shouldHide animated:YES];
     }
@@ -388,7 +417,6 @@
     if (self.player.duration > 0 && !isnan(self.player.duration)) {
         [self.overlayView.bottomBar updateProgressWithValue:(self.player.currentPlaybackTime / self.player.duration)];
     }
-    // 优化：借助底层定时器，每秒向 EPG 视图发送时间滴答，触发刷新和滚动检测
     [self.epgView updateTimeTick];
     [self updateFullscreenEPGOverlay];
     [self.overlayView.widgetsView updateSystemTime];
@@ -407,32 +435,19 @@
     return self.isFullscreen;
 }
 
-- (void)closePlayer {
-    [[UIApplication sharedApplication] endReceivingRemoteControlEvents];
-    [self resignFirstResponder];
-    if (NSClassFromString(@"MPNowPlayingInfoCenter")) [[MPNowPlayingInfoCenter defaultCenter] setNowPlayingInfo:nil];
-    
-    if (![self respondsToSelector:@selector(setNeedsStatusBarAppearanceUpdate)]) {
-        [[UIApplication sharedApplication] setStatusBarHidden:NO withAnimation:UIStatusBarAnimationNone];
-    }
-    
-    [self.timer invalidate];
-    self.timer = nil;
-    [self.overlayView cancelAutoHideTimer];
-    
-    [self.player stop];
-    [[NSNotificationCenter defaultCenter] removeObserver:self];
-    
-    // 确保返回前强制切回竖屏，以免造成上一个页面横屏布局错乱
-    [self forceRotateToOrientation:UIInterfaceOrientationPortrait];
-    
-    // [修复] 由于现在使用的是 NavigationController 推入的方式，所以改为使用 popViewController 返回
-    [self.navigationController popViewControllerAnimated:YES];
-}
-
 - (BOOL)shouldAutorotate { return YES; }
 
 - (NSUInteger)supportedInterfaceOrientations { return UIInterfaceOrientationMaskAllButUpsideDown; }
+
+- (void)willRotateToInterfaceOrientation:(UIInterfaceOrientation)toInterfaceOrientation duration:(NSTimeInterval)duration {
+    [super willRotateToInterfaceOrientation:toInterfaceOrientation duration:duration];
+    
+    BOOL isIOS7 = [[[UIDevice currentDevice] systemVersion] floatValue] >= 7.0;
+    if (!isIOS7) {
+        BOOL isLandscape = UIInterfaceOrientationIsLandscape(toInterfaceOrientation);
+        [[UIApplication sharedApplication] setStatusBarHidden:isLandscape withAnimation:UIStatusBarAnimationNone];
+    }
+}
 
 - (void)willAnimateRotationToInterfaceOrientation:(UIInterfaceOrientation)toInterfaceOrientation duration:(NSTimeInterval)duration {
     [super willAnimateRotationToInterfaceOrientation:toInterfaceOrientation duration:duration];
@@ -442,24 +457,13 @@
     
     if ([self respondsToSelector:@selector(setNeedsStatusBarAppearanceUpdate)]) {
         [self setNeedsStatusBarAppearanceUpdate];
-    } else {
-        [[UIApplication sharedApplication] setStatusBarHidden:isLandscape withAnimation:UIStatusBarAnimationFade];
     }
     
-    if (isLandscape) {
-        [self updateFullscreenEPGOverlay];
-        // [修复] 全屏时，将导航栏变为黑色半透明，彻底融入播放器视觉效果，达成视觉一致性
-        self.navigationController.navigationBar.barStyle = UIBarStyleBlack;
-        self.navigationController.navigationBar.translucent = YES;
-    } else {
-        // [修复] 竖屏时，立刻恢复为常规页面的样式，防止因为透明导致内容顶至刘海或状态栏区域
-        BOOL isIOS7 = [[[UIDevice currentDevice] systemVersion] floatValue] >= 7.0;
-        self.navigationController.navigationBar.barStyle = isIOS7 ? UIBarStyleDefault : UIBarStyleBlack;
-        self.navigationController.navigationBar.translucent = isIOS7 ? YES : NO;
-    }
+    // [优化] 无论全屏还是竖屏，始终保持黑色的沉浸式体验
+    self.navigationController.navigationBar.barStyle = UIBarStyleBlack;
+    BOOL isIOS7 = [[[UIDevice currentDevice] systemVersion] floatValue] >= 7.0;
+    self.navigationController.navigationBar.translucent = (isLandscape || isIOS7) ? YES : NO;
     
-    // [修复] 核心重点：每次旋转时必须实时同步导航栏的显示/隐藏状态！
-    // 之前全屏模式默认显示标题栏且去不掉，以及退回竖屏标题栏丢失，都是因为没有在这里根据 isFullscreen 实时判定同步。
     if (self.overlayView.isLocked) {
         [self.navigationController setNavigationBarHidden:YES animated:YES];
     } else {
