@@ -64,6 +64,8 @@
     self.navigationItem.title = LocalizedString(@"loading");
     [[UIApplication sharedApplication] setNetworkActivityIndicatorVisible:YES];
     
+    // [优化] 增加 weakSelf 防止内存泄漏
+    __weak typeof(self) weakSelf = self;
     dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
         NSArray *parsedChannels = [M3UParser parseM3UString:activeM3U];
         
@@ -79,20 +81,22 @@
         }
         
         dispatch_async(dispatch_get_main_queue(), ^{
-            self.allChannels = parsedChannels;
-            self.groupedChannels = dict;
-            self.groupNames = orderedGroupNames;
+            if (!weakSelf) return; // 保护
             
-            [self.tableView reloadData];
+            weakSelf.allChannels = parsedChannels;
+            weakSelf.groupedChannels = dict;
+            weakSelf.groupNames = orderedGroupNames;
+            
+            [weakSelf.tableView reloadData];
             [[UIApplication sharedApplication] setNetworkActivityIndicatorVisible:NO];
             
-            if (self.groupNames.count == 0) {
-                self.navigationItem.title = LocalizedString(@"no_sources_title");
+            if (weakSelf.groupNames.count == 0) {
+                weakSelf.navigationItem.title = LocalizedString(@"no_sources_title");
                 
-                UIView *emptyView = [[UIView alloc] initWithFrame:self.tableView.bounds];
+                UIView *emptyView = [[UIView alloc] initWithFrame:weakSelf.tableView.bounds];
                 emptyView.backgroundColor = [UIColor clearColor];
                 
-                UILabel *tipsLabel = [[UILabel alloc] initWithFrame:CGRectMake(20, 0, self.tableView.bounds.size.width - 40, self.tableView.bounds.size.height - 120)];
+                UILabel *tipsLabel = [[UILabel alloc] initWithFrame:CGRectMake(20, 0, weakSelf.tableView.bounds.size.width - 40, weakSelf.tableView.bounds.size.height - 120)];
                 tipsLabel.text = LocalizedString(@"no_sources_tips");
                 tipsLabel.textColor = [UIColor grayColor];
                 tipsLabel.textAlignment = NSTextAlignmentCenter;
@@ -101,12 +105,12 @@
                 tipsLabel.backgroundColor = [UIColor clearColor];
                 
                 [emptyView addSubview:tipsLabel];
-                self.tableView.backgroundView = emptyView;
-                self.tableView.separatorStyle = UITableViewCellSeparatorStyleNone;
+                weakSelf.tableView.backgroundView = emptyView;
+                weakSelf.tableView.separatorStyle = UITableViewCellSeparatorStyleNone;
             } else {
-                self.navigationItem.title = activeName;
-                self.tableView.backgroundView = nil;
-                self.tableView.separatorStyle = UITableViewCellSeparatorStyleSingleLine;
+                weakSelf.navigationItem.title = activeName;
+                weakSelf.tableView.backgroundView = nil;
+                weakSelf.tableView.separatorStyle = UITableViewCellSeparatorStyleSingleLine;
             }
         });
     });
@@ -117,7 +121,11 @@
     NSString *urlStr = activeSource[@"url"];
     if (urlStr.length == 0) return;
     
-    NSURL *url = [NSURL URLWithString:[urlStr stringByAddingPercentEscapesUsingEncoding:NSUTF8StringEncoding]];
+    // [优化] 先尝试直接解析 URL，防止 URL 已经被编码过再次编码出现问题
+    NSURL *url = [NSURL URLWithString:urlStr];
+    if (!url) {
+        url = [NSURL URLWithString:[urlStr stringByAddingPercentEscapesUsingEncoding:NSUTF8StringEncoding]];
+    }
     if (!url) return;
     
     UIAlertView *hud = [[UIAlertView alloc] initWithTitle:LocalizedString(@"syncing") message:LocalizedString(@"syncing_msg") delegate:nil cancelButtonTitle:nil otherButtonTitles:nil];
