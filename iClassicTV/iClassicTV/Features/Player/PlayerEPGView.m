@@ -14,7 +14,6 @@
 #import "PlayerEPGEmptyView.h"
 #import "PlayerEPGDateBar.h"
 
-// 拆分重构后：PlayerEPGView 现专职负责调度组件、处理数据源和定时器逻辑
 @interface PlayerEPGView () <UITableViewDelegate, UITableViewDataSource, UIScrollViewDelegate, PlayerEPGEmptyViewDelegate, PlayerEPGDateBarDelegate>
 
 @property (nonatomic, strong) PlayerEPGDateBar *dateBar;
@@ -52,16 +51,11 @@
         self.dateBar.delegate = self;
         [self addSubview:self.dateBar];
         
-        // 装载子模块：空状态视图
-        self.emptyView = [[PlayerEPGEmptyView alloc] initWithFrame:CGRectZero];
-        self.emptyView.delegate = self;
-        [self addSubview:self.emptyView];
-        
         self.separatorLine = [[UIView alloc] initWithFrame:CGRectZero];
         self.separatorLine.backgroundColor = self.isIOS7 ? [UIColor colorWithWhite:0.8 alpha:1.0] : [UIColor darkGrayColor];
         [self addSubview:self.separatorLine];
         
-        // 装载子模块：列表视图
+        // 装载子模块：列表视图 (修复层级问题：先添加列表视图，使其在底层)
         self.tableView = [[UITableView alloc] initWithFrame:CGRectZero style:UITableViewStylePlain];
         self.tableView.backgroundColor = [UIColor clearColor];
         self.tableView.delegate = self;
@@ -71,6 +65,11 @@
             self.tableView.separatorInset = UIEdgeInsetsZero;
         }
         [self addSubview:self.tableView];
+        
+        // 装载子模块：空状态视图 (修复层级问题：最后添加空视图，确保其位于最顶层，不会被列表遮挡)
+        self.emptyView = [[PlayerEPGEmptyView alloc] initWithFrame:CGRectZero];
+        self.emptyView.delegate = self;
+        [self addSubview:self.emptyView];
     }
     return self;
 }
@@ -228,6 +227,7 @@
         }
         self.displayPrograms = self.groupedPrograms[self.selectedDate];
         [self.emptyView setState:EPGEmptyStateTypeNone];
+        self.tableView.hidden = NO;
     } else {
         self.displayPrograms = @[];
         self.selectedDate = nil;
@@ -262,8 +262,10 @@
         self.displayPrograms = self.groupedPrograms[date];
         if (self.displayPrograms.count > 0) {
             [self.emptyView setState:EPGEmptyStateTypeNone];
+            self.tableView.hidden = NO;
         } else {
             [self.emptyView setState:EPGEmptyStateTypeNoData];
+            self.tableView.hidden = YES;
         }
         [self.tableView reloadData];
         [self handleScrollAfterDataLoadForDate:date];
@@ -272,6 +274,8 @@
         self.displayPrograms = @[];
         [self.tableView reloadData];
         
+        // 修复：当进入加载中状态时，必须彻底隐藏底层的列表，防止空列表的分割线透出遮挡 Emoji 图标
+        self.tableView.hidden = YES;
         [self.emptyView setState:EPGEmptyStateTypeLoading];
         
         __weak typeof(self) weakSelf = self;
@@ -284,8 +288,10 @@
                 
                 if (weakSelf.displayPrograms.count == 0) {
                     [weakSelf.emptyView setState:EPGEmptyStateTypeNoData];
+                    weakSelf.tableView.hidden = YES;
                 } else {
                     [weakSelf.emptyView setState:EPGEmptyStateTypeNone];
+                    weakSelf.tableView.hidden = NO;
                 }
                 [weakSelf.tableView reloadData];
                 
