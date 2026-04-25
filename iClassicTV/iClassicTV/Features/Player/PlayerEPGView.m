@@ -439,19 +439,19 @@
     
     NSDate *now = [NSDate date];
     
-    // 优化：针对支持回看的节目单，渲染可点击的颜色，并附加提示文案
+    // 还原：不在节目单额外显示任何“可回看”文字，保持清爽
     if ([now compare:program.startTime] != NSOrderedAscending && [now compare:program.endTime] == NSOrderedAscending) {
         // 正在播放
         UIColor *playingColor = self.isIOS7 ? [UIColor colorWithRed:0.0 green:0.478 blue:1.0 alpha:1.0] : [UIColor orangeColor];
         cell.textLabel.textColor = playingColor;
         cell.detailTextLabel.textColor = playingColor;
-        cell.detailTextLabel.text = self.supportsCatchup ? @"正在播放 (可回看)" : @"正在播放";
+        cell.detailTextLabel.text = @"正在播放";
         cell.textLabel.font = [UIFont boldSystemFontOfSize:15];
     } else if ([now compare:program.endTime] != NSOrderedAscending) {
         // 已播完
         cell.textLabel.textColor = [UIColor darkGrayColor];
         cell.detailTextLabel.textColor = [UIColor darkGrayColor];
-        cell.detailTextLabel.text = self.supportsCatchup ? @"已播放 (可回看)" : @"已播放";
+        cell.detailTextLabel.text = @"已播放";
         cell.textLabel.font = [UIFont systemFontOfSize:14];
     } else {
         // 未播放
@@ -462,7 +462,7 @@
         cell.textLabel.font = [UIFont systemFontOfSize:14];
     }
     
-    // 如果支持回放且不是未播放的节目，开启交互选中样式
+    // 如果支持回放且不是未播放的节目，开启交互选中样式，给用户明确的点击暗示
     if (self.supportsCatchup && ([now compare:program.startTime] != NSOrderedAscending)) {
         cell.selectionStyle = UITableViewCellSelectionStyleBlue;
     } else {
@@ -476,17 +476,14 @@
     return 44.0;
 }
 
-// 优化：点击选中后回调执行回看逻辑
 - (void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath {
     [tableView deselectRowAtIndexPath:indexPath animated:YES];
     
-    // 如果频道不支持回放，点击无效
     if (!self.supportsCatchup) return;
     
     EPGProgram *program = self.displayPrograms[indexPath.row];
     NSDate *now = [NSDate date];
     
-    // 确保只能点击已经播放过，或者正在播放的节目进行回看，未播放的无法穿越
     if ([now compare:program.startTime] != NSOrderedAscending) {
         if ([self.delegate respondsToSelector:@selector(epgView:didSelectProgram:)]) {
             [self.delegate epgView:self didSelectProgram:program];

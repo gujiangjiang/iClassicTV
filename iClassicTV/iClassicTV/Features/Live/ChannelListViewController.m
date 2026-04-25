@@ -107,12 +107,8 @@
     
     Channel *ch = self.channels[indexPath.row];
     
-    // 优化：直观地在频道名称后标注支持回放的图标标识
-    if (ch.catchupSource.length > 0) {
-        cell.textLabel.text = [NSString stringWithFormat:@"%@ [回看]", ch.name];
-    } else {
-        cell.textLabel.text = ch.name;
-    }
+    // 还原：不在频道列表额外显示文字，保持清爽
+    cell.textLabel.text = ch.name;
     
     cell.accessoryType = UITableViewCellAccessoryDetailDisclosureButton;
     
@@ -181,7 +177,6 @@
     NSString *logoKey = ch.logo.length > 0 ? ch.logo : ch.name;
     UIImage *cachedLogo = [self.imageCache objectForKey:logoKey];
     
-    // 优化：传递频道回放源参数
     [self playVideoWithURL:ch.urls[savedIndex] title:ch.name logo:cachedLogo channel:ch];
 }
 
@@ -209,7 +204,6 @@
     [self playVideoWithURL:self.selectedChannel.urls[sourceIndex] title:self.selectedChannel.name logo:cachedLogo channel:self.selectedChannel];
 }
 
-// 优化：扩充传参，将 Channel 对象传入以提取 tvgName 和 catchupSource
 - (void)playVideoWithURL:(NSString *)urlString title:(NSString *)title logo:(UIImage *)logo channel:(Channel *)channel {
     NSInteger playerPref = [PlayerConfigManager preferredPlayerType];
     
@@ -232,7 +226,6 @@
         playerVC.channelTitle = title;
         playerVC.channelLogo = logo;
         playerVC.tvgName = channel.tvgName;
-        // 传递回放模板
         playerVC.catchupSource = channel.catchupSource;
         
         playerVC.modalTransitionStyle = UIModalTransitionStyleCoverVertical;

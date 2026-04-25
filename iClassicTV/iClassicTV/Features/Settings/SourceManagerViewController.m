@@ -69,10 +69,15 @@
         cell.textLabel.textColor = [UIColor blackColor];
     }
     
-    if ([source[@"url"] length] > 0) {
-        cell.detailTextLabel.text = source[@"url"];
+    NSString *urlStr = source[@"url"];
+    NSString *detailText = (urlStr && urlStr.length > 0) ? urlStr : LocalizedString(@"local_external_source");
+    
+    // 优化：将是否支持回放的提示收敛在源列表中，检测该源内容是否包含 catchup-source
+    NSString *content = source[@"content"];
+    if (content && [content rangeOfString:@"catchup-source" options:NSCaseInsensitiveSearch].location != NSNotFound) {
+        cell.detailTextLabel.text = [NSString stringWithFormat:@"[支持回放] %@", detailText];
     } else {
-        cell.detailTextLabel.text = LocalizedString(@"local_external_source");
+        cell.detailTextLabel.text = detailText;
     }
     
     return cell;
@@ -97,7 +102,6 @@
     }
 }
 
-// 为左滑删除按钮提供多语言支持
 - (NSString *)tableView:(UITableView *)tableView titleForDeleteConfirmationButtonForRowAtIndexPath:(NSIndexPath *)indexPath {
     return LocalizedString(@"delete");
 }
@@ -128,7 +132,6 @@
     
     if (actionSheet.tag == 101) {
         if (buttonIndex == 0) {
-            // 优化：调用统一提取的双输入框弹窗，一次性获取名称和链接
             __weak typeof(self) weakSelf = self;
             [AlertHelper showDoubleInputAlertWithTitle:LocalizedString(@"add_network_source")
                                                message:nil
@@ -144,7 +147,6 @@
                                               NSString *urlStr = [content stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
                                               NSString *nameStr = [name stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
                                               
-                                              // 如果备注留空，默认为当前时间
                                               if (nameStr.length == 0) {
                                                   NSDateFormatter *df = [[NSDateFormatter alloc] init];
                                                   [df setDateFormat:@"yyyy-MM-dd HH:mm:ss"];
@@ -278,11 +280,9 @@
             self.sources = [[AppDataManager sharedManager] getAllSources];
             [self.tableView reloadData];
         }
-        // 优化：去除了 tag == 201 和 203 的原独立弹窗逻辑，统一改在了上方的 Block 中处理
     } else if (alertView.tag == 204) {
         NSString *name = [alertView textFieldAtIndex:0].text;
         if (name.length == 0) {
-            // 优化：统一无名字时的当前时间兜底逻辑
             NSDateFormatter *df = [[NSDateFormatter alloc] init];
             [df setDateFormat:@"yyyy-MM-dd HH:mm:ss"];
             name = [df stringFromDate:[NSDate date]];
