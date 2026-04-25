@@ -42,6 +42,16 @@
     return self;
 }
 
+// 关键修复：允许点击事件穿透透明背景，解决底部 EPG 列表无法点击和滑动的问题
+- (UIView *)hitTest:(CGPoint)point withEvent:(UIEvent *)event {
+    UIView *hitView = [super hitTest:point withEvent:event];
+    // 如果点中了控制层本身的透明区域（即既不是按钮也不是底部控制条等具体子视图），则让事件穿透到下一层
+    if (hitView == self) {
+        return nil;
+    }
+    return hitView;
+}
+
 - (void)applyBlurEffectToView:(UIView *)view {
     BOOL isIOS7 = [[[UIDevice currentDevice] systemVersion] floatValue] >= 7.0;
     if (isIOS7) {
