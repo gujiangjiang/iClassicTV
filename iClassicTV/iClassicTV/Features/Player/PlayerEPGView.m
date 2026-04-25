@@ -12,7 +12,7 @@
 #import "LanguageManager.h"
 #import <QuartzCore/QuartzCore.h>
 
-@interface PlayerEPGView () <UITableViewDelegate, UITableViewDataSource>
+@interface PlayerEPGView () <UITableViewDelegate, UITableViewDataSource, UIScrollViewDelegate>
 
 @property (nonatomic, strong) UIView *dateContainerView;
 @property (nonatomic, strong) UIScrollView *dateScrollView;
@@ -30,8 +30,9 @@
 @property (nonatomic, strong) NSDate *selectedDate;
 @property (nonatomic, copy) NSString *currentChannelName;
 
-// 新增：用于记录上一次检查时的正在播放节目，用于对比是否跨越了时间节点
 @property (nonatomic, strong) EPGProgram *lastPlayingProgram;
+
+@property (nonatomic, strong) NSTimer *autoScrollTimer;
 
 @property (nonatomic, assign) BOOL isIOS7;
 
@@ -45,7 +46,6 @@
         self.backgroundColor = [UIColor clearColor];
         self.isIOS7 = [[[UIDevice currentDevice] systemVersion] floatValue] >= 7.0;
         
-        // 优化：让列表展示时间时严格遵循配置的时区
         self.timeFormatter = [[NSDateFormatter alloc] init];
         [self.timeFormatter setTimeZone:[EPGManager sharedManager].epgTimeZone];
         [self.timeFormatter setDateFormat:@"HH:mm"];
@@ -59,6 +59,7 @@
         self.dateScrollView = [[UIScrollView alloc] initWithFrame:CGRectZero];
         self.dateScrollView.showsHorizontalScrollIndicator = NO;
         self.dateScrollView.bounces = YES;
+        self.dateScrollView.delegate = self;
         [self.dateContainerView addSubview:self.dateScrollView];
         
         self.indicatorLine = [[UIView alloc] initWithFrame:CGRectZero];
@@ -103,6 +104,10 @@
     return self;
 }
 
+- (void)dealloc {
+    [self stopAutoScrollTimer];
+}
+
 - (void)layoutSubviews {
     [super layoutSubviews];
     CGFloat viewWidth = self.bounds.size.width;
@@ -122,6 +127,8 @@
 - (void)setReplayingProgram:(EPGProgram *)replayingProgram {
     _replayingProgram = replayingProgram;
     [self.tableView reloadData];
+    [self scrollToCurrentProgram];
+    [self startAutoScrollTimer];
 }
 
 - (void)actionButtonTapped:(UIButton *)sender {
@@ -143,6 +150,7 @@
         self.selectedDate = nil;
         self.lastPlayingProgram = nil;
         [self.dateScrollView setContentOffset:CGPointZero animated:NO];
+        [self stopAutoScrollTimer];
     }
     
     if (!isEPGEnabled) {
@@ -270,7 +278,21 @@
     
     dispatch_async(dispatch_get_main_queue(), ^{
         [self scrollToCurrentProgram];
+        [self startAutoScrollTimer];
     });
+}
+
+// 修复：提取复位和滚动逻辑，当获取完数据后，如果在看今天则滚动中间，在看别天则停留在顶部
+- (void)handleScrollAfterDataLoadForDate:(NSDate *)date {
+    NSDate *targetDate = self.replayingProgram ? [self startOfDayForDate:self.replayingProgram.startTime] : [self startOfDayForDate:[NSDate date]];
+    
+    if ([date isEqualToDate:targetDate]) {
+        [self scrollToCurrentProgram];
+    } else {
+        if (self.displayPrograms.count > 0) {
+            [self.tableView scrollToRowAtIndexPath:[NSIndexPath indexPathForRow:0 inSection:0] atScrollPosition:UITableViewScrollPositionTop animated:NO];
+        }
+    }
 }
 
 - (void)fetchAndDisplayDynamicEPGForDate:(NSDate *)date channel:(NSString *)channelName {
@@ -279,7 +301,9 @@
         self.tipsLabel.hidden = self.displayPrograms.count > 0 ? YES : NO;
         self.tipsLabel.text = self.displayPrograms.count > 0 ? @"" : LocalizedString(@"no_epg_data");
         [self.tableView reloadData];
-        [self scrollToCurrentProgram];
+        
+        [self handleScrollAfterDataLoadForDate:date];
+        [self startAutoScrollTimer];
     } else {
         self.displayPrograms = @[];
         [self.tableView reloadData];
@@ -301,13 +325,14 @@
                     weakSelf.tipsLabel.hidden = YES;
                 }
                 [weakSelf.tableView reloadData];
-                [weakSelf scrollToCurrentProgram];
+                
+                [weakSelf handleScrollAfterDataLoadForDate:date];
+                [weakSelf startAutoScrollTimer];
             }
         }];
     }
 }
 
-// 优化：提取日期时，将比较轴设定为配置的时区，避免跨天导致数据错乱
 - (NSDate *)startOfDayForDate:(NSDate *)date {
     NSCalendar *calendar = [NSCalendar currentCalendar];
     [calendar setTimeZone:[EPGManager sharedManager].epgTimeZone];
@@ -325,7 +350,6 @@
     if (days == 2) return LocalizedString(@"day_after_tomorrow");
     if (days == -1) return LocalizedString(@"yesterday");
     
-    // 同样，这里的显示也需要指定为配置的时区
     NSDateFormatter *df = [[NSDateFormatter alloc] init];
     [df setTimeZone:[EPGManager sharedManager].epgTimeZone];
     [df setDateFormat:@"MM-dd"];
@@ -380,15 +404,10 @@
         self.displayPrograms = self.groupedPrograms[self.selectedDate];
         [self.tableView reloadData];
         
-        NSDate *todayStart = [self startOfDayForDate:[NSDate date]];
-        if ([self.selectedDate isEqualToDate:todayStart]) {
-            [self scrollToCurrentProgram];
-        } else {
-            if (self.displayPrograms.count > 0) {
-                [self.tableView scrollToRowAtIndexPath:[NSIndexPath indexPathForRow:0 inSection:0] atScrollPosition:UITableViewScrollPositionTop animated:NO];
-            }
-        }
+        [self handleScrollAfterDataLoadForDate:self.selectedDate];
     }
+    
+    [self startAutoScrollTimer];
 }
 
 - (void)highlightDateButtonAtIndex:(NSInteger)index animated:(BOOL)animated {
@@ -411,6 +430,77 @@
     [self.dateScrollView scrollRectToVisible:selectedBtn.frame animated:animated];
 }
 
+#pragma mark - 自动回正功能核心实现
+
+- (void)startAutoScrollTimer {
+    [self stopAutoScrollTimer];
+    NSInteger timeout = [EPGManager sharedManager].autoScrollTimeout;
+    if (timeout > 0) {
+        self.autoScrollTimer = [NSTimer scheduledTimerWithTimeInterval:timeout target:self selector:@selector(autoScrollTimerFired) userInfo:nil repeats:NO];
+    }
+}
+
+- (void)stopAutoScrollTimer {
+    if (self.autoScrollTimer) {
+        [self.autoScrollTimer invalidate];
+        self.autoScrollTimer = nil;
+    }
+}
+
+// 修复：明确由定时器专门接管“跨天拉回”的任务
+- (void)autoScrollTimerFired {
+    if (self.availableDates.count == 0) return;
+    
+    NSDate *now = [NSDate date];
+    NSDate *todayStart = [self startOfDayForDate:now];
+    
+    NSDate *targetDate = nil;
+    if (self.replayingProgram) {
+        targetDate = [self startOfDayForDate:self.replayingProgram.startTime];
+    } else {
+        targetDate = todayStart;
+    }
+    
+    // 如果用户当前查看的日期不是“目标日期”，则跨天跳转回去
+    if (![self.selectedDate isEqualToDate:targetDate]) {
+        NSUInteger index = [self.availableDates indexOfObject:targetDate];
+        if (index != NSNotFound) {
+            self.selectedDate = targetDate;
+            [self highlightDateButtonAtIndex:index animated:YES];
+            
+            if ([[EPGManager sharedManager] isDynamicEPGSource]) {
+                NSString *epgSearchName = (self.tvgName && self.tvgName.length > 0) ? self.tvgName : self.channelTitle;
+                // 请求数据完成后，依然会通过 handleScrollAfterDataLoadForDate 滚动居中
+                [self fetchAndDisplayDynamicEPGForDate:self.selectedDate channel:epgSearchName];
+                return;
+            } else {
+                self.displayPrograms = self.groupedPrograms[self.selectedDate];
+                [self.tableView reloadData];
+                // 跨天跳转后立刻滚动归中
+                [self scrollToCurrentProgram];
+            }
+        }
+    } else {
+        // 如果已经在目标日期，直接触发滚动归中
+        [self scrollToCurrentProgram];
+    }
+}
+
+- (void)scrollViewWillBeginDragging:(UIScrollView *)scrollView {
+    [self stopAutoScrollTimer];
+}
+
+- (void)scrollViewDidEndDragging:(UIScrollView *)scrollView willDecelerate:(BOOL)decelerate {
+    if (!decelerate) {
+        [self startAutoScrollTimer];
+    }
+}
+
+- (void)scrollViewDidEndDecelerating:(UIScrollView *)scrollView {
+    [self startAutoScrollTimer];
+}
+
+// 修复：剥离跨天逻辑，此方法现专用于将当前页面内的目标节目对齐居中
 - (void)scrollToCurrentProgram {
     if (self.displayPrograms.count == 0 || !self.selectedDate) return;
     
@@ -419,7 +509,7 @@
     
     if (self.replayingProgram) {
         NSDate *replayDayStart = [self startOfDayForDate:self.replayingProgram.startTime];
-        if (![self.selectedDate isEqualToDate:replayDayStart]) return;
+        if (![self.selectedDate isEqualToDate:replayDayStart]) return; // 不再跨天跳转，交由定时器处理
         
         NSInteger currentIndex = -1;
         for (NSInteger i = 0; i < self.displayPrograms.count; i++) {
@@ -429,14 +519,14 @@
                 break;
             }
         }
-        if (currentIndex >= 0) {
+        if (currentIndex >= 0 && currentIndex < self.displayPrograms.count) {
             NSIndexPath *indexPath = [NSIndexPath indexPathForRow:currentIndex inSection:0];
             [self.tableView scrollToRowAtIndexPath:indexPath atScrollPosition:UITableViewScrollPositionMiddle animated:YES];
         }
         return;
     }
     
-    if (![self.selectedDate isEqualToDate:todayStart]) return;
+    if (![self.selectedDate isEqualToDate:todayStart]) return; // 不再跨天跳转，交由定时器处理
     
     NSInteger currentIndex = -1;
     for (NSInteger i = 0; i < self.displayPrograms.count; i++) {
@@ -446,7 +536,8 @@
             break;
         }
     }
-    if (currentIndex >= 0) {
+    
+    if (currentIndex >= 0 && currentIndex < self.displayPrograms.count) {
         NSIndexPath *indexPath = [NSIndexPath indexPathForRow:currentIndex inSection:0];
         [self.tableView scrollToRowAtIndexPath:indexPath atScrollPosition:UITableViewScrollPositionMiddle animated:YES];
     }
@@ -520,13 +611,11 @@
 - (void)updateTimeTick {
     if (self.displayPrograms.count == 0) return;
     
-    // 只有当用户查看的是当天的节目单时，才自动滚动和刷新状态
     NSDate *todayStart = [self startOfDayForDate:[NSDate date]];
     if (![self.selectedDate isEqualToDate:todayStart]) return;
     
     EPGProgram *current = [self currentPlayingProgram];
     
-    // 判断是否跨越了节目时间节点
     BOOL programChanged = NO;
     if (!self.lastPlayingProgram && current) {
         programChanged = YES;
@@ -541,7 +630,9 @@
     if (programChanged) {
         self.lastPlayingProgram = current;
         [self.tableView reloadData];
-        [self scrollToCurrentProgram];
+        if (!self.tableView.isDragging && !self.tableView.isDecelerating && !self.dateScrollView.isDragging && !self.dateScrollView.isDecelerating) {
+            [self scrollToCurrentProgram];
+        }
     }
 }
 
@@ -625,6 +716,7 @@
         if ([self.delegate respondsToSelector:@selector(epgView:didSelectProgram:)]) {
             [self.delegate epgView:self didSelectProgram:program];
         }
+        [self startAutoScrollTimer];
     }
 }
 

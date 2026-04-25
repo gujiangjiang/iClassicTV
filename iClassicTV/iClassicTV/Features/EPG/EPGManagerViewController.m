@@ -22,9 +22,8 @@
 
 - (void)viewDidLoad {
     [super viewDidLoad];
-    self.title = @"EPG 时区";
+    self.title = LocalizedString(@"epg_timezone");
     
-    // 生成从 GMT-12 到 GMT+14 的时区列表，把跟随系统默认放在首位
     NSMutableArray *arr = [NSMutableArray array];
     [arr addObject:@"System"];
     for (NSInteger i = -12; i <= 14; i++) {
@@ -65,7 +64,7 @@
     
     NSString *tz = self.timeZones[indexPath.row];
     if ([tz isEqualToString:@"System"]) {
-        cell.textLabel.text = @"跟随设备默认时区";
+        cell.textLabel.text = LocalizedString(@"epg_timezone_system_default");
     } else {
         if ([tz hasPrefix:@"GMT"] && tz.length == 8) {
             NSString *sign = [tz substringWithRange:NSMakeRange(3, 1)];
@@ -106,6 +105,67 @@
 @end
 // -------------------------------------------------------------
 
+#pragma mark - 内部新增类：EPG 自动回正时间选择控制器
+// -------------------------------------------------------------
+@interface EPGAutoScrollListViewController : UITableViewController
+@property (nonatomic, strong) NSArray *options;
+@property (nonatomic, strong) NSArray *titles;
+@end
+
+@implementation EPGAutoScrollListViewController
+
+- (void)viewDidLoad {
+    [super viewDidLoad];
+    self.title = LocalizedString(@"epg_auto_scroll");
+    self.options = @[@0, @5, @10, @15, @30];
+    // 动态生成带有多语言格式的标题列表
+    self.titles = @[
+                    LocalizedString(@"epg_auto_scroll_none"),
+                    [NSString stringWithFormat:LocalizedString(@"epg_seconds_format"), (long)5],
+                    [NSString stringWithFormat:LocalizedString(@"epg_seconds_format"), (long)10],
+                    [NSString stringWithFormat:LocalizedString(@"epg_seconds_format"), (long)15],
+                    [NSString stringWithFormat:LocalizedString(@"epg_seconds_format"), (long)30]
+                    ];
+}
+
+- (NSInteger)numberOfSectionsInTableView:(UITableView *)tableView {
+    return 1;
+}
+
+- (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section {
+    return self.options.count;
+}
+
+- (UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath {
+    static NSString *cellId = @"AutoScrollCell";
+    UITableViewCell *cell = [tableView dequeueReusableCellWithIdentifier:cellId];
+    if (!cell) {
+        cell = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleDefault reuseIdentifier:cellId];
+    }
+    
+    cell.textLabel.text = self.titles[indexPath.row];
+    
+    NSInteger currentTimeout = [EPGManager sharedManager].autoScrollTimeout;
+    if (currentTimeout == [self.options[indexPath.row] integerValue]) {
+        cell.accessoryType = UITableViewCellAccessoryCheckmark;
+        cell.textLabel.textColor = [UIColor colorWithRed:0.0 green:0.478 blue:1.0 alpha:1.0];
+    } else {
+        cell.accessoryType = UITableViewCellAccessoryNone;
+        cell.textLabel.textColor = [UIColor blackColor];
+    }
+    
+    return cell;
+}
+
+- (void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath {
+    [tableView deselectRowAtIndexPath:indexPath animated:YES];
+    [EPGManager sharedManager].autoScrollTimeout = [self.options[indexPath.row] integerValue];
+    [self.tableView reloadData];
+    [self.navigationController popViewControllerAnimated:YES];
+}
+
+@end
+// -------------------------------------------------------------
 
 #pragma mark - EPGManagerViewController 主类实现
 
@@ -126,8 +186,6 @@
     
     self.title = LocalizedString(@"epg_manager_title");
     
-    // 修复：为 EPGManager 设置属于自己的 backBarButtonItem
-    // 这样当它 Push 出 EPG接口列表 时，左上角显示的就会是多语言的“返回”
     UIBarButtonItem *backItem = [[UIBarButtonItem alloc] initWithTitle:LocalizedString(@"back") style:UIBarButtonItemStyleBordered target:nil action:nil];
     self.navigationItem.backBarButtonItem = backItem;
     
@@ -160,7 +218,6 @@
     BOOL isEnabled = sender.isOn;
     [EPGManager sharedManager].isEPGEnabled = isEnabled;
     
-    // 优化：修改动态插入的 section 数量，以适配新增的时区选项
     BOOL isDynamic = [EPGManager sharedManager].isDynamicEPGSource;
     NSInteger sectionsCount = isDynamic ? 2 : 4;
     NSIndexSet *indexSet = [NSIndexSet indexSetWithIndexesInRange:NSMakeRange(1, sectionsCount)];
@@ -204,22 +261,21 @@
 #pragma mark - Table view data source
 
 - (NSInteger)numberOfSectionsInTableView:(UITableView *)tableView {
-    // 优化：返回对应的 section 数（增加了一个时区选项 section）
     return [EPGManager sharedManager].isEPGEnabled ? 5 : 1;
 }
 
 - (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section {
     if (section == 0) return 1;
     if (section == 1) return 1;
-    if (section == 2) return 1; // 新增的时区选项
-    if (section == 3) return 1; // 原自动更新设置
-    if (section == 4) return 2; // 原数据管理
+    if (section == 2) return 2;
+    if (section == 3) return 1;
+    if (section == 4) return 2;
     return 0;
 }
 
 - (NSString *)tableView:(UITableView *)tableView titleForHeaderInSection:(NSInteger)section {
     if (section == 1) return LocalizedString(@"epg_source_settings");
-    if (section == 2) return @"EPG 时区设置"; // 使用默认中文标识
+    if (section == 2) return LocalizedString(@"epg_ui_and_timezone_settings");
     if (section == 3) return LocalizedString(@"epg_fetch_settings");
     if (section == 4) return LocalizedString(@"data_management");
     return nil;
@@ -227,8 +283,7 @@
 
 - (NSString *)tableView:(UITableView *)tableView titleForFooterInSection:(NSInteger)section {
     if (section == 0) return LocalizedString(@"epg_switch_footer");
-    // 新增：针对时区设置添加详细解释说明
-    if (section == 2) return @"默认跟随设备所在时区。如果您的直播源节目单对应其他时区（如中国源通常为东八区），可手动指定以确保时间匹配。";
+    if (section == 2) return LocalizedString(@"epg_ui_and_timezone_footer");
     if (section == 3) return LocalizedString(@"epg_auto_update_footer");
     return nil;
 }
@@ -264,22 +319,32 @@
         cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
         
     } else if (indexPath.section == 2) {
-        // 新增：时区展示和格式化
-        cell.textLabel.text = @"EPG 时区";
-        NSString *tzName = [[NSUserDefaults standardUserDefaults] stringForKey:@"ios6_iptv_epg_timezone_name"];
-        if (!tzName || tzName.length == 0 || [tzName isEqualToString:@"System"]) {
-            cell.detailTextLabel.text = @"跟随设备默认";
-        } else {
-            if ([tzName hasPrefix:@"GMT"] && tzName.length == 8) {
-                NSString *sign = [tzName substringWithRange:NSMakeRange(3, 1)];
-                NSString *hour = [tzName substringWithRange:NSMakeRange(4, 2)];
-                NSString *min = [tzName substringWithRange:NSMakeRange(6, 2)];
-                cell.detailTextLabel.text = [NSString stringWithFormat:@"GMT%@%@:%@", sign, hour, min];
+        if (indexPath.row == 0) {
+            cell.textLabel.text = LocalizedString(@"epg_timezone");
+            NSString *tzName = [[NSUserDefaults standardUserDefaults] stringForKey:@"ios6_iptv_epg_timezone_name"];
+            if (!tzName || tzName.length == 0 || [tzName isEqualToString:@"System"]) {
+                cell.detailTextLabel.text = LocalizedString(@"epg_timezone_system");
             } else {
-                cell.detailTextLabel.text = tzName;
+                if ([tzName hasPrefix:@"GMT"] && tzName.length == 8) {
+                    NSString *sign = [tzName substringWithRange:NSMakeRange(3, 1)];
+                    NSString *hour = [tzName substringWithRange:NSMakeRange(4, 2)];
+                    NSString *min = [tzName substringWithRange:NSMakeRange(6, 2)];
+                    cell.detailTextLabel.text = [NSString stringWithFormat:@"GMT%@%@:%@", sign, hour, min];
+                } else {
+                    cell.detailTextLabel.text = tzName;
+                }
             }
+            cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
+        } else if (indexPath.row == 1) {
+            cell.textLabel.text = LocalizedString(@"epg_auto_scroll");
+            NSInteger timeout = [EPGManager sharedManager].autoScrollTimeout;
+            if (timeout == 0) {
+                cell.detailTextLabel.text = LocalizedString(@"epg_auto_scroll_none");
+            } else {
+                cell.detailTextLabel.text = [NSString stringWithFormat:LocalizedString(@"epg_seconds_format"), (long)timeout];
+            }
+            cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
         }
-        cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
         
     } else if (indexPath.section == 3) {
         cell.textLabel.text = LocalizedString(@"auto_update_on_launch");
@@ -304,9 +369,13 @@
         EPGSourceListViewController *listVC = [[EPGSourceListViewController alloc] initWithStyle:UITableViewStyleGrouped];
         [self.navigationController pushViewController:listVC animated:YES];
     } else if (indexPath.section == 2) {
-        // 新增：点击跳转到时区选择列表页面
-        EPGTimeZoneListViewController *tzVC = [[EPGTimeZoneListViewController alloc] initWithStyle:UITableViewStyleGrouped];
-        [self.navigationController pushViewController:tzVC animated:YES];
+        if (indexPath.row == 0) {
+            EPGTimeZoneListViewController *tzVC = [[EPGTimeZoneListViewController alloc] initWithStyle:UITableViewStyleGrouped];
+            [self.navigationController pushViewController:tzVC animated:YES];
+        } else if (indexPath.row == 1) {
+            EPGAutoScrollListViewController *scrollVC = [[EPGAutoScrollListViewController alloc] initWithStyle:UITableViewStyleGrouped];
+            [self.navigationController pushViewController:scrollVC animated:YES];
+        }
     } else if (indexPath.section == 4) {
         if (indexPath.row == 0) {
             [self fetchEPGData];

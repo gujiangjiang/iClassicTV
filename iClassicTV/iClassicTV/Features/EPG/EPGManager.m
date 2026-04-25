@@ -16,6 +16,7 @@
 #define kEPGAutoUpdateKey @"ios6_iptv_epg_auto_update"
 #define kEPGSourcesKey @"ios6_iptv_epg_sources_list"
 #define kEPGTimeZoneNameKey @"ios6_iptv_epg_timezone_name"
+#define kEPGAutoScrollTimeoutKey @"ios6_iptv_epg_autoscroll_timeout"
 
 @interface EPGManager ()
 @property (nonatomic, strong) NSDictionary *epgCacheDict;
@@ -81,6 +82,18 @@
     } else {
         [[NSUserDefaults standardUserDefaults] setObject:epgTimeZone.name forKey:kEPGTimeZoneNameKey];
     }
+    [[NSUserDefaults standardUserDefaults] synchronize];
+}
+
+- (NSInteger)autoScrollTimeout {
+    if ([[NSUserDefaults standardUserDefaults] objectForKey:kEPGAutoScrollTimeoutKey] == nil) {
+        return 10; // 优化：首次默认设置为 10 秒
+    }
+    return [[NSUserDefaults standardUserDefaults] integerForKey:kEPGAutoScrollTimeoutKey];
+}
+
+- (void)setAutoScrollTimeout:(NSInteger)autoScrollTimeout {
+    [[NSUserDefaults standardUserDefaults] setInteger:autoScrollTimeout forKey:kEPGAutoScrollTimeoutKey];
     [[NSUserDefaults standardUserDefaults] synchronize];
 }
 
@@ -295,7 +308,6 @@
         }
     }
     NSCalendar *calendar = [NSCalendar currentCalendar];
-    // 优化：计算“明日凌晨”时使用用户配置的 EPG 时区，避免跨时区导致更新逻辑误判
     [calendar setTimeZone:self.epgTimeZone];
     NSDateComponents *components = [calendar components:(NSYearCalendarUnit | NSMonthCalendarUnit | NSDayCalendarUnit) fromDate:[NSDate date]];
     components.day += 1;
@@ -454,7 +466,6 @@
         return;
     }
     
-    // 优化：发起请求时，日期的计算必须严格采用配置的时区
     NSDateFormatter *df = [[NSDateFormatter alloc] init];
     [df setTimeZone:self.epgTimeZone];
     [df setDateFormat:@"yyyy-MM-dd"];
@@ -496,7 +507,6 @@
         
         NSMutableArray *programs = [NSMutableArray array];
         
-        // 优化：解析返回数据时，强行让 Formatter 将文本认定为配置的时区时间，转换为绝对时间戳
         NSTimeZone *cstZone = self.epgTimeZone;
         NSDateFormatter *timeFormatter = [[NSDateFormatter alloc] init];
         [timeFormatter setTimeZone:cstZone];

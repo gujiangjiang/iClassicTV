@@ -22,6 +22,9 @@
 // EPG 节目单使用的时区（默认跟随设备系统时区）
 @property (nonatomic, strong) NSTimeZone *epgTimeZone;
 
+// 新增：EPG 列表无操作后自动回正到当前节目的延迟时间（秒），0 表示不自动返回
+@property (nonatomic, assign) NSInteger autoScrollTimeout;
+
 // 当前获取的 EPG 接口 URL（动态计算当前活跃的接口）
 @property (nonatomic, readonly, copy) NSString *epgSourceURL;
 
