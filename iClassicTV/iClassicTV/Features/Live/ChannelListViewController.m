@@ -15,6 +15,7 @@
 #import "UIImage+LogoHelper.h"
 #import "ToastHelper.h"
 #import "PlayerConfigManager.h"
+#import "UserAgentManager.h" // 新增导入 UA 管理器
 // 引入滚动处理通用模块
 #import "UIViewController+ScrollToTop.h"
 #import "LanguageManager.h" // 引入多语言模块
@@ -150,7 +151,8 @@
                     [SSLBypassHelper bypassSSLForHost:url.host];
                     
                     NSMutableURLRequest *request = [NSMutableURLRequest requestWithURL:url];
-                    [request setValue:@"Mozilla/5.0 (iPhone; CPU iPhone OS 6_0 like Mac OS X) AppleWebKit/536.26 Version/6.0 Mobile/10A5376e Safari/8536.25" forHTTPHeaderField:@"User-Agent"];
+                    // 优化：移除硬编码的 User-Agent，改为调用全局的自定义 UA
+                    [request setValue:[[UserAgentManager sharedManager] currentUA] forHTTPHeaderField:@"User-Agent"];
                     [request setTimeoutInterval:15.0];
                     
                     NSData *data = [NSURLConnection sendSynchronousRequest:request returningResponse:nil error:nil];
