@@ -11,8 +11,11 @@
 #import "PlayerConfigManager.h"
 #import "PlayerControlView.h"
 #import "LanguageManager.h" // 引入多语言模块
+#import "EPGManager.h"      // 引入 EPG 管理器
+#import "EPGProgram.h"      // 引入 EPG 节目模型
 
-@interface PlayerViewController () <PlayerControlViewDelegate>
+// 新增 UITableViewDelegate 和 UITableViewDataSource 协议
+@interface PlayerViewController () <PlayerControlViewDelegate, UITableViewDelegate, UITableViewDataSource>
 
 @property (nonatomic, strong) MPMoviePlayerController *player;
 @property (nonatomic, strong) PlayerControlView *controlView;
@@ -24,6 +27,11 @@
 @property (nonatomic, strong) NSTimer *timer;
 @property (nonatomic, assign) BOOL isFullscreen;
 @property (nonatomic, assign) BOOL isControlsHidden;
+
+// 新增的 EPG 相关属性
+@property (nonatomic, strong) UITableView *epgTableView;
+@property (nonatomic, strong) NSArray *epgPrograms;
+@property (nonatomic, strong) NSDateFormatter *timeFormatter;
 
 @end
 
@@ -39,13 +47,39 @@
     self.backgroundView = [[UIView alloc] initWithFrame:self.view.bounds];
     [self.view addSubview:self.backgroundView];
     
+    // 初始化时间格式化器，用于在列表中展示 HH:mm 格式的时间
+    self.timeFormatter = [[NSDateFormatter alloc] init];
+    [self.timeFormatter setDateFormat:@"HH:mm"];
+    
+    // 获取当前频道的 EPG 数据
+    if ([EPGManager sharedManager].isEPGEnabled) {
+        NSArray *programs = [[EPGManager sharedManager] programsForChannelName:self.channelTitle];
+        self.epgPrograms = programs ? programs : @[];
+    } else {
+        self.epgPrograms = @[];
+    }
+    
+    // EPG TableView 初始化，挂载在底层
+    self.epgTableView = [[UITableView alloc] initWithFrame:CGRectZero style:UITableViewStylePlain];
+    self.epgTableView.backgroundColor = [UIColor clearColor];
+    self.epgTableView.delegate = self;
+    self.epgTableView.dataSource = self;
+    // iOS 6 分割线颜色调整，使其在深色背景下不显得突兀
+    self.epgTableView.separatorColor = [UIColor darkGrayColor];
+    if ([[[UIDevice currentDevice] systemVersion] floatValue] >= 7.0) {
+        self.epgTableView.separatorInset = UIEdgeInsetsZero;
+    }
+    [self.view addSubview:self.epgTableView];
+    
+    // 原先的 tipsLabel 保留，当没有 EPG 数据时用于展示空状态提示
     self.tipsLabel = [[UILabel alloc] initWithFrame:CGRectZero];
     self.tipsLabel.backgroundColor = [UIColor clearColor];
     self.tipsLabel.textAlignment = NSTextAlignmentCenter;
     self.tipsLabel.textColor = [UIColor grayColor];
     self.tipsLabel.font = [UIFont systemFontOfSize:14];
-    self.tipsLabel.text = LocalizedString(@"epg_wip"); // 多语言支持
+    self.tipsLabel.text = @"暂无节目单数据";
     self.tipsLabel.numberOfLines = 0;
+    self.tipsLabel.hidden = (self.epgPrograms.count > 0);
     [self.view addSubview:self.tipsLabel];
     
     [[UIApplication sharedApplication] beginReceivingRemoteControlEvents];
@@ -79,6 +113,11 @@
     [self.player play];
     [self startTimer];
     [self updateNowPlayingInfo];
+    
+    // 延迟滑动到当前正在播放的节目以确保 TableView 已经完成初始布局
+    dispatch_async(dispatch_get_main_queue(), ^{
+        [self scrollToCurrentProgram];
+    });
 }
 
 - (void)viewWillLayoutSubviews {
@@ -96,6 +135,9 @@
         videoFrame = self.view.bounds;
         self.backgroundView.frame = self.view.bounds;
         self.backgroundView.backgroundColor = [UIColor blackColor];
+        
+        // 全屏时隐藏 EPG 列表和空状态提示
+        self.epgTableView.hidden = YES;
         self.tipsLabel.hidden = YES;
         
         // 全屏时：原生的黑色毛玻璃导航栏
@@ -110,8 +152,14 @@
         self.backgroundView.frame = self.view.bounds;
         self.backgroundView.backgroundColor = isIOS7 ? [UIColor groupTableViewBackgroundColor] : [UIColor scrollViewTexturedBackgroundColor];
         
-        self.tipsLabel.hidden = NO;
-        self.tipsLabel.frame = CGRectMake(20, CGRectGetMaxY(videoFrame) + 30, self.view.bounds.size.width - 40, 40);
+        // 竖屏时展现 EPG 列表，计算视频下方的闲置空间
+        CGFloat tableY = CGRectGetMaxY(videoFrame);
+        CGFloat tableHeight = self.view.bounds.size.height - tableY;
+        self.epgTableView.frame = CGRectMake(0, tableY, self.view.bounds.size.width, tableHeight);
+        self.epgTableView.hidden = NO;
+        
+        self.tipsLabel.frame = CGRectMake(20, tableY + 30, self.view.bounds.size.width - 40, 40);
+        self.tipsLabel.hidden = (self.epgPrograms.count > 0);
         
         // 竖屏时：完全跟随 iOS 版本的原生状态栏与导航栏布局
         if (isIOS7) {
@@ -133,6 +181,78 @@
     
     self.player.view.frame = videoFrame;
     [self.controlView updateLayoutForFullscreen:self.isFullscreen videoFrame:videoFrame];
+}
+
+#pragma mark - UITableViewDataSource & UITableViewDelegate
+
+- (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section {
+    return self.epgPrograms.count;
+}
+
+- (UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath {
+    static NSString *cellId = @"EPGCell";
+    UITableViewCell *cell = [tableView dequeueReusableCellWithIdentifier:cellId];
+    if (!cell) {
+        // 使用 Value1 样式：左边节目名，右边时间
+        cell = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleValue1 reuseIdentifier:cellId];
+        cell.backgroundColor = [UIColor clearColor];
+        cell.textLabel.font = [UIFont systemFontOfSize:14];
+        cell.detailTextLabel.font = [UIFont systemFontOfSize:12];
+        cell.selectionStyle = UITableViewCellSelectionStyleNone; // 节目单只做展示，不可点击
+    }
+    
+    EPGProgram *program = self.epgPrograms[indexPath.row];
+    NSString *timeString = [self.timeFormatter stringFromDate:program.startTime];
+    cell.textLabel.text = program.title;
+    cell.detailTextLabel.text = timeString;
+    
+    NSDate *now = [NSDate date];
+    // 判断逻辑：当前时间 >= 开始时间 且 当前时间 < 结束时间
+    if ([now compare:program.startTime] != NSOrderedAscending && [now compare:program.endTime] == NSOrderedAscending) {
+        // 正在播放，使用醒目颜色高亮
+        cell.textLabel.textColor = [UIColor orangeColor];
+        cell.detailTextLabel.textColor = [UIColor orangeColor];
+    } else if ([now compare:program.endTime] != NSOrderedAscending) {
+        // 已播完的节目置灰
+        cell.textLabel.textColor = [UIColor darkGrayColor];
+        cell.detailTextLabel.textColor = [UIColor darkGrayColor];
+    } else {
+        // 未播放的节目，适配 iOS 6 与 iOS 7 的底色
+        BOOL isIOS7 = [[[UIDevice currentDevice] systemVersion] floatValue] >= 7.0;
+        UIColor *normalColor = isIOS7 ? [UIColor blackColor] : [UIColor whiteColor];
+        cell.textLabel.textColor = normalColor;
+        cell.detailTextLabel.textColor = normalColor;
+    }
+    
+    return cell;
+}
+
+- (CGFloat)tableView:(UITableView *)tableView heightForRowAtIndexPath:(NSIndexPath *)indexPath {
+    return 44.0;
+}
+
+#pragma mark - EPG 辅助方法
+
+// 自动滚动到当前正在播放的节目
+- (void)scrollToCurrentProgram {
+    if (self.epgPrograms.count == 0) return;
+    
+    NSDate *now = [NSDate date];
+    NSInteger currentIndex = -1;
+    
+    for (NSInteger i = 0; i < self.epgPrograms.count; i++) {
+        EPGProgram *p = self.epgPrograms[i];
+        if ([now compare:p.startTime] != NSOrderedAscending && [now compare:p.endTime] == NSOrderedAscending) {
+            currentIndex = i;
+            break;
+        }
+    }
+    
+    // 如果找到了当前正在播放的节目，自动滚动并将其居中显示
+    if (currentIndex >= 0) {
+        NSIndexPath *indexPath = [NSIndexPath indexPathForRow:currentIndex inSection:0];
+        [self.epgTableView scrollToRowAtIndexPath:indexPath atScrollPosition:UITableViewScrollPositionMiddle animated:NO];
+    }
 }
 
 #pragma mark - PlayerControlViewDelegate
