@@ -41,7 +41,9 @@
     [super viewDidLoad];
     self.view.backgroundColor = [UIColor blackColor];
     
+    // 修复：确保全屏悬浮的节目单时间展示也使用东八区，对齐实际数据
     self.epgTimeFormatter = [[NSDateFormatter alloc] init];
+    [self.epgTimeFormatter setTimeZone:[NSTimeZone timeZoneForSecondsFromGMT:8 * 3600]];
     [self.epgTimeFormatter setDateFormat:@"HH:mm"];
     
     self.backgroundView = [[UIView alloc] initWithFrame:self.view.bounds];
@@ -196,7 +198,9 @@
     self.epgView.replayingProgram = program;
     self.overlayView.widgetsView.isCatchupMode = YES;
     
+    // 修复：生成回看接口请求时间参数时，也要强制使用东八区生成 yyyyMMddHHmmss
     NSDateFormatter *df = [[NSDateFormatter alloc] init];
+    [df setTimeZone:[NSTimeZone timeZoneForSecondsFromGMT:8 * 3600]];
     [df setDateFormat:@"yyyyMMddHHmmss"];
     NSString *bTime = [df stringFromDate:program.startTime];
     NSString *eTime = [df stringFromDate:program.endTime];
@@ -216,7 +220,9 @@
     [self.player setContentURL:url];
     [self.player play];
     
+    // UI 展示同理
     NSDateFormatter *displayDf = [[NSDateFormatter alloc] init];
+    [displayDf setTimeZone:[NSTimeZone timeZoneForSecondsFromGMT:8 * 3600]];
     [displayDf setDateFormat:@"MM-dd HH:mm"];
     NSString *displayTime = [displayDf stringFromDate:program.startTime];
     

@@ -272,6 +272,8 @@
         }
     }
     NSCalendar *calendar = [NSCalendar currentCalendar];
+    // 修复：计算“明日凌晨”时强行锁定为东八区，避免跨时区导致更新逻辑误判
+    [calendar setTimeZone:[NSTimeZone timeZoneForSecondsFromGMT:8 * 3600]];
     NSDateComponents *components = [calendar components:(NSYearCalendarUnit | NSMonthCalendarUnit | NSDayCalendarUnit) fromDate:[NSDate date]];
     components.day += 1;
     NSDate *tomorrowMidnight = [calendar dateFromComponents:components];
@@ -429,7 +431,9 @@
         return;
     }
     
+    // 修复：发起请求时，日期的计算必须严格采用东八区，否则在美国晚上发起请求可能拉到错误日期的节目单
     NSDateFormatter *df = [[NSDateFormatter alloc] init];
+    [df setTimeZone:[NSTimeZone timeZoneForSecondsFromGMT:8 * 3600]];
     [df setDateFormat:@"yyyy-MM-dd"];
     NSString *dateStr = [df stringFromDate:date];
     NSString *encodedChannel = [channelName stringByAddingPercentEscapesUsingEncoding:NSUTF8StringEncoding];
@@ -468,9 +472,15 @@
         }
         
         NSMutableArray *programs = [NSMutableArray array];
+        
+        // 修复：解析返回数据时，强行让 Formatter 将文本认定为东八区的时间，转换为绝对时间戳
+        NSTimeZone *cstZone = [NSTimeZone timeZoneForSecondsFromGMT:8 * 3600];
         NSDateFormatter *timeFormatter = [[NSDateFormatter alloc] init];
+        [timeFormatter setTimeZone:cstZone];
         [timeFormatter setDateFormat:@"yyyy-MM-dd HH:mm"];
+        
         NSDateFormatter *timeFormatterWithSeconds = [[NSDateFormatter alloc] init];
+        [timeFormatterWithSeconds setTimeZone:cstZone];
         [timeFormatterWithSeconds setDateFormat:@"yyyy-MM-dd HH:mm:ss"];
         
         for (NSDictionary *item in epgData) {
