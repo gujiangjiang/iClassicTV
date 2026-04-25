@@ -1,25 +1,25 @@
 //
-//  PlayerViewController.m
+//  TVPlaybackViewController.m
 //  iClassicTV
 //
-//  Created by gujiangjiang on 26-4-23.
+//  Created by gujiangjiang on 26-4-25.
 //  Copyright (c) 2026年 gujiangjiang. All rights reserved.
 //
 
-#import "PlayerViewController.h"
+#import "TVPlaybackViewController.h"
 #import <MediaPlayer/MediaPlayer.h>
 #import "PlayerConfigManager.h"
-#import "PlayerControlView.h"
+#import "TVPlaybackOverlayView.h"
 #import "LanguageManager.h"
 #import "PlayerEPGView.h"
 #import "EPGManager.h"
 #import "EPGProgram.h"
 #import "EPGManagerViewController.h"
 
-@interface PlayerViewController () <PlayerControlViewDelegate, PlayerEPGViewDelegate>
+@interface TVPlaybackViewController () <TVPlaybackOverlayDelegate, PlayerEPGViewDelegate>
 
 @property (nonatomic, strong) MPMoviePlayerController *player;
-@property (nonatomic, strong) PlayerControlView *controlView;
+@property (nonatomic, strong) TVPlaybackOverlayView *overlayView;
 
 @property (nonatomic, strong) UINavigationBar *navBar;
 @property (nonatomic, strong) UIView *backgroundView;
@@ -31,12 +31,12 @@
 @property (nonatomic, strong) PlayerEPGView *epgView;
 @property (nonatomic, strong) NSDateFormatter *epgTimeFormatter;
 
-// 新增：内部持有一个回放的标识，用于动态管控切流状态与 UI 层级
+// 内部持有一个回放的标识，用于动态管控切流状态与 UI 层级
 @property (nonatomic, strong) EPGProgram *replayingProgram;
 
 @end
 
-@implementation PlayerViewController
+@implementation TVPlaybackViewController
 
 - (void)viewDidLoad {
     [super viewDidLoad];
@@ -52,7 +52,6 @@
     self.epgView.channelTitle = self.channelTitle;
     self.epgView.tvgName = self.tvgName;
     self.epgView.delegate = self;
-    
     self.epgView.supportsCatchup = (self.catchupSource && self.catchupSource.length > 0);
     [self.view addSubview:self.epgView];
     
@@ -66,10 +65,10 @@
     self.player.controlStyle = MPMovieControlStyleNone;
     [self.view addSubview:self.player.view];
     
-    self.controlView = [[PlayerControlView alloc] initWithFrame:self.view.bounds];
-    self.controlView.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
-    self.controlView.delegate = self;
-    [self.view addSubview:self.controlView];
+    self.overlayView = [[TVPlaybackOverlayView alloc] initWithFrame:self.view.bounds];
+    self.overlayView.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+    self.overlayView.delegate = self;
+    [self.view addSubview:self.overlayView];
     
     self.navBar = [[UINavigationBar alloc] initWithFrame:CGRectZero];
     UINavigationItem *navItem = [[UINavigationItem alloc] initWithTitle:self.channelTitle ?: LocalizedString(@"unknown_channel")];
@@ -104,7 +103,7 @@
     UIInterfaceOrientation orientation = [UIApplication sharedApplication].statusBarOrientation;
     self.isFullscreen = UIInterfaceOrientationIsLandscape(orientation);
     
-    [self.controlView updateFullscreenButtonState:self.isFullscreen];
+    [self.overlayView.bottomBar updateFullscreenButtonState:self.isFullscreen];
     
     CGRect videoFrame;
     BOOL isIOS7 = [[[UIDevice currentDevice] systemVersion] floatValue] >= 7.0;
@@ -115,7 +114,6 @@
         self.backgroundView.backgroundColor = [UIColor blackColor];
         
         self.epgView.hidden = YES;
-        
         self.navBar.frame = CGRectMake(0, 0, self.view.bounds.size.width, 44);
         self.navBar.barStyle = UIBarStyleBlack;
     } else {
@@ -140,14 +138,14 @@
         }
     }
     
-    if (self.controlView.isLocked) {
+    if (self.overlayView.isLocked) {
         self.navBar.alpha = 0.0;
     } else {
         self.navBar.alpha = (!self.isFullscreen) ? 1.0 : (self.isControlsHidden ? 0.0 : 1.0);
     }
     
     self.player.view.frame = videoFrame;
-    [self.controlView updateLayoutForFullscreen:self.isFullscreen videoFrame:videoFrame];
+    [self.overlayView updateLayoutForFullscreen:self.isFullscreen videoFrame:videoFrame];
 }
 
 #pragma mark - PlayerEPGViewDelegate
@@ -177,30 +175,27 @@
     
     NSDate *now = [NSDate date];
     
-    // 核心优化：判断点击的是历史节目，还是当前真正的直播节目
     if ([now compare:program.startTime] != NSOrderedAscending && [now compare:program.endTime] == NSOrderedAscending) {
-        // 用户想回到当前的直播状态
         self.replayingProgram = nil;
         self.epgView.replayingProgram = nil;
-        self.controlView.isCatchupMode = NO; // 关闭全屏防遮挡回放角标
+        self.overlayView.widgetsView.isCatchupMode = NO;
         
         NSURL *url = [NSURL URLWithString:[self.videoURLString stringByAddingPercentEscapesUsingEncoding:NSUTF8StringEncoding]];
         [self.player setContentURL:url];
         [self.player play];
         
-        [self.controlView showStatusMessage:[NSString stringWithFormat:@"已回到直播: %@", program.title]];
+        [self.overlayView showStatusMessage:[NSString stringWithFormat:@"已回到直播: %@", program.title]];
         dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(3.0 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-            [self.controlView hideStatusMessage];
+            [self.overlayView hideStatusMessage];
         });
         
         [self updateFullscreenEPGOverlay];
         return;
     }
     
-    // 确实是历史节目，进入回放时移推流
     self.replayingProgram = program;
     self.epgView.replayingProgram = program;
-    self.controlView.isCatchupMode = YES; // 打开全屏防遮挡回放角标
+    self.overlayView.widgetsView.isCatchupMode = YES;
     
     NSDateFormatter *df = [[NSDateFormatter alloc] init];
     [df setDateFormat:@"yyyyMMddHHmmss"];
@@ -222,16 +217,14 @@
     [self.player setContentURL:url];
     [self.player play];
     
-    [self.controlView showStatusMessage:[NSString stringWithFormat:@"正在回看: %@", program.title]];
+    [self.overlayView showStatusMessage:[NSString stringWithFormat:@"正在回看: %@", program.title]];
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(3.0 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-        [self.controlView hideStatusMessage];
+        [self.overlayView hideStatusMessage];
     });
     
-    // 触发刷新全屏双行节目单
     [self updateFullscreenEPGOverlay];
 }
 
-// 核心优化：全屏状态下支持呈现回看直播互补双行节目单
 - (void)updateFullscreenEPGOverlay {
     if (![EPGManager sharedManager].isEPGEnabled || !self.isFullscreen) {
         return;
@@ -240,34 +233,30 @@
     EPGProgram *current = [self.epgView currentPlayingProgram];
     
     if (self.replayingProgram) {
-        // 第一行显示回放的时间标题，第二行显示当前现实中正在直播的时间标题
         NSString *line1 = [NSString stringWithFormat:@"%@ 正在回放：%@", [self.epgTimeFormatter stringFromDate:self.replayingProgram.startTime], self.replayingProgram.title];
         NSString *line2 = current ? [NSString stringWithFormat:@"%@ 正在直播：%@", [self.epgTimeFormatter stringFromDate:current.startTime], current.title] : @"正在直播：暂无节目数据";
-        [self.controlView updateCurrentProgram:line1 nextProgram:line2];
+        [self.overlayView.widgetsView updateCurrentProgram:line1 nextProgram:line2];
     } else {
-        // 传统直播模式下的双行节目单展示
         EPGProgram *next = [self.epgView nextPlayingProgram];
-        
         if (!current && !next) {
-            [self.controlView updateCurrentProgram:nil nextProgram:nil];
+            [self.overlayView.widgetsView updateCurrentProgram:nil nextProgram:nil];
             return;
         }
         
         NSString *currentStr = current ? [NSString stringWithFormat:@"%@ 正在播放：%@", [self.epgTimeFormatter stringFromDate:current.startTime], current.title] : @"正在播放：暂无节目数据";
         NSString *nextStr = next ? [NSString stringWithFormat:@"%@ 即将播放：%@", [self.epgTimeFormatter stringFromDate:next.startTime], next.title] : @"即将播放：暂无节目数据";
-        
-        [self.controlView updateCurrentProgram:currentStr nextProgram:nextStr];
+        [self.overlayView.widgetsView updateCurrentProgram:currentStr nextProgram:nextStr];
     }
 }
 
-#pragma mark - PlayerControlViewDelegate
+#pragma mark - TVPlaybackOverlayDelegate
 
-- (void)controlViewDidTapPlayPause:(PlayerControlView *)controlView {
+- (void)overlayDidTapPlayPause {
     if (self.player.playbackState == MPMoviePlaybackStatePlaying) [self.player pause];
     else [self.player play];
 }
 
-- (void)controlViewDidTapFullscreen:(PlayerControlView *)controlView {
+- (void)overlayDidTapFullscreen {
     if (self.isFullscreen) [self forceRotateToOrientation:UIInterfaceOrientationPortrait];
     else {
         UIInterfaceOrientation target = [PlayerConfigManager preferredInterfaceOrientation];
@@ -276,17 +265,17 @@
     }
 }
 
-- (void)controlView:(PlayerControlView *)controlView sliderValueDidChange:(float)value {
+- (void)overlaySliderValueChanged:(float)value {
     if (self.player.duration > 0 && !isnan(self.player.duration)) {
         self.player.currentPlaybackTime = value * self.player.duration;
     }
 }
 
-- (void)controlView:(PlayerControlView *)controlView controlsHiddenDidChange:(BOOL)isHidden {
+- (void)overlayControlsHiddenDidChange:(BOOL)isHidden {
     self.isControlsHidden = isHidden;
     
     [UIView animateWithDuration:0.3 animations:^{
-        if (controlView.isLocked) {
+        if (self.overlayView.isLocked) {
             self.navBar.alpha = 0.0;
         } else {
             self.navBar.alpha = (!self.isFullscreen) ? 1.0 : (isHidden ? 0.0 : 1.0);
@@ -328,32 +317,32 @@
 }
 
 - (void)loadStateChanged {
-    if (self.player.loadState & MPMovieLoadStateStalled) [self.controlView showStatusMessage:LocalizedString(@"buffering")];
+    if (self.player.loadState & MPMovieLoadStateStalled) [self.overlayView showStatusMessage:LocalizedString(@"buffering")];
     else if ((self.player.loadState & MPMovieLoadStatePlayable) || (self.player.loadState & MPMovieLoadStatePlaythroughOK)) {
         if ((self.player.movieMediaTypes & MPMovieMediaTypeMaskVideo) == 0 && (self.player.movieMediaTypes & MPMovieMediaTypeMaskAudio) != 0) {
-            [self.controlView showStatusMessage:LocalizedString(@"audio_only_signal")];
-        } else [self.controlView hideStatusMessage];
+            [self.overlayView showStatusMessage:LocalizedString(@"audio_only_signal")];
+        } else [self.overlayView hideStatusMessage];
     }
 }
 
 - (void)mediaTypesAvailable {
     if ((self.player.movieMediaTypes & MPMovieMediaTypeMaskVideo) == 0 && (self.player.movieMediaTypes & MPMovieMediaTypeMaskAudio) != 0) {
-        [self.controlView showStatusMessage:LocalizedString(@"audio_only_signal")];
+        [self.overlayView showStatusMessage:LocalizedString(@"audio_only_signal")];
     } else if ((self.player.movieMediaTypes & MPMovieMediaTypeMaskVideo) != 0) {
         if (self.player.loadState & MPMovieLoadStatePlayable || self.player.loadState & MPMovieLoadStatePlaythroughOK) {
-            [self.controlView hideStatusMessage];
+            [self.overlayView hideStatusMessage];
         }
     }
 }
 
 - (void)playbackStateChanged {
-    [self.controlView updatePlayButtonState:(self.player.playbackState == MPMoviePlaybackStatePlaying)];
+    [self.overlayView.bottomBar updatePlayButtonState:(self.player.playbackState == MPMoviePlaybackStatePlaying)];
 }
 
 - (void)playbackDidFinish:(NSNotification *)notification {
     NSNumber *reason = [notification.userInfo objectForKey:MPMoviePlayerPlaybackDidFinishReasonUserInfoKey];
     if (reason != nil && [reason integerValue] == MPMovieFinishReasonPlaybackError) {
-        [self.controlView showStatusMessage:LocalizedString(@"playback_failed")];
+        [self.overlayView showStatusMessage:LocalizedString(@"playback_failed")];
     }
 }
 
@@ -363,10 +352,10 @@
 
 - (void)updateProgress {
     if (self.player.duration > 0 && !isnan(self.player.duration)) {
-        [self.controlView updateProgressWithValue:(self.player.currentPlaybackTime / self.player.duration)];
+        [self.overlayView.bottomBar updateProgressWithValue:(self.player.currentPlaybackTime / self.player.duration)];
     }
     [self updateFullscreenEPGOverlay];
-    [self.controlView updateSystemTime];
+    [self.overlayView.widgetsView updateSystemTime];
 }
 
 - (void)forceRotateToOrientation:(UIInterfaceOrientation)orientation {
@@ -393,7 +382,7 @@
     
     [self.timer invalidate];
     self.timer = nil;
-    [self.controlView cancelAutoHideTimer];
+    [self.overlayView cancelAutoHideTimer];
     
     [self.player stop];
     [[NSNotificationCenter defaultCenter] removeObserver:self];

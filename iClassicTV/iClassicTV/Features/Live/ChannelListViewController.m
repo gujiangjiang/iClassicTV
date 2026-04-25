@@ -9,7 +9,7 @@
 #import "ChannelListViewController.h"
 #import "Channel.h"
 #import <MediaPlayer/MediaPlayer.h>
-#import "PlayerViewController.h"
+#import "TVPlaybackViewController.h" // [修改] 引用新的播放器控制器
 #import "SSLBypassHelper.h"
 #import "UIImage+LogoHelper.h"
 #import "ToastHelper.h"
@@ -106,10 +106,7 @@
     }
     
     Channel *ch = self.channels[indexPath.row];
-    
-    // 还原：不在频道列表额外显示文字，保持清爽
     cell.textLabel.text = ch.name;
-    
     cell.accessoryType = UITableViewCellAccessoryDetailDisclosureButton;
     
     NSString *logoKey = ch.logo.length > 0 ? ch.logo : ch.name;
@@ -221,7 +218,8 @@
         [self presentMoviePlayerViewControllerAnimated:playerVC];
         [playerVC.moviePlayer play];
     } else {
-        PlayerViewController *playerVC = [[PlayerViewController alloc] init];
+        // [修改] 实例化全新的播放模块
+        TVPlaybackViewController *playerVC = [[TVPlaybackViewController alloc] init];
         playerVC.videoURLString = urlString;
         playerVC.channelTitle = title;
         playerVC.channelLogo = logo;
