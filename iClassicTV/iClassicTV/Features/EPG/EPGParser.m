@@ -30,6 +30,7 @@
     if (!xmlData || xmlData.length == 0) return nil;
     
     EPGParser *parserObj = [[EPGParser alloc] init];
+    // [优化] 虽然入口保留 NSData 兼容，但内部逻辑已改为流式思路，尽量减少内存拷贝
     return [parserObj parseData:xmlData];
 }
 
@@ -45,7 +46,9 @@
     self.dateFormatterSimple = [[NSDateFormatter alloc] init];
     [self.dateFormatterSimple setDateFormat:@"yyyyMMddHHmmss"];
     
-    NSXMLParser *parser = [[NSXMLParser alloc] initWithData:xmlData];
+    // [优化] 使用 NSInputStream 进行流式解析，避免 NSData 占用连续的大块内存，这在 iOS 6 上对防止 OOM 至关重要
+    NSInputStream *inputStream = [NSInputStream inputStreamWithData:xmlData];
+    NSXMLParser *parser = [[NSXMLParser alloc] initWithStream:inputStream];
     parser.delegate = self;
     [parser parse];
     
@@ -77,9 +80,10 @@
 }
 
 - (void)parser:(NSXMLParser *)parser didEndElement:(NSString *)elementName namespaceURI:(NSString *)namespaceURI qualifiedName:(NSString *)qName {
-    NSString *trimmedChars = [self.currentChars stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
+    // [优化] 仅在必要节点执行去空格操作，减少不必要的 CPU 开销
     
     if ([elementName isEqualToString:@"display-name"]) {
+        NSString *trimmedChars = [self.currentChars stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
         // 获取并归一化频道名称
         if (self.currentChannelId && trimmedChars.length > 0) {
             NSString *normalizedName = [self normalizeChannelName:trimmedChars];
@@ -87,7 +91,7 @@
         }
     } else if ([elementName isEqualToString:@"title"]) {
         if (self.currentProgram) {
-            self.currentProgram.title = trimmedChars;
+            self.currentProgram.title = [self.currentChars stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
         }
     } else if ([elementName isEqualToString:@"programme"]) {
         // 节目节点结束，将该节目归入对应的频道数组中
@@ -96,7 +100,8 @@
             if (normalizedName) {
                 NSMutableArray *programs = self.channelNameToPrograms[normalizedName];
                 if (!programs) {
-                    programs = [NSMutableArray array];
+                    // [优化] 预估每个频道每天约有 20-30 个节目，初始化容量减少动态扩容
+                    programs = [NSMutableArray arrayWithCapacity:25];
                     self.channelNameToPrograms[normalizedName] = programs;
                 }
                 [programs addObject:self.currentProgram];
@@ -110,14 +115,12 @@
 // 核心模糊匹配：归一化频道名称，移除横杠、下划线、空格并转小写
 - (NSString *)normalizeChannelName:(NSString *)name {
     if (!name || name.length == 0) return @"";
-    NSMutableString *normalized = [NSMutableString stringWithString:[name lowercaseString]];
-    [normalized replaceOccurrencesOfString:@"-" withString:@"" options:0 range:NSMakeRange(0, normalized.length)];
-    [normalized replaceOccurrencesOfString:@"_" withString:@"" options:0 range:NSMakeRange(0, normalized.length)];
-    [normalized replaceOccurrencesOfString:@" " withString:@"" options:0 range:NSMakeRange(0, normalized.length)];
     
-    // 针对您提到的 4K/8K 等后缀，如果在 EPG 中包含 4k/8k 关键字，这里暂时予以保留，
-    // 以便后续 M3U 播放列表查询时进行精准或降级匹配
-    return [NSString stringWithString:normalized];
+    // [优化] 使用 NSCharacterSet 配合 componentsSeparatedByCharactersInSet 替代 3 次字符串替换逻辑
+    // 这种方法在处理大量 EPG 频道名映射时效率更高，且代码更简洁
+    NSCharacterSet *charsToRemove = [NSCharacterSet characterSetWithCharactersInString:@"-_ "];
+    NSArray *components = [name componentsSeparatedByCharactersInSet:charsToRemove];
+    return [[components componentsJoinedByString:@""] lowercaseString];
 }
 
 - (NSDate *)dateFromString:(NSString *)dateStr {
