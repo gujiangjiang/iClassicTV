@@ -11,7 +11,6 @@
 
 @interface EPGSourceListViewController () <UIAlertViewDelegate>
 
-@property (nonatomic, strong) NSString *tempAddName;
 @property (nonatomic, assign) NSInteger editingIndex;
 
 @end
@@ -38,10 +37,19 @@
 #pragma mark - Actions
 
 - (void)addButtonTapped {
-    UIAlertView *alert = [[UIAlertView alloc] initWithTitle:@"添加 EPG" message:@"请输入 EPG 接口名称" delegate:self cancelButtonTitle:@"取消" otherButtonTitles:@"下一步", nil];
-    alert.alertViewStyle = UIAlertViewStylePlainTextInput;
-    UITextField *textField = [alert textFieldAtIndex:0];
-    textField.placeholder = @"例如：默认EPG源";
+    // 优化：使用 LoginAndPasswordInput 样式来实现两个输入框同屏显示
+    UIAlertView *alert = [[UIAlertView alloc] initWithTitle:@"添加 EPG" message:@"请输入 EPG 接口名称和链接" delegate:self cancelButtonTitle:@"取消" otherButtonTitles:@"保存", nil];
+    alert.alertViewStyle = UIAlertViewStyleLoginAndPasswordInput;
+    
+    UITextField *nameField = [alert textFieldAtIndex:0];
+    nameField.placeholder = @"名称 (例如：默认EPG源)";
+    
+    UITextField *urlField = [alert textFieldAtIndex:1];
+    // 关键优化：取消密码输入框的圆点遮挡，使其变成普通的明文输入框
+    urlField.secureTextEntry = NO;
+    urlField.placeholder = @"http://...";
+    urlField.keyboardType = UIKeyboardTypeURL;
+    
     alert.tag = 100;
     [alert show];
 }
@@ -55,10 +63,20 @@
             NSArray *sources = [EPGManager sharedManager].epgSources;
             NSDictionary *source = sources[indexPath.row];
             
-            UIAlertView *alert = [[UIAlertView alloc] initWithTitle:@"修改 EPG 名称" message:@"请输入新的名称" delegate:self cancelButtonTitle:@"取消" otherButtonTitles:@"修改链接", nil];
-            alert.alertViewStyle = UIAlertViewStylePlainTextInput;
-            UITextField *textField = [alert textFieldAtIndex:0];
-            textField.text = source[@"name"];
+            UIAlertView *alert = [[UIAlertView alloc] initWithTitle:@"修改 EPG" message:@"请输入新的名称和链接" delegate:self cancelButtonTitle:@"取消" otherButtonTitles:@"保存", nil];
+            alert.alertViewStyle = UIAlertViewStyleLoginAndPasswordInput;
+            
+            UITextField *nameField = [alert textFieldAtIndex:0];
+            nameField.text = source[@"name"];
+            nameField.placeholder = @"名称";
+            
+            UITextField *urlField = [alert textFieldAtIndex:1];
+            // 关键优化：取消密码输入框的圆点遮挡，使其变成普通的明文输入框
+            urlField.secureTextEntry = NO;
+            urlField.text = source[@"url"];
+            urlField.placeholder = @"http://...";
+            urlField.keyboardType = UIKeyboardTypeURL;
+            
             alert.tag = 200;
             [alert show];
         }
@@ -70,44 +88,35 @@
 - (void)alertView:(UIAlertView *)alertView clickedButtonAtIndex:(NSInteger)buttonIndex {
     if (buttonIndex == 0) return; // 取消
     
-    UITextField *textField = [alertView textFieldAtIndex:0];
-    NSString *inputText = [textField.text stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
+    // 一次性获取两个输入框的内容
+    UITextField *nameField = [alertView textFieldAtIndex:0];
+    UITextField *urlField = [alertView textFieldAtIndex:1];
+    
+    NSString *nameText = [nameField.text stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
+    NSString *urlText = [urlField.text stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
+    
+    // 提供默认名称
+    if (nameText.length == 0) {
+        nameText = @"自定义 EPG";
+    }
     
     if (alertView.tag == 100) {
-        // 添加 - 输入名称完毕，要求输入链接
-        self.tempAddName = inputText.length > 0 ? inputText : @"自定义 EPG";
-        UIAlertView *urlAlert = [[UIAlertView alloc] initWithTitle:@"添加 EPG" message:@"请输入 EPG 接口链接" delegate:self cancelButtonTitle:@"取消" otherButtonTitles:@"保存", nil];
-        urlAlert.alertViewStyle = UIAlertViewStylePlainTextInput;
-        UITextField *urlField = [urlAlert textFieldAtIndex:0];
-        urlField.placeholder = @"http://...";
-        urlAlert.tag = 101;
-        [urlAlert show];
-        
-    } else if (alertView.tag == 101) {
-        // 添加 - 输入链接完毕，保存
-        if (inputText.length > 0) {
-            [[EPGManager sharedManager] addEPGSourceWithName:self.tempAddName url:inputText];
+        // 添加
+        if (urlText.length > 0) {
+            [[EPGManager sharedManager] addEPGSourceWithName:nameText url:urlText];
             [self.tableView reloadData];
+        } else {
+            UIAlertView *errorAlert = [[UIAlertView alloc] initWithTitle:@"提示" message:@"接口链接不能为空" delegate:nil cancelButtonTitle:@"确定" otherButtonTitles:nil];
+            [errorAlert show];
         }
-        
     } else if (alertView.tag == 200) {
-        // 编辑 - 修改名称完毕，要求修改链接
-        NSString *newName = inputText.length > 0 ? inputText : @"自定义 EPG";
-        NSDictionary *source = [EPGManager sharedManager].epgSources[self.editingIndex];
-        self.tempAddName = newName;
-        
-        UIAlertView *urlAlert = [[UIAlertView alloc] initWithTitle:@"修改 EPG 链接" message:@"请输入新的接口链接" delegate:self cancelButtonTitle:@"取消" otherButtonTitles:@"保存", nil];
-        urlAlert.alertViewStyle = UIAlertViewStylePlainTextInput;
-        UITextField *urlField = [urlAlert textFieldAtIndex:0];
-        urlField.text = source[@"url"];
-        urlAlert.tag = 201;
-        [urlAlert show];
-        
-    } else if (alertView.tag == 201) {
-        // 编辑 - 修改链接完毕，保存
-        if (inputText.length > 0) {
-            [[EPGManager sharedManager] renameEPGSourceAtIndex:self.editingIndex withName:self.tempAddName url:inputText];
+        // 编辑
+        if (urlText.length > 0) {
+            [[EPGManager sharedManager] renameEPGSourceAtIndex:self.editingIndex withName:nameText url:urlText];
             [self.tableView reloadData];
+        } else {
+            UIAlertView *errorAlert = [[UIAlertView alloc] initWithTitle:@"提示" message:@"接口链接不能为空" delegate:nil cancelButtonTitle:@"确定" otherButtonTitles:nil];
+            [errorAlert show];
         }
     }
 }
