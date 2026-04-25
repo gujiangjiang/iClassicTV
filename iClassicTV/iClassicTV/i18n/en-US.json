@@ -94,7 +94,7 @@
     "tips": "Tips",
     "enter_m3u_content": "Please enter or paste M3U text content",
     "about": "About",
-    "about_app_desc": "iClassicTV (Native iOS 6 Edition)\n\nA native IPTV / M3U live player built for nostalgia and legacy iOS devices (like iPhone 4/4s, iPad 2/3).\n\n• Pure Skeuomorphic UI\n• Hardware Video Decoding\n• Smart Multi-line Memory\n• Powerful Source Management\n\nVersion: 1.0\nAuthor: gujiangjiang\nLicense: MIT License",
+    "about_app_desc": "iClassicTV (Native iOS 6 Edition)\n\nA native IPTV / M3U live stream player built specifically for nostalgia enthusiasts and legacy iOS devices (such as iPhone 4/4s, iPad 2/3).\n\n• Authentic Skeuomorphic UI\n• Hardware-Accelerated Decoding\n• Smart Multi-Line Memory\n• Powerful Multi-Source Management\n\nAuthor: gujiangjiang\nLicense: MIT License",
     "source_settings": "Source Settings",
     "my_sources_manage": "My Sources (Manage & Add)",
     "software_settings": "Software Settings",

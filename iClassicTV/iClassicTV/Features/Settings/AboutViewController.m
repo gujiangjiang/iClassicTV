@@ -25,7 +25,16 @@
     textView.backgroundColor = [UIColor clearColor];
     textView.editable = NO;
     textView.font = [UIFont systemFontOfSize:15];
-    textView.text = LocalizedString(@"about_app_desc");
+    
+    // 动态获取应用程序版本号和构建号
+    NSDictionary *infoDict = [[NSBundle mainBundle] infoDictionary];
+    NSString *appVersion = [infoDict objectForKey:@"CFBundleShortVersionString"];
+    NSString *buildVersion = [infoDict objectForKey:@"CFBundleVersion"];
+    
+    // 将动态获取的版本信息与多语言描述文本进行拼接，自动展示在最上方
+    NSString *versionInfo = [NSString stringWithFormat:@"Version %@ (%@)", appVersion, buildVersion];
+    textView.text = [NSString stringWithFormat:@"%@\n\n%@", versionInfo, LocalizedString(@"about_app_desc")];
+    
     [self.view addSubview:textView];
 }
 
