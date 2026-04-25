@@ -9,6 +9,9 @@
 /* Begin PBXBuildFile section */
 		481612762F9B900D00067C15 /* NSString+EncodingHelper.m in Sources */ = {isa = PBXBuildFile; fileRef = 481612752F9B900D00067C15 /* NSString+EncodingHelper.m */; };
 		4816127C2F9BA82300067C15 /* UIViewController+ScrollToTop.m in Sources */ = {isa = PBXBuildFile; fileRef = 4816127B2F9BA82300067C15 /* UIViewController+ScrollToTop.m */; };
+		4816D5492F9C813800D0A5AE /* EPGManager.m in Sources */ = {isa = PBXBuildFile; fileRef = 4816D5442F9C813800D0A5AE /* EPGManager.m */; };
+		4816D54A2F9C813800D0A5AE /* EPGParser.m in Sources */ = {isa = PBXBuildFile; fileRef = 4816D5462F9C813800D0A5AE /* EPGParser.m */; };
+		4816D54B2F9C813800D0A5AE /* EPGProgram.m in Sources */ = {isa = PBXBuildFile; fileRef = 4816D5482F9C813800D0A5AE /* EPGProgram.m */; };
 		482FAB212F9A857900B4F9D8 /* UIImage+DynamicIcon.m in Sources */ = {isa = PBXBuildFile; fileRef = 482FAB202F9A857900B4F9D8 /* UIImage+DynamicIcon.m */; };
 		482FAB242F9A891A00B4F9D8 /* PlayerControlView.m in Sources */ = {isa = PBXBuildFile; fileRef = 482FAB232F9A891A00B4F9D8 /* PlayerControlView.m */; };
 		48317BA02F9A78E9002489FE /* AppDelegate.m in Sources */ = {isa = PBXBuildFile; fileRef = 48317B752F9A78E9002489FE /* AppDelegate.m */; };
@@ -62,6 +65,12 @@
 		481612752F9B900D00067C15 /* NSString+EncodingHelper.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = "NSString+EncodingHelper.m"; sourceTree = "<group>"; };
 		4816127A2F9BA81800067C15 /* UIViewController+ScrollToTop.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "UIViewController+ScrollToTop.h"; sourceTree = "<group>"; };
 		4816127B2F9BA82300067C15 /* UIViewController+ScrollToTop.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = "UIViewController+ScrollToTop.m"; sourceTree = "<group>"; };
+		4816D5432F9C813800D0A5AE /* EPGManager.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = EPGManager.h; sourceTree = "<group>"; };
+		4816D5442F9C813800D0A5AE /* EPGManager.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = EPGManager.m; sourceTree = "<group>"; };
+		4816D5452F9C813800D0A5AE /* EPGParser.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = EPGParser.h; sourceTree = "<group>"; };
+		4816D5462F9C813800D0A5AE /* EPGParser.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = EPGParser.m; sourceTree = "<group>"; };
+		4816D5472F9C813800D0A5AE /* EPGProgram.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = EPGProgram.h; sourceTree = "<group>"; };
+		4816D5482F9C813800D0A5AE /* EPGProgram.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = EPGProgram.m; sourceTree = "<group>"; };
 		482FAB1F2F9A856A00B4F9D8 /* UIImage+DynamicIcon.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "UIImage+DynamicIcon.h"; sourceTree = "<group>"; };
 		482FAB202F9A857900B4F9D8 /* UIImage+DynamicIcon.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = "UIImage+DynamicIcon.m"; sourceTree = "<group>"; };
 		482FAB222F9A890E00B4F9D8 /* PlayerControlView.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = PlayerControlView.h; sourceTree = "<group>"; };
@@ -150,6 +159,19 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		4816D5422F9C813800D0A5AE /* EPG */ = {
+			isa = PBXGroup;
+			children = (
+				4816D5432F9C813800D0A5AE /* EPGManager.h */,
+				4816D5442F9C813800D0A5AE /* EPGManager.m */,
+				4816D5452F9C813800D0A5AE /* EPGParser.h */,
+				4816D5462F9C813800D0A5AE /* EPGParser.m */,
+				4816D5472F9C813800D0A5AE /* EPGProgram.h */,
+				4816D5482F9C813800D0A5AE /* EPGProgram.m */,
+			);
+			path = EPG;
+			sourceTree = "<group>";
+		};
 		48317B722F9A78E9002489FE /* iClassicTV */ = {
 			isa = PBXGroup;
 			children = (
@@ -190,6 +212,7 @@
 			children = (
 				48317B7B2F9A78E9002489FE /* Live */,
 				48317B802F9A78E9002489FE /* Player */,
+				4816D5422F9C813800D0A5AE /* EPG */,
 				48317B832F9A78E9002489FE /* Settings */,
 			);
 			path = Features;
@@ -442,6 +465,7 @@
 				48317BA42F9A78E9002489FE /* GroupListViewController.m in Sources */,
 				48317BAB2F9A78E9002489FE /* AppDataManager.m in Sources */,
 				48C2CB632F9BB76900A9379F /* UAManagerViewController.m in Sources */,
+				4816D5492F9C813800D0A5AE /* EPGManager.m in Sources */,
 				48317BA12F9A78E9002489FE /* main.m in Sources */,
 				48C2CB602F9BB73000A9379F /* UserAgentManager.m in Sources */,
 				48FBEB1E2F9BD2D200DD08EE /* AlertHelper.m in Sources */,
@@ -449,6 +473,7 @@
 				48317BAA2F9A78E9002489FE /* Channel.m in Sources */,
 				48317BA22F9A78E9002489FE /* M3UParser.m in Sources */,
 				48FBEB262F9BD59800DD08EE /* LanguageManager.m in Sources */,
+				4816D54A2F9C813800D0A5AE /* EPGParser.m in Sources */,
 				4816127C2F9BA82300067C15 /* UIViewController+ScrollToTop.m in Sources */,
 				48317BA72F9A78E9002489FE /* SettingsViewController.m in Sources */,
 				48317BAD2F9A78E9002489FE /* SSLBypassHelper.m in Sources */,
@@ -457,6 +482,7 @@
 				482FAB242F9A891A00B4F9D8 /* PlayerControlView.m in Sources */,
 				48C2CB662F9BB9E200A9379F /* NetworkManager.m in Sources */,
 				48FBEB1B2F9BCCA300DD08EE /* DataManagementViewController.m in Sources */,
+				4816D54B2F9C813800D0A5AE /* EPGProgram.m in Sources */,
 				48317BA32F9A78E9002489FE /* ChannelListViewController.m in Sources */,
 				48317BA92F9A78E9002489FE /* TextImportModalViewController.m in Sources */,
 				482FAB212F9A857900B4F9D8 /* UIImage+DynamicIcon.m in Sources */,
