@@ -12,6 +12,177 @@
 #import "LanguageManager.h"
 #import <QuartzCore/QuartzCore.h>
 
+#pragma mark - 新增：自定义跑马灯 Label
+@interface EPGMarqueeLabel : UIView
+@property (nonatomic, strong) UILabel *textLabel;
+@property (nonatomic, copy) NSString *text;
+@property (nonatomic, strong) UIFont *font;
+@property (nonatomic, strong) UIColor *textColor;
+@property (nonatomic, strong) UIColor *shadowColor;
+@property (nonatomic, assign) CGSize shadowOffset;
+- (void)startAnimation;
+@end
+
+@interface EPGMarqueeLabel ()
+// 修复：记录上一次的尺寸和边界，防止滚动列表时触发 layoutSubviews 意外打断正在播放的动画
+@property (nonatomic, assign) CGSize lastTextSize;
+@property (nonatomic, assign) CGRect lastBounds;
+@end
+
+@implementation EPGMarqueeLabel
+
+- (instancetype)initWithFrame:(CGRect)frame {
+    self = [super initWithFrame:frame];
+    if (self) {
+        self.clipsToBounds = YES;
+        self.backgroundColor = [UIColor clearColor];
+        self.textLabel = [[UILabel alloc] initWithFrame:self.bounds];
+        self.textLabel.backgroundColor = [UIColor clearColor];
+        self.textLabel.lineBreakMode = NSLineBreakByClipping; // 禁用省略号，依赖容器截断
+        [self addSubview:self.textLabel];
+    }
+    return self;
+}
+
+- (void)setText:(NSString *)text {
+    if (![_text isEqualToString:text]) {
+        _text = text;
+        self.textLabel.text = text;
+        self.lastTextSize = CGSizeZero; // 迫使重新计算布局和动画
+        [self setNeedsLayout];
+    }
+}
+
+- (void)setFont:(UIFont *)font {
+    if (_font != font) {
+        _font = font;
+        self.textLabel.font = font;
+        self.lastTextSize = CGSizeZero; // 迫使重新计算布局和动画
+        [self setNeedsLayout];
+    }
+}
+
+- (void)setTextColor:(UIColor *)textColor {
+    _textColor = textColor;
+    self.textLabel.textColor = textColor;
+}
+
+- (void)setShadowColor:(UIColor *)shadowColor {
+    _shadowColor = shadowColor;
+    self.textLabel.shadowColor = shadowColor;
+}
+
+- (void)setShadowOffset:(CGSize)shadowOffset {
+    _shadowOffset = shadowOffset;
+    self.textLabel.shadowOffset = shadowOffset;
+}
+
+- (void)startAnimation {
+    self.lastTextSize = CGSizeZero;
+    [self setNeedsLayout];
+}
+
+- (void)layoutSubviews {
+    [super layoutSubviews];
+    
+    // 修复：如果还没加载出来视图或者没有文本，直接返回，避免运算错误
+    if (self.bounds.size.width == 0 || self.text.length == 0) {
+        return;
+    }
+    
+    // 修复：弃用容易导致高度或宽度被截断为0的 sizeToFit，改为严谨地按照字号计算需要的真实宽度
+    CGSize textSize;
+    if ([self.text respondsToSelector:@selector(sizeWithAttributes:)]) {
+        textSize = [self.text sizeWithAttributes:@{NSFontAttributeName: self.textLabel.font}];
+    } else {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+        textSize = [self.text sizeWithFont:self.textLabel.font];
+#pragma clang diagnostic pop
+    }
+    
+    CGFloat viewWidth = self.bounds.size.width;
+    CGFloat viewHeight = self.bounds.size.height;
+    CGFloat finalWidth = MAX(textSize.width + 5.0, viewWidth); // 留点边距防止切掉文字边缘
+    
+    // 优化：如果内容和容器尺寸都没有变化，则不打断当前正在进行的动画
+    if (CGSizeEqualToSize(self.lastTextSize, textSize) && CGRectEqualToRect(self.lastBounds, self.bounds)) {
+        return;
+    }
+    
+    self.lastTextSize = textSize;
+    self.lastBounds = self.bounds;
+    
+    [self.textLabel.layer removeAllAnimations];
+    self.textLabel.transform = CGAffineTransformIdentity;
+    self.textLabel.frame = CGRectMake(0, 0, finalWidth, viewHeight);
+    
+    if (finalWidth > viewWidth) {
+        CGFloat overlap = finalWidth - viewWidth;
+        NSTimeInterval duration = overlap * 0.04 + 1.0; // 根据溢出长度计算动画时间，保证匀速线性滚动
+        
+        // 采用 UIViewAnimationOptionCurveLinear 保证跑马灯平滑
+        [UIView animateWithDuration:duration delay:1.5 options:UIViewAnimationOptionRepeat | UIViewAnimationOptionAutoreverse | UIViewAnimationOptionCurveLinear | UIViewAnimationOptionAllowUserInteraction animations:^{
+            self.textLabel.transform = CGAffineTransformMakeTranslation(-overlap, 0);
+        } completion:nil];
+    }
+}
+@end
+
+#pragma mark - 新增：自定义节目 Cell，优化排版确保状态文本不被截断
+@interface EPGProgramCell : UITableViewCell
+@property (nonatomic, strong) UILabel *timeLabel;
+@property (nonatomic, strong) EPGMarqueeLabel *titleMarqueeLabel;
+@property (nonatomic, strong) UILabel *statusLabel;
+@end
+
+@implementation EPGProgramCell
+
+- (instancetype)initWithStyle:(UITableViewCellStyle)style reuseIdentifier:(NSString *)reuseIdentifier {
+    self = [super initWithStyle:style reuseIdentifier:reuseIdentifier];
+    if (self) {
+        self.backgroundColor = [UIColor clearColor];
+        
+        self.timeLabel = [[UILabel alloc] initWithFrame:CGRectZero];
+        self.timeLabel.backgroundColor = [UIColor clearColor];
+        [self.contentView addSubview:self.timeLabel];
+        
+        self.titleMarqueeLabel = [[EPGMarqueeLabel alloc] initWithFrame:CGRectZero];
+        [self.contentView addSubview:self.titleMarqueeLabel];
+        
+        self.statusLabel = [[UILabel alloc] initWithFrame:CGRectZero];
+        self.statusLabel.backgroundColor = [UIColor clearColor];
+        self.statusLabel.textAlignment = NSTextAlignmentRight;
+        [self.contentView addSubview:self.statusLabel];
+    }
+    return self;
+}
+
+- (void)layoutSubviews {
+    [super layoutSubviews];
+    CGFloat width = self.contentView.bounds.size.width;
+    CGFloat height = self.contentView.bounds.size.height;
+    
+    // 1. 时间固定宽度
+    CGFloat timeWidth = 45.0;
+    self.timeLabel.frame = CGRectMake(15, 0, timeWidth, height);
+    
+    // 2. 状态文字自适应宽度（优先保障其完整显示）
+    [self.statusLabel sizeToFit];
+    CGFloat statusWidth = self.statusLabel.bounds.size.width;
+    if (statusWidth < 50) statusWidth = 50; // 保底宽度
+    self.statusLabel.frame = CGRectMake(width - statusWidth - 15, 0, statusWidth, height);
+    
+    // 3. 节目名称使用剩余的弹性空间
+    CGFloat titleX = CGRectGetMaxX(self.timeLabel.frame) + 10;
+    CGFloat titleWidth = self.statusLabel.frame.origin.x - titleX - 10;
+    self.titleMarqueeLabel.frame = CGRectMake(titleX, 0, titleWidth, height);
+}
+
+@end
+
+#pragma mark - PlayerEPGView 主类
+
 @interface PlayerEPGView () <UITableViewDelegate, UITableViewDataSource, UIScrollViewDelegate>
 
 @property (nonatomic, strong) UIView *dateContainerView;
@@ -718,19 +889,27 @@
     return self.displayPrograms.count;
 }
 
+// 确保视图出现时跑马灯动画能够被正确触发，修复滑动时的动画重置问题
+- (void)tableView:(UITableView *)tableView willDisplayCell:(UITableViewCell *)cell forRowAtIndexPath:(NSIndexPath *)indexPath {
+    if ([cell isKindOfClass:[EPGProgramCell class]]) {
+        [((EPGProgramCell *)cell).titleMarqueeLabel startAnimation];
+    }
+}
+
 - (UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath {
-    static NSString *cellId = @"EPGCell";
-    UITableViewCell *cell = [tableView dequeueReusableCellWithIdentifier:cellId];
+    static NSString *cellId = @"EPGProgramCellId";
+    // 替换为使用我们自定义的 EPGProgramCell
+    EPGProgramCell *cell = [tableView dequeueReusableCellWithIdentifier:cellId];
     if (!cell) {
-        cell = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleValue1 reuseIdentifier:cellId];
-        cell.backgroundColor = [UIColor clearColor];
-        cell.textLabel.font = [UIFont systemFontOfSize:14];
-        cell.detailTextLabel.font = [UIFont systemFontOfSize:12];
+        cell = [[EPGProgramCell alloc] initWithStyle:UITableViewCellStyleDefault reuseIdentifier:cellId];
     }
     
     EPGProgram *program = self.displayPrograms[indexPath.row];
     NSString *timeString = [self.timeFormatter stringFromDate:program.startTime];
-    cell.textLabel.text = [NSString stringWithFormat:@"%@   %@", timeString, program.title];
+    
+    // 赋值给自定义 Cell 中的控件
+    cell.timeLabel.text = timeString;
+    cell.titleMarqueeLabel.text = program.title;
     
     NSDate *now = [NSDate date];
     
@@ -740,43 +919,86 @@
     // 针对性优化：iOS 6 拟物化 Cell 样式适配
     if (!self.isIOS7) {
         // iOS 6 增加文字投影，增加层次感
-        cell.textLabel.shadowColor = [UIColor whiteColor];
-        cell.textLabel.shadowOffset = CGSizeMake(0, 1);
-        cell.detailTextLabel.shadowColor = [UIColor whiteColor];
-        cell.detailTextLabel.shadowOffset = CGSizeMake(0, 1);
+        UIColor *shadowColor = [UIColor whiteColor];
+        CGSize shadowOffset = CGSizeMake(0, 1);
+        
+        cell.timeLabel.shadowColor = shadowColor;
+        cell.timeLabel.shadowOffset = shadowOffset;
+        
+        cell.titleMarqueeLabel.shadowColor = shadowColor;
+        cell.titleMarqueeLabel.shadowOffset = shadowOffset;
+        
+        cell.statusLabel.shadowColor = shadowColor;
+        cell.statusLabel.shadowOffset = shadowOffset;
+    } else {
+        cell.timeLabel.shadowColor = nil;
+        cell.titleMarqueeLabel.shadowColor = nil;
+        cell.statusLabel.shadowColor = nil;
     }
+    
+    // 字体复位
+    UIFont *normalFont = [UIFont systemFontOfSize:14];
+    UIFont *statusNormalFont = [UIFont systemFontOfSize:12];
+    UIFont *boldFont = [UIFont boldSystemFontOfSize:15];
     
     if (isReplayingThis) {
         UIColor *themeColor = self.isIOS7 ? [UIColor colorWithRed:0.0 green:0.478 blue:1.0 alpha:1.0] : [UIColor orangeColor];
-        cell.textLabel.textColor = themeColor;
-        cell.detailTextLabel.textColor = themeColor;
-        cell.detailTextLabel.text = LocalizedString(@"now_replaying");
-        cell.textLabel.font = [UIFont boldSystemFontOfSize:15];
+        cell.timeLabel.textColor = themeColor;
+        cell.titleMarqueeLabel.textColor = themeColor;
+        cell.statusLabel.textColor = themeColor;
+        
+        cell.statusLabel.text = LocalizedString(@"now_replaying");
+        
+        cell.timeLabel.font = boldFont;
+        cell.titleMarqueeLabel.font = boldFont;
+        cell.statusLabel.font = statusNormalFont;
     } else if (isCurrentlyLive) {
         if (self.replayingProgram != nil) {
-            cell.textLabel.textColor = [UIColor darkGrayColor];
-            cell.detailTextLabel.textColor = [UIColor darkGrayColor];
-            cell.detailTextLabel.text = LocalizedString(@"playback_paused");
-            cell.textLabel.font = [UIFont systemFontOfSize:14];
+            UIColor *grayColor = [UIColor darkGrayColor];
+            cell.timeLabel.textColor = grayColor;
+            cell.titleMarqueeLabel.textColor = grayColor;
+            cell.statusLabel.textColor = grayColor;
+            
+            cell.statusLabel.text = LocalizedString(@"playback_paused");
+            
+            cell.timeLabel.font = normalFont;
+            cell.titleMarqueeLabel.font = normalFont;
+            cell.statusLabel.font = statusNormalFont;
         } else {
             UIColor *themeColor = self.isIOS7 ? [UIColor colorWithRed:0.0 green:0.478 blue:1.0 alpha:1.0] : [UIColor orangeColor];
-            cell.textLabel.textColor = themeColor;
-            cell.detailTextLabel.textColor = themeColor;
-            cell.detailTextLabel.text = LocalizedString(@"now_playing");
-            cell.textLabel.font = [UIFont boldSystemFontOfSize:15];
+            cell.timeLabel.textColor = themeColor;
+            cell.titleMarqueeLabel.textColor = themeColor;
+            cell.statusLabel.textColor = themeColor;
+            
+            cell.statusLabel.text = LocalizedString(@"now_playing");
+            
+            cell.timeLabel.font = boldFont;
+            cell.titleMarqueeLabel.font = boldFont;
+            cell.statusLabel.font = statusNormalFont;
         }
     } else if ([now compare:program.endTime] != NSOrderedAscending) {
-        cell.textLabel.textColor = [UIColor darkGrayColor];
-        cell.detailTextLabel.textColor = [UIColor darkGrayColor];
-        cell.detailTextLabel.text = LocalizedString(@"already_played");
-        cell.textLabel.font = [UIFont systemFontOfSize:14];
+        UIColor *grayColor = [UIColor darkGrayColor];
+        cell.timeLabel.textColor = grayColor;
+        cell.titleMarqueeLabel.textColor = grayColor;
+        cell.statusLabel.textColor = grayColor;
+        
+        cell.statusLabel.text = LocalizedString(@"already_played");
+        
+        cell.timeLabel.font = normalFont;
+        cell.titleMarqueeLabel.font = normalFont;
+        cell.statusLabel.font = statusNormalFont;
     } else {
         // 修改：统一使用黑色文字，解决 iOS6 系统下硬编码白色文字导致在白底背景不可见的 Bug
         UIColor *normalColor = [UIColor blackColor];
-        cell.textLabel.textColor = normalColor;
-        cell.detailTextLabel.textColor = normalColor;
-        cell.detailTextLabel.text = LocalizedString(@"not_played");
-        cell.textLabel.font = [UIFont systemFontOfSize:14];
+        cell.timeLabel.textColor = normalColor;
+        cell.titleMarqueeLabel.textColor = normalColor;
+        cell.statusLabel.textColor = normalColor;
+        
+        cell.statusLabel.text = LocalizedString(@"not_played");
+        
+        cell.timeLabel.font = normalFont;
+        cell.titleMarqueeLabel.font = normalFont;
+        cell.statusLabel.font = statusNormalFont;
     }
     
     if (self.supportsCatchup && ([now compare:program.startTime] != NSOrderedAscending)) {
