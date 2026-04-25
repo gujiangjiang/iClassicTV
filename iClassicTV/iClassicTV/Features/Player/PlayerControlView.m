@@ -138,13 +138,13 @@
     
     self.currentProgramLabel = [[UILabel alloc] initWithFrame:CGRectZero];
     self.currentProgramLabel.textColor = isIOS7 ? [UIColor colorWithRed:0.0 green:0.478 blue:1.0 alpha:1.0] : [UIColor orangeColor];
-    self.currentProgramLabel.font = [UIFont boldSystemFontOfSize:14];
+    self.currentProgramLabel.font = [UIFont systemFontOfSize:15]; // 统一大小，解决未对齐问题
     self.currentProgramLabel.backgroundColor = [UIColor clearColor];
     [self.epgOverlayView addSubview:self.currentProgramLabel];
     
     self.nextProgramLabel = [[UILabel alloc] initWithFrame:CGRectZero];
     self.nextProgramLabel.textColor = [UIColor whiteColor];
-    self.nextProgramLabel.font = [UIFont systemFontOfSize:13];
+    self.nextProgramLabel.font = [UIFont systemFontOfSize:15]; // 统一大小，解决未对齐问题
     self.nextProgramLabel.backgroundColor = [UIColor clearColor];
     [self.epgOverlayView addSubview:self.nextProgramLabel];
     
