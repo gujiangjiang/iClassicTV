@@ -218,5 +218,6 @@
     "auto_update_on_expire": "Auto update on expiration",
     "scheduled_update_time": "Scheduled Update Time",
     "disable_scheduled_update": "Disable Scheduled Update",
+    "last_update_time_label": "Last Updated",
     "no_update_record": "No update record"
 }

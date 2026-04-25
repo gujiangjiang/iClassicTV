@@ -218,5 +218,6 @@
     "auto_update_on_expire": "节目单过期自动刷新",
     "scheduled_update_time": "定时刷新时间",
     "disable_scheduled_update": "禁用定时刷新",
+    "last_update_time_label": "上次更新时间",
     "no_update_record": "暂无更新记录"
 }

@@ -261,6 +261,21 @@
     self.autoExpireSwitch = [[UISwitch alloc] init];
     self.autoExpireSwitch.on = [EPGManager sharedManager].autoUpdateOnExpire;
     [self.autoExpireSwitch addTarget:self action:@selector(autoExpireSwitchChanged:) forControlEvents:UIControlEventValueChanged];
+    
+    // [新增] 监听 EPG 数据更新通知，以便实时刷新界面显示的时间
+    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(epgDataDidUpdate) name:@"EPGDataDidUpdateNotification" object:nil];
+}
+
+- (void)dealloc {
+    // [新增] 移除观察者
+    [[NSNotificationCenter defaultCenter] removeObserver:self];
+}
+
+// [新增] 数据更新后的通知回调
+- (void)epgDataDidUpdate {
+    dispatch_async(dispatch_get_main_queue(), ^{
+        [self.tableView reloadData];
+    });
 }
 
 - (void)viewWillAppear:(BOOL)animated {
@@ -358,6 +373,17 @@
     if (section == 0) return LocalizedString(@"epg_switch_footer");
     if (section == 2) return LocalizedString(@"epg_ui_and_timezone_footer");
     if (section == 3) return LocalizedString(@"epg_auto_update_footer");
+    // [优化] 将上次更新时间作为数据管理分区的页脚展示，并增加秒级精度
+    if (section == 4) {
+        NSDate *lastTime = [EPGManager sharedManager].lastEPGUpdateTime;
+        if (lastTime) {
+            NSDateFormatter *df = [[NSDateFormatter alloc] init];
+            [df setDateFormat:@"yyyy-MM-dd HH:mm:ss"];
+            return [NSString stringWithFormat:@"%@: %@", LocalizedString(@"last_update_time_label"), [df stringFromDate:lastTime]];
+        } else {
+            return LocalizedString(@"no_update_record");
+        }
+    }
     return nil;
 }
 
@@ -438,14 +464,8 @@
     } else if (indexPath.section == 4) {
         if (indexPath.row == 0) {
             cell.textLabel.text = LocalizedString(@"force_update_epg");
-            NSDate *lastTime = [EPGManager sharedManager].lastEPGUpdateTime;
-            if (lastTime) {
-                NSDateFormatter *df = [[NSDateFormatter alloc] init];
-                [df setDateFormat:@"yyyy-MM-dd HH:mm"];
-                cell.detailTextLabel.text = [df stringFromDate:lastTime];
-            } else {
-                cell.detailTextLabel.text = LocalizedString(@"no_update_record");
-            }
+            // [修改] 移除按钮侧边的时间文字，改由 Section Footer 展示
+            cell.detailTextLabel.text = @"";
         } else {
             cell.textLabel.text = LocalizedString(@"clear_epg_cache");
         }
