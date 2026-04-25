@@ -9,8 +9,8 @@
 #import "EPGSourceListViewController.h"
 #import "EPGManager.h"
 #import "AlertHelper.h"
+#import "ToastHelper.h" // 新增：用来阻断长按弹出提示
 
-// 新增：引入 UIActionSheetDelegate 以选择接口类型
 @interface EPGSourceListViewController () <UIActionSheetDelegate>
 
 @property (nonatomic, assign) NSInteger editingIndex;
@@ -39,7 +39,6 @@
 #pragma mark - Actions
 
 - (void)addButtonTapped {
-    // 优化：先让用户选择添加的 EPG 接口类型
     UIActionSheet *sheet = [[UIActionSheet alloc] initWithTitle:@"选择接口类型" delegate:self cancelButtonTitle:@"取消" destructiveButtonTitle:nil otherButtonTitles:@"XML 压缩包 (全局下载)", @"DIYP 接口 (按需动态)", @"EPGInfo 接口 (按需动态)", nil];
     sheet.tag = 100;
     [sheet showInView:self.view];
@@ -51,7 +50,15 @@
         NSIndexPath *indexPath = [self.tableView indexPathForRowAtPoint:point];
         if (indexPath) {
             self.editingIndex = indexPath.row;
-            // 优化：编辑时同样也支持选择接口类型
+            NSArray *sources = [EPGManager sharedManager].epgSources;
+            NSDictionary *source = sources[indexPath.row];
+            
+            // 优化：判断如果是自带源，直接阻断弹窗，给予提示
+            if (source[@"linkedM3UId"]) {
+                [ToastHelper showToastWithMessage:@"M3U自带源不可单独编辑，随直播源自动同步更改。"];
+                return;
+            }
+            
             UIActionSheet *sheet = [[UIActionSheet alloc] initWithTitle:@"修改接口类型" delegate:self cancelButtonTitle:@"取消" destructiveButtonTitle:nil otherButtonTitles:@"XML 压缩包 (全局下载)", @"DIYP 接口 (按需动态)", @"EPGInfo 接口 (按需动态)", nil];
             sheet.tag = 101;
             [sheet showInView:self.view];
@@ -73,7 +80,6 @@
     
     __weak typeof(self) weakSelf = self;
     
-    // 延迟弹出 Alert 保证界面流转顺滑
     dispatch_async(dispatch_get_main_queue(), ^{
         [AlertHelper showDoubleInputAlertWithTitle:isEditing ? @"修改 EPG" : @"添加 EPG"
                                            message:@"请输入 EPG 接口名称和链接"
@@ -101,7 +107,6 @@
         return;
     }
     
-    // 若名称留空，按要求默认设置为当前时间
     if (nameText.length == 0) {
         NSDateFormatter *df = [[NSDateFormatter alloc] init];
         [df setDateFormat:@"yyyy-MM-dd HH:mm:ss"];
@@ -128,7 +133,7 @@
 }
 
 - (NSString *)tableView:(UITableView *)tableView titleForFooterInSection:(NSInteger)section {
-    return @"提示：点击选中并启用 EPG，长按可修改名称和链接，左滑可删除。";
+    return @"提示：点击选中并启用 EPG，非自带源长按可修改名称和链接，左滑可单独删除。";
 }
 
 - (UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath {
@@ -143,13 +148,19 @@
     
     cell.textLabel.text = source[@"name"];
     
-    // 优化：右下角直接标识出源的类型，方便用户区分
     NSString *type = source[@"type"];
     NSString *typeDesc = @"XML";
     if ([type isEqualToString:@"diyp"]) typeDesc = @"DIYP";
     else if ([type isEqualToString:@"epginfo"]) typeDesc = @"EPGInfo";
     
-    cell.detailTextLabel.text = [NSString stringWithFormat:@"[%@] %@", typeDesc, source[@"url"]];
+    // 优化：自带源高亮备注且加上专属标签
+    if (source[@"linkedM3UId"]) {
+        cell.detailTextLabel.text = [NSString stringWithFormat:@"[M3U自带源] [%@] %@", typeDesc, source[@"url"]];
+        cell.detailTextLabel.textColor = [UIColor darkGrayColor];
+    } else {
+        cell.detailTextLabel.text = [NSString stringWithFormat:@"[%@] %@", typeDesc, source[@"url"]];
+        cell.detailTextLabel.textColor = [UIColor grayColor];
+    }
     
     // 高亮当前选中的源
     if ([source[@"isActive"] boolValue]) {
@@ -172,14 +183,18 @@
 }
 
 - (BOOL)tableView:(UITableView *)tableView canEditRowAtIndexPath:(NSIndexPath *)indexPath {
-    return YES; // 允许滑动删除
+    // 优化：自带源禁止侧滑删除
+    NSDictionary *source = [EPGManager sharedManager].epgSources[indexPath.row];
+    if (source[@"linkedM3UId"]) {
+        return NO;
+    }
+    return YES;
 }
 
 - (void)tableView:(UITableView *)tableView commitEditingStyle:(UITableViewCellEditingStyle)editingStyle forRowAtIndexPath:(NSIndexPath *)indexPath {
     if (editingStyle == UITableViewCellEditingStyleDelete) {
         [[EPGManager sharedManager] removeEPGSourceAtIndex:indexPath.row];
         [tableView deleteRowsAtIndexPaths:@[indexPath] withRowAnimation:UITableViewRowAnimationFade];
-        // 延迟刷新以更新可能变更的 Checkmark
         dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.3 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
             [self.tableView reloadData];
         });

@@ -22,26 +22,36 @@
 // 当前获取的 EPG 接口 URL（动态计算当前活跃的接口）
 @property (nonatomic, readonly, copy) NSString *epgSourceURL;
 
-// 新增：当前激活的 EPG 源类型 ("xml", "diyp", "epginfo")
+// 当前激活的 EPG 源类型 ("xml", "diyp", "epginfo")
 @property (nonatomic, readonly, copy) NSString *epgSourceType;
 
-// 新增：判断当前是否为动态获取的 EPG 源（DIYP / EPGInfo）
+// 判断当前是否为动态获取的 EPG 源（DIYP / EPGInfo）
 @property (nonatomic, readonly, assign) BOOL isDynamicEPGSource;
 
-// 全部 EPG 源列表 (包含 name, url, type, isActive)
+// 全部 EPG 源列表 (包含 name, url, type, isActive, linkedM3UId)
 @property (nonatomic, readonly, strong) NSArray *epgSources;
 
-// EPG 源管理方法 (新增 type 参数)
+// EPG 源管理方法 (支持普通源添加)
 - (void)addEPGSourceWithName:(NSString *)name url:(NSString *)url type:(NSString *)type;
+
+// 新增：添加带 M3U 绑定关系的专用内置 EPG 源
+- (void)addEPGSourceWithName:(NSString *)name url:(NSString *)url type:(NSString *)type linkedM3UId:(NSString *)linkedM3UId;
+
+// 删除/修改普通源
 - (void)removeEPGSourceAtIndex:(NSInteger)index;
 - (void)renameEPGSourceAtIndex:(NSInteger)index withName:(NSString *)name url:(NSString *)url type:(NSString *)type;
 - (void)setActiveEPGSourceAtIndex:(NSInteger)index;
 
+// 新增：自动管理绑定 M3U 的源 (由 AppDataManager 调用)
+- (void)removeEPGSourceByLinkedM3UId:(NSString *)m3uId;
+- (void)updateLinkedEPGSourceName:(NSString *)name forM3UId:(NSString *)m3uId;
+- (void)removeAllLinkedEPGSources;
+
 // --- XML 静态 EPG 管理 ---
-// 异步下载并解析 EPG 数据 (仅针对 XML 全局格式)
+// 异步下载并解析 EPG 数据 (内部已支持多 URL 回退互补合并)
 - (void)fetchAndParseEPGDataWithCompletion:(void(^)(BOOL success, NSString *errorMsg))completion;
 
-// 后台静默检查并自动更新（请在 AppDelegate 中调用）
+// 后台静默检查并自动更新
 - (void)checkAndAutoUpdateEPG;
 
 // 清理本地 EPG 缓存
@@ -54,7 +64,6 @@
 - (EPGProgram *)currentProgramForChannelName:(NSString *)channelName;
 
 // --- DIYP / EPGInfo 动态 EPG 管理 ---
-// 新增：根据频道名和指定日期，动态请求节目单数据
 - (void)fetchDynamicProgramsForChannelName:(NSString *)channelName date:(NSDate *)date completion:(void(^)(NSArray *programs))completion;
 
 @end

@@ -8,15 +8,14 @@
 
 #import "EPGManager.h"
 #import "EPGParser.h"
-#import "ToastHelper.h" // 引入ToastHelper用于静默提示
-#import <zlib.h>        // 引入 zlib 库用于支持 GZIP 解压
+#import "ToastHelper.h"
+#import <zlib.h>
 
 #define kEPGEnabledKey @"ios6_iptv_epg_enabled"
 #define kEPGAutoUpdateKey @"ios6_iptv_epg_auto_update"
 #define kEPGSourcesKey @"ios6_iptv_epg_sources_list"
 
 @interface EPGManager ()
-// 在内存中持有当前解析好的数据
 @property (nonatomic, strong) NSDictionary *epgCacheDict;
 @property (nonatomic, strong) NSMutableArray *internalSources;
 @end
@@ -74,7 +73,6 @@
     return @"";
 }
 
-// 新增：获取当前激活的 EPG 类型，无类型则默认为 xml
 - (NSString *)epgSourceType {
     for (NSDictionary *source in self.internalSources) {
         if ([source[@"isActive"] boolValue]) {
@@ -85,7 +83,6 @@
     return @"xml";
 }
 
-// 新增：判断是否为动态接口
 - (BOOL)isDynamicEPGSource {
     NSString *type = [self epgSourceType];
     return [type isEqualToString:@"diyp"] || [type isEqualToString:@"epginfo"];
@@ -108,11 +105,35 @@
 }
 
 - (void)addEPGSourceWithName:(NSString *)name url:(NSString *)url type:(NSString *)type {
+    [self addEPGSourceWithName:name url:url type:type linkedM3UId:nil];
+}
+
+// 核心优化：处理带绑定关系的 M3U 自带源，更新或插入
+- (void)addEPGSourceWithName:(NSString *)name url:(NSString *)url type:(NSString *)type linkedM3UId:(NSString *)linkedM3UId {
+    NSMutableDictionary *newSource = [@{
+                                        @"name": name ?: @"未知EPG",
+                                        @"url": url ?: @"",
+                                        @"type": type ?: @"xml",
+                                        @"isActive": @(NO)
+                                        } mutableCopy];
+    
+    if (linkedM3UId) {
+        newSource[@"linkedM3UId"] = linkedM3UId;
+        // 查找是否已经存在该绑定的 M3U 源，若存在则更新 URL 和名称即可
+        for (NSInteger i = 0; i < self.internalSources.count; i++) {
+            if ([self.internalSources[i][@"linkedM3UId"] isEqualToString:linkedM3UId]) {
+                BOOL wasActive = [self.internalSources[i][@"isActive"] boolValue];
+                newSource[@"isActive"] = @(wasActive);
+                self.internalSources[i] = newSource;
+                [self saveSourcesToDisk];
+                return;
+            }
+        }
+    }
+    
+    // 如果是第一次添加，或者是全新插入，若是列表为空则自动激活
     BOOL isFirst = (self.internalSources.count == 0);
-    NSDictionary *newSource = @{ @"name": name ?: @"未知EPG",
-                                 @"url": url ?: @"",
-                                 @"type": type ?: @"xml",
-                                 @"isActive": @(isFirst) };
+    newSource[@"isActive"] = @(isFirst);
     [self.internalSources addObject:newSource];
     [self saveSourcesToDisk];
 }
@@ -122,12 +143,60 @@
         BOOL wasActive = [self.internalSources[index][@"isActive"] boolValue];
         [self.internalSources removeObjectAtIndex:index];
         
-        // 如果删除的是当前激活的源，并且还有剩余源，则自动激活第一个
         if (wasActive && self.internalSources.count > 0) {
             [self setActiveEPGSourceAtIndex:0];
         } else {
             [self saveSourcesToDisk];
         }
+    }
+}
+
+// 新增：供 AppDataManager 调用的通过绑定 ID 删除的方法
+- (void)removeEPGSourceByLinkedM3UId:(NSString *)m3uId {
+    if (!m3uId) return;
+    NSInteger targetIndex = -1;
+    for (NSInteger i = 0; i < self.internalSources.count; i++) {
+        if ([self.internalSources[i][@"linkedM3UId"] isEqualToString:m3uId]) {
+            targetIndex = i;
+            break;
+        }
+    }
+    if (targetIndex != -1) {
+        [self removeEPGSourceAtIndex:targetIndex];
+    }
+}
+
+// 新增：M3U 源重命名时，同步修改自带 EPG 的名称
+- (void)updateLinkedEPGSourceName:(NSString *)name forM3UId:(NSString *)m3uId {
+    if (!m3uId || !name) return;
+    for (NSInteger i = 0; i < self.internalSources.count; i++) {
+        if ([self.internalSources[i][@"linkedM3UId"] isEqualToString:m3uId]) {
+            NSMutableDictionary *dict = [self.internalSources[i] mutableCopy];
+            dict[@"name"] = name;
+            self.internalSources[i] = [dict copy];
+            [self saveSourcesToDisk];
+            break;
+        }
+    }
+}
+
+// 新增：清空所有带绑定的自带 EPG 源
+- (void)removeAllLinkedEPGSources {
+    NSMutableIndexSet *indexesToRemove = [NSMutableIndexSet indexSet];
+    BOOL removedActive = NO;
+    for (NSInteger i = 0; i < self.internalSources.count; i++) {
+        if (self.internalSources[i][@"linkedM3UId"]) {
+            [indexesToRemove addIndex:i];
+            if ([self.internalSources[i][@"isActive"] boolValue]) {
+                removedActive = YES;
+            }
+        }
+    }
+    [self.internalSources removeObjectsAtIndexes:indexesToRemove];
+    if (removedActive && self.internalSources.count > 0) {
+        [self setActiveEPGSourceAtIndex:0];
+    } else {
+        [self saveSourcesToDisk];
     }
 }
 
@@ -153,34 +222,27 @@
     }
 }
 
-#pragma mark - GZIP 解压支持
+#pragma mark - GZIP
 
-// 判断数据是否为 GZIP 格式 (通过判断魔数 1F 8B)
 - (BOOL)isGzippedData:(NSData *)data {
     if (data.length < 2) return NO;
     const UInt8 *bytes = (const UInt8 *)data.bytes;
     return (bytes[0] == 0x1f && bytes[1] == 0x8b);
 }
 
-// 解压 GZIP 数据为普通的 XML NSData
 - (NSData *)gunzippedData:(NSData *)data {
     if (data.length == 0) return data;
-    
     unsigned full_length = (unsigned)[data length];
     unsigned half_length = (unsigned)[data length] / 2;
-    
     NSMutableData *decompressed = [NSMutableData dataWithLength:full_length + half_length];
     BOOL done = NO;
     int status;
-    
     z_stream strm;
     strm.next_in = (Bytef *)[data bytes];
     strm.avail_in = (uInt)[data length];
     strm.total_out = 0;
     strm.zalloc = Z_NULL;
     strm.zfree = Z_NULL;
-    
-    // 15 + 32 用于自动检测 zlib 还是 gzip 头部
     if (inflateInit2(&strm, (15+32)) != Z_OK) return nil;
     
     while (!done) {
@@ -189,17 +251,11 @@
         }
         strm.next_out = [decompressed mutableBytes] + strm.total_out;
         strm.avail_out = (uInt)([decompressed length] - strm.total_out);
-        
         status = inflate(&strm, Z_SYNC_FLUSH);
-        if (status == Z_STREAM_END) {
-            done = YES;
-        } else if (status != Z_OK) {
-            break;
-        }
+        if (status == Z_STREAM_END) { done = YES; }
+        else if (status != Z_OK) { break; }
     }
-    
     if (inflateEnd(&strm) != Z_OK) return nil;
-    
     if (done) {
         [decompressed setLength:strm.total_out];
         return [NSData dataWithData:decompressed];
@@ -208,12 +264,10 @@
     }
 }
 
-#pragma mark - Auto Update Logic
+#pragma mark - Auto Update
 
-// 检查是否需要更新（判断缓存中最晚的节目结束时间是否小于明天凌晨 0 点）
 - (BOOL)needsUpdate {
     if (!self.epgCacheDict || self.epgCacheDict.count == 0) return YES;
-    
     NSDate *maxEndTime = [NSDate distantPast];
     for (NSArray *programs in self.epgCacheDict.allValues) {
         for (EPGProgram *p in programs) {
@@ -222,20 +276,15 @@
             }
         }
     }
-    
     NSCalendar *calendar = [NSCalendar currentCalendar];
     NSDateComponents *components = [calendar components:(NSYearCalendarUnit | NSMonthCalendarUnit | NSDayCalendarUnit) fromDate:[NSDate date]];
-    components.day += 1; // 明天
+    components.day += 1;
     NSDate *tomorrowMidnight = [calendar dateFromComponents:components];
-    
-    // 如果最大结束时间在明天凌晨之前，说明没有明日的有效缓存，需要更新
     return ([maxEndTime compare:tomorrowMidnight] == NSOrderedAscending);
 }
 
 - (void)checkAndAutoUpdateEPG {
-    // 新增拦截：如果是动态源，则不执行静态的后台下载逻辑
     if (!self.isEPGEnabled || !self.autoUpdateOnLaunch || self.isDynamicEPGSource) return;
-    
     if ([self needsUpdate]) {
         [ToastHelper showToastWithMessage:@"EPG 数据静默更新中..."];
         [self fetchAndParseEPGDataWithCompletion:^(BOOL success, NSString *errorMsg) {
@@ -248,7 +297,7 @@
     }
 }
 
-#pragma mark - Actions (XML)
+#pragma mark - Actions (XML Download & Merge)
 
 - (void)fetchAndParseEPGDataWithCompletion:(void(^)(BOOL success, NSString *errorMsg))completion {
     if (self.epgSourceURL.length == 0) {
@@ -256,49 +305,52 @@
         return;
     }
     
-    NSURL *url = [NSURL URLWithString:[self.epgSourceURL stringByAddingPercentEscapesUsingEncoding:NSUTF8StringEncoding]];
-    if (!url) {
-        if (completion) completion(NO, @"URL_INVALID");
-        return;
-    }
+    // 核心优化：将 URL 按逗号分隔，实现多 URL 的依次拉取和合并数据（完美解决主次源的需求）
+    NSArray *urls = [self.epgSourceURL componentsSeparatedByString:@","];
     
     dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
-        // 下载 XML (或 XML.GZ) 数据
-        NSError *error = nil;
-        NSData *xmlData = [NSData dataWithContentsOfURL:url options:0 error:&error];
+        NSMutableDictionary *mergedDict = [NSMutableDictionary dictionary];
+        BOOL atLeastOneSuccess = NO;
         
-        if (error || !xmlData || xmlData.length == 0) {
-            dispatch_async(dispatch_get_main_queue(), ^{
-                if (completion) completion(NO, @"DOWNLOAD_FAILED");
-            });
-            return;
-        }
-        
-        // 判断是否为 GZIP 压缩数据，如果是则在后台线程进行解压
-        if ([self isGzippedData:xmlData]) {
-            xmlData = [self gunzippedData:xmlData];
-            if (!xmlData || xmlData.length == 0) {
-                dispatch_async(dispatch_get_main_queue(), ^{
-                    if (completion) completion(NO, @"DECOMPRESS_FAILED");
-                });
-                return;
+        for (NSString *rawUrl in urls) {
+            NSString *urlStr = [rawUrl stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
+            if (urlStr.length == 0) continue;
+            
+            NSURL *url = [NSURL URLWithString:[urlStr stringByAddingPercentEscapesUsingEncoding:NSUTF8StringEncoding]];
+            if (!url) continue;
+            
+            NSData *xmlData = [NSData dataWithContentsOfURL:url options:0 error:nil];
+            if (!xmlData || xmlData.length == 0) continue;
+            
+            if ([self isGzippedData:xmlData]) {
+                xmlData = [self gunzippedData:xmlData];
+            }
+            
+            if (!xmlData || xmlData.length == 0) continue;
+            
+            NSDictionary *parsedDict = [EPGParser parseEPGXMLData:xmlData];
+            if (parsedDict && parsedDict.count > 0) {
+                atLeastOneSuccess = YES;
+                
+                // 执行数据合并，主源优先！
+                // (只要主源(排在前面的链接)成功解析了该频道的节目，后续源该频道的节目就会被跳过不被覆盖)
+                for (NSString *channelKey in parsedDict) {
+                    if (!mergedDict[channelKey]) {
+                        mergedDict[channelKey] = parsedDict[channelKey];
+                    }
+                }
             }
         }
         
-        // 开始解析 (解压后就是标准的 XML 数据)
-        NSDictionary *parsedDict = [EPGParser parseEPGXMLData:xmlData];
-        
-        if (parsedDict && parsedDict.count > 0) {
-            // 保存至内存和磁盘
-            self.epgCacheDict = parsedDict;
-            [self saveCacheToDisk:parsedDict];
-            
+        if (atLeastOneSuccess) {
+            self.epgCacheDict = mergedDict;
+            [self saveCacheToDisk:mergedDict];
             dispatch_async(dispatch_get_main_queue(), ^{
                 if (completion) completion(YES, nil);
             });
         } else {
             dispatch_async(dispatch_get_main_queue(), ^{
-                if (completion) completion(NO, @"PARSE_FAILED");
+                if (completion) completion(NO, @"所有 EPG 源链接拉取或解析均失败");
             });
         }
     });
@@ -306,25 +358,21 @@
 
 #pragma mark - Query (XML)
 
-// 查询时的归一化逻辑，必须与解析时的规则完全一致，保证能模糊命中
 - (NSString *)normalizeQueryName:(NSString *)name {
     if (!name || name.length == 0) return @"";
     NSMutableString *normalized = [NSMutableString stringWithString:[name lowercaseString]];
     [normalized replaceOccurrencesOfString:@"-" withString:@"" options:0 range:NSMakeRange(0, normalized.length)];
     [normalized replaceOccurrencesOfString:@"_" withString:@"" options:0 range:NSMakeRange(0, normalized.length)];
     [normalized replaceOccurrencesOfString:@" " withString:@"" options:0 range:NSMakeRange(0, normalized.length)];
-    
     return [NSString stringWithString:normalized];
 }
 
 - (NSArray *)programsForChannelName:(NSString *)channelName {
-    // 动态源不走本地内存查询
     if (!self.isEPGEnabled || self.isDynamicEPGSource || !self.epgCacheDict || channelName.length == 0) return nil;
     
     NSString *normalizedName = [self normalizeQueryName:channelName];
     NSArray *programs = self.epgCacheDict[normalizedName];
     
-    // 如果没有直接命中，尝试剥离常见的高清后缀进行降级匹配
     if (!programs || programs.count == 0) {
         NSString *fallbackName = [normalizedName stringByReplacingOccurrencesOfString:@"4k" withString:@""];
         fallbackName = [fallbackName stringByReplacingOccurrencesOfString:@"8k" withString:@""];
@@ -334,7 +382,6 @@
             programs = self.epgCacheDict[fallbackName];
         }
     }
-    
     return programs;
 }
 
@@ -344,7 +391,6 @@
     
     NSDate *now = [NSDate date];
     for (EPGProgram *program in programs) {
-        // 判断当前时间是否在节目的 start 和 end 之间
         if ([now compare:program.startTime] != NSOrderedAscending &&
             [now compare:program.endTime] != NSOrderedDescending) {
             return program;
@@ -377,7 +423,7 @@
     [[NSFileManager defaultManager] removeItemAtPath:[self cacheFilePath] error:nil];
 }
 
-#pragma mark - 新增：动态请求 EPG 数据 (DIYP / EPGInfo)
+#pragma mark - Dynamic Query
 
 - (void)fetchDynamicProgramsForChannelName:(NSString *)channelName date:(NSDate *)date completion:(void(^)(NSArray *programs))completion {
     if (!channelName || channelName.length == 0 || !date) {
@@ -391,15 +437,11 @@
         return;
     }
     
-    // 格式化请求日期参数
     NSDateFormatter *df = [[NSDateFormatter alloc] init];
     [df setDateFormat:@"yyyy-MM-dd"];
     NSString *dateStr = [df stringFromDate:date];
-    
-    // 对请求频道的名称进行 URL 编码
     NSString *encodedChannel = [channelName stringByAddingPercentEscapesUsingEncoding:NSUTF8StringEncoding];
     
-    // 拼接最终参数
     NSString *finalURLStr;
     if ([urlStr rangeOfString:@"?"].location != NSNotFound) {
         finalURLStr = [NSString stringWithFormat:@"%@&ch=%@&date=%@", urlStr, encodedChannel, dateStr];
@@ -421,7 +463,6 @@
             return;
         }
         
-        // 解析返回的 JSON 数据
         NSDictionary *json = [NSJSONSerialization JSONObjectWithData:data options:0 error:&error];
         if (error || !json || ![json isKindOfClass:[NSDictionary class]]) {
             dispatch_async(dispatch_get_main_queue(), ^{ if (completion) completion(nil); });
@@ -447,7 +488,6 @@
             
             if (!start || !title) continue;
             
-            // 拼接完整时间字符串并转化为 NSDate (兼容带秒和不带秒的格式)
             NSString *startFullStr = [NSString stringWithFormat:@"%@ %@", dateStr, start];
             NSDate *startDate = [start componentsSeparatedByString:@":"].count == 3 ? [timeFormatterWithSeconds dateFromString:startFullStr] : [timeFormatter dateFromString:startFullStr];
             
@@ -462,7 +502,6 @@
                 p.title = title;
                 p.startTime = startDate;
                 if (endDate) {
-                    // 如果结束时间早于开始时间，说明跨过了午夜
                     if ([endDate compare:startDate] == NSOrderedAscending) {
                         endDate = [endDate dateByAddingTimeInterval:86400];
                     }
@@ -472,7 +511,6 @@
             }
         }
         
-        // 修正缺失结束时间的条目
         for (NSInteger i = 0; i < programs.count; i++) {
             EPGProgram *p = programs[i];
             if (!p.endTime) {
@@ -480,7 +518,7 @@
                     EPGProgram *nextP = programs[i+1];
                     p.endTime = nextP.startTime;
                 } else {
-                    p.endTime = [p.startTime dateByAddingTimeInterval:1800]; // 默认加30分钟
+                    p.endTime = [p.startTime dateByAddingTimeInterval:1800];
                 }
             }
         }

@@ -19,6 +19,20 @@
     return nil;
 }
 
+// 新增：利用正则从 M3U 文件中提取全局自带的 EPG 地址
++ (NSString *)extractEPGUrlsFromM3UString:(NSString *)m3uString {
+    if (!m3uString || m3uString.length == 0) return nil;
+    
+    // 匹配如：#EXTM3U x-tvg-url="https://live.fanmingming.com/e.xml,http://e.erw.cc/all.xml.gz"
+    NSRegularExpression *regex = [NSRegularExpression regularExpressionWithPattern:@"#EXTM3U.*x-tvg-url\\s*=\\s*\"([^\"]+)\"" options:NSRegularExpressionCaseInsensitive error:nil];
+    NSTextCheckingResult *match = [regex firstMatchInString:m3uString options:0 range:NSMakeRange(0, m3uString.length)];
+    
+    if (match) {
+        return [m3uString substringWithRange:[match rangeAtIndex:1]];
+    }
+    return nil;
+}
+
 + (NSArray *)parseM3UString:(NSString *)m3uString {
     if (!m3uString) return @[];
     

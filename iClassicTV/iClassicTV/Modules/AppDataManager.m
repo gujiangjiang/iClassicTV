@@ -8,6 +8,8 @@
 
 #import "AppDataManager.h"
 #import "LanguageManager.h" // 新增多语言
+#import "M3UParser.h"       // 新增：引入解析器，用于提取头部 EPG URL
+#import "EPGManager.h"      // 新增：用于和 EPG 的绑定数据联动同步
 
 @implementation AppDataManager
 
@@ -39,6 +41,10 @@
     [defs removeObjectForKey:@"ios6_iptv_sources"];
     [defs removeObjectForKey:@"ios6_iptv_active_source_id"];
     [defs synchronize];
+    
+    // 同步清空所有绑定的 EPG
+    [[EPGManager sharedManager] removeAllLinkedEPGSources];
+    
     [[NSNotificationCenter defaultCenter] postNotificationName:@"M3UDataUpdated" object:nil];
 }
 
@@ -79,7 +85,6 @@
     [defs removeObjectForKey:@"PlayerOrientationPref"];
     [defs removeObjectForKey:@"PlayerTypePref"];
     
-    // [优化] 清理新增的播放器专属配置项
     [defs removeObjectForKey:@"ShowEPGInFullscreenPref"];
     [defs removeObjectForKey:@"ShowTimeInFullscreenPref"];
     
@@ -121,6 +126,13 @@
         [defs setObject:sourceId forKey:@"ios6_iptv_active_source_id"];
     }
     [defs synchronize];
+    
+    // 新增：尝试从内容中提取 x-tvg-url 并且注入 EPGManager 作为绑定的自带源
+    NSString *epgUrls = [M3UParser extractEPGUrlsFromM3UString:content];
+    if (epgUrls && epgUrls.length > 0) {
+        [[EPGManager sharedManager] addEPGSourceWithName:source[@"name"] url:epgUrls type:@"xml" linkedM3UId:sourceId];
+    }
+    
     [[NSNotificationCenter defaultCenter] postNotificationName:@"M3UDataUpdated" object:nil];
 }
 
@@ -134,6 +146,9 @@
     
     [sources removeObjectAtIndex:index];
     [defs setObject:sources forKey:@"ios6_iptv_sources"];
+    
+    // 新增：通知 EPGManager 删掉与之绑定的自带源
+    [[EPGManager sharedManager] removeEPGSourceByLinkedM3UId:sourceId];
     
     if ([sourceId isEqualToString:activeId]) {
         if (sources.count > 0) {
@@ -165,6 +180,9 @@
     [defs setObject:sources forKey:@"ios6_iptv_sources"];
     [defs synchronize];
     
+    // 新增：同步修改对应绑定的 EPG 源名称
+    [[EPGManager sharedManager] updateLinkedEPGSourceName:source[@"name"] forM3UId:source[@"id"]];
+    
     if ([source[@"id"] isEqualToString:[defs objectForKey:@"ios6_iptv_active_source_id"]]) {
         [[NSNotificationCenter defaultCenter] postNotificationName:@"M3UDataUpdated" object:nil];
     }
@@ -181,6 +199,16 @@
     
     [defs setObject:sources forKey:@"ios6_iptv_sources"];
     [defs synchronize];
+    
+    // 新增：内容刷新时，重新读取并覆盖 EPG 绑定数据
+    NSString *epgUrls = [M3UParser extractEPGUrlsFromM3UString:content];
+    NSString *sourceId = source[@"id"];
+    if (epgUrls && epgUrls.length > 0) {
+        [[EPGManager sharedManager] addEPGSourceWithName:source[@"name"] url:epgUrls type:@"xml" linkedM3UId:sourceId];
+    } else {
+        // 如果新拉取的内容里没有 x-tvg-url 了，自动把以前绑定的删掉
+        [[EPGManager sharedManager] removeEPGSourceByLinkedM3UId:sourceId];
+    }
     
     if ([source[@"id"] isEqualToString:[defs objectForKey:@"ios6_iptv_active_source_id"]]) {
         [[NSNotificationCenter defaultCenter] postNotificationName:@"M3UDataUpdated" object:nil];
