@@ -29,7 +29,7 @@
 @property (nonatomic, strong) NSDictionary *groupedPrograms;    // 按日期分组的节目数据
 @property (nonatomic, strong) NSArray *displayPrograms;         // 当前选中日期需要展示的节目
 @property (nonatomic, strong) NSDate *selectedDate;             // 当前选中的日期
-@property (nonatomic, copy) NSString *currentChannelName;       // 新增：记录当前正在查的频道名
+@property (nonatomic, copy) NSString *currentChannelName;       // 记录当前正在查的频道名
 
 // 系统主题适配标识
 @property (nonatomic, assign) BOOL isIOS7;
@@ -165,30 +165,32 @@
         return;
     }
     
-    // --- 新增：动态请求类型处理 ---
+    // --- 动态请求类型处理 ---
     if ([[EPGManager sharedManager] isDynamicEPGSource]) {
         self.tipsLabel.hidden = YES;
         self.actionButton.hidden = YES; // 动态请求无需显示刷新/设置按钮
         self.dateContainerView.hidden = NO;
         self.tableView.hidden = NO;
         
-        // 动态源默认构建 前天/昨天/今天/明天/后天 的时间栏以供点击拉取
+        // 动态源默认构建 7 天时间栏 (前推5天, 昨天, 今天, 明天)
         if (!self.availableDates) {
             NSDate *today = [self startOfDayForDate:[NSDate date]];
-            NSDate *yesterday = [today dateByAddingTimeInterval:-86400];
-            NSDate *tomorrow = [today dateByAddingTimeInterval:86400];
-            self.availableDates = @[yesterday, today, tomorrow];
+            NSMutableArray *dates = [NSMutableArray array];
+            for (int i = -5; i <= 1; i++) {
+                [dates addObject:[today dateByAddingTimeInterval:i * 86400]];
+            }
+            self.availableDates = [dates copy];
             self.groupedPrograms = [NSMutableDictionary dictionary];
             [self buildDateBarUI];
             self.selectedDate = today;
-            [self highlightDateButtonAtIndex:1 animated:NO]; // 默认高亮今天
+            [self highlightDateButtonAtIndex:5 animated:NO]; // 默认高亮今天 (index 5)
         }
         
         [self fetchAndDisplayDynamicEPGForDate:self.selectedDate channel:epgSearchName];
         return;
     }
     
-    // --- 提取：XML静态数据解析 ---
+    // --- XML静态数据解析 ---
     NSArray *allPrograms = @[];
     if (isEPGEnabled) {
         NSArray *fetched = [[EPGManager sharedManager] programsForChannelName:epgSearchName];
@@ -294,7 +296,7 @@
     });
 }
 
-// 新增：动态提取获取并展示某日数据的业务块
+// 动态提取获取并展示某日数据的业务块
 - (void)fetchAndDisplayDynamicEPGForDate:(NSDate *)date channel:(NSString *)channelName {
     if (self.groupedPrograms[date]) {
         self.displayPrograms = self.groupedPrograms[date];
