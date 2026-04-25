@@ -33,4 +33,7 @@
 // 新增：用于更新全屏模式下的半透明 EPG 悬浮窗内容
 - (void)updateCurrentProgram:(NSString *)current nextProgram:(NSString *)next;
 
+// [新增] 更新右上角的系统悬浮时间
+- (void)updateSystemTime;
+
 @end

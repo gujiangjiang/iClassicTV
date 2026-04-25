@@ -9,6 +9,7 @@
 #import "PlayerControlView.h"
 #import "UIImage+DynamicIcon.h"
 #import "LanguageManager.h"
+#import "PlayerConfigManager.h" // [新增] 用于读取时间显示的设置项
 
 @interface PlayerControlView ()
 
@@ -24,6 +25,10 @@
 @property (nonatomic, strong) UIView *epgOverlayView;
 @property (nonatomic, strong) UILabel *currentProgramLabel;
 @property (nonatomic, strong) UILabel *nextProgramLabel;
+
+// [新增] 全屏右上角的时间悬浮组件
+@property (nonatomic, strong) UILabel *timeLabel;
+@property (nonatomic, strong) NSDateFormatter *timeFormatter;
 
 @property (nonatomic, assign) BOOL isLocked;
 @property (nonatomic, assign) BOOL isControlsHidden;
@@ -148,7 +153,21 @@
     self.nextProgramLabel.backgroundColor = [UIColor clearColor];
     [self.epgOverlayView addSubview:self.nextProgramLabel];
     
-    // 6. 手势
+    // 6. [新增] 右上角时间显示组件
+    self.timeFormatter = [[NSDateFormatter alloc] init];
+    [self.timeFormatter setDateFormat:@"HH:mm"];
+    
+    self.timeLabel = [[UILabel alloc] initWithFrame:CGRectZero];
+    self.timeLabel.textColor = [UIColor whiteColor];
+    self.timeLabel.font = [UIFont boldSystemFontOfSize:16];
+    self.timeLabel.textAlignment = NSTextAlignmentRight;
+    self.timeLabel.backgroundColor = [UIColor clearColor];
+    self.timeLabel.shadowColor = [UIColor colorWithWhite:0.0 alpha:0.5]; // 增加文字阴影，保证浅色背景下可见
+    self.timeLabel.shadowOffset = CGSizeMake(1, 1);
+    self.timeLabel.hidden = YES;
+    [self addSubview:self.timeLabel];
+    
+    // 7. 手势
     UITapGestureRecognizer *doubleTap = [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(handleDoubleTap:)];
     doubleTap.numberOfTapsRequired = 2;
     [self.gestureCatcherView addGestureRecognizer:doubleTap];
@@ -182,8 +201,16 @@
         self.nextProgramLabel.frame = CGRectMake(10, 25, overlayWidth - 20, 20);
         
         self.epgOverlayView.hidden = (self.currentProgramLabel.text.length == 0);
+        
+        // [新增/优化] 布局时间组件。下移 Y 坐标至 60 像素，避开 44 像素高的导航栏
+        self.timeLabel.frame = CGRectMake(self.bounds.size.width - 80, 60, 60, 24);
+        self.timeLabel.hidden = ![PlayerConfigManager showTimeInFullscreen];
+        if (!self.timeLabel.hidden) {
+            [self updateSystemTime];
+        }
     } else {
         self.epgOverlayView.hidden = YES;
+        self.timeLabel.hidden = YES; // [新增] 非全屏隐藏时间
     }
     
     [self setControlsHidden:self.isControlsHidden];
@@ -199,6 +226,14 @@
     } else {
         self.epgOverlayView.hidden = YES;
     }
+}
+
+// [新增] 刷新当前系统时间
+- (void)updateSystemTime {
+    if (!self.currentIsFullscreen || ![PlayerConfigManager showTimeInFullscreen]) {
+        return;
+    }
+    self.timeLabel.text = [self.timeFormatter stringFromDate:[NSDate date]];
 }
 
 - (void)updateProgressWithValue:(float)value { self.progressBar.value = value; }
@@ -272,10 +307,12 @@
             self.bottomBar.alpha = 0.0;
             self.lockBtn.alpha = hidden ? 0.0 : 0.6;
             self.epgOverlayView.alpha = hidden ? 0.0 : 1.0; // 同步隐藏/显示
+            self.timeLabel.alpha = hidden ? 0.0 : 1.0; // [新增] 同步隐藏/显示时间
         } else {
             self.bottomBar.alpha = hidden ? 0.0 : 1.0;
             self.lockBtn.alpha = hidden ? 0.0 : 0.6;
             self.epgOverlayView.alpha = hidden ? 0.0 : 1.0; // 同步隐藏/显示
+            self.timeLabel.alpha = hidden ? 0.0 : 1.0; // [新增] 同步隐藏/显示时间
         }
     }];
     

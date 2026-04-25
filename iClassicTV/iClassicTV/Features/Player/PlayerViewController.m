@@ -285,6 +285,8 @@
     }
     // 每次更新进度条时，顺便计算并更新一次全屏的 EPG
     [self updateFullscreenEPGOverlay];
+    // [新增] 顺便通过1秒定时器实时更新右上角的悬浮系统时间
+    [self.controlView updateSystemTime];
 }
 
 - (void)forceRotateToOrientation:(UIInterfaceOrientation)orientation {
