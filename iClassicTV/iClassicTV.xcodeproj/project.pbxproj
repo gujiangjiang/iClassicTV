@@ -38,6 +38,7 @@
 		4843BC222F9BDFE3007A0595 /* zh-CN.json in Resources */ = {isa = PBXBuildFile; fileRef = 4843BC202F9BDFE3007A0595 /* zh-CN.json */; };
 		489537482F9C8F8D005D3CA3 /* PlayerEPGView.m in Sources */ = {isa = PBXBuildFile; fileRef = 489537472F9C8F8D005D3CA3 /* PlayerEPGView.m */; };
 		4895374E2F9C9D0D005D3CA3 /* PlayerSettingsViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 4895374D2F9C9D0D005D3CA3 /* PlayerSettingsViewController.m */; };
+		489537502F9CA6AC005D3CA3 /* libz.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 4895374F2F9CA6AC005D3CA3 /* libz.dylib */; };
 		48C2CB602F9BB73000A9379F /* UserAgentManager.m in Sources */ = {isa = PBXBuildFile; fileRef = 48C2CB5F2F9BB73000A9379F /* UserAgentManager.m */; };
 		48C2CB632F9BB76900A9379F /* UAManagerViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 48C2CB622F9BB76900A9379F /* UAManagerViewController.m */; };
 		48C2CB662F9BB9E200A9379F /* NetworkManager.m in Sources */ = {isa = PBXBuildFile; fileRef = 48C2CB652F9BB9E200A9379F /* NetworkManager.m */; };
@@ -124,6 +125,7 @@
 		489537472F9C8F8D005D3CA3 /* PlayerEPGView.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = PlayerEPGView.m; sourceTree = "<group>"; };
 		4895374C2F9C9D0D005D3CA3 /* PlayerSettingsViewController.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = PlayerSettingsViewController.h; sourceTree = "<group>"; };
 		4895374D2F9C9D0D005D3CA3 /* PlayerSettingsViewController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = PlayerSettingsViewController.m; sourceTree = "<group>"; };
+		4895374F2F9CA6AC005D3CA3 /* libz.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libz.dylib; path = usr/lib/libz.dylib; sourceTree = SDKROOT; };
 		48C2CB5E2F9BB73000A9379F /* UserAgentManager.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = UserAgentManager.h; path = ../Features/Settings/UserAgentManager.h; sourceTree = "<group>"; };
 		48C2CB5F2F9BB73000A9379F /* UserAgentManager.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = UserAgentManager.m; path = ../Features/Settings/UserAgentManager.m; sourceTree = "<group>"; };
 		48C2CB612F9BB76900A9379F /* UAManagerViewController.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = UAManagerViewController.h; sourceTree = "<group>"; };
@@ -152,6 +154,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				489537502F9CA6AC005D3CA3 /* libz.dylib in Frameworks */,
 				48D63F2B2F97DE1F002AD06E /* CoreGraphics.framework in Frameworks */,
 				48D63F2D2F97DE1F002AD06E /* UIKit.framework in Frameworks */,
 				48D63F292F97DE1F002AD06E /* Foundation.framework in Frameworks */,
@@ -350,6 +353,7 @@
 		48D63F272F97DE1F002AD06E /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				4895374F2F9CA6AC005D3CA3 /* libz.dylib */,
 				48D63F282F97DE1F002AD06E /* Foundation.framework */,
 				48D63F2A2F97DE1F002AD06E /* CoreGraphics.framework */,
 				48D63F2C2F97DE1F002AD06E /* UIKit.framework */,

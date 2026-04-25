@@ -9,6 +9,7 @@
 #import "EPGManager.h"
 #import "EPGParser.h"
 #import "ToastHelper.h" // 引入ToastHelper用于静默提示
+#import <zlib.h>        // 新增：引入 zlib 库用于支持 GZIP 解压
 
 #define kEPGEnabledKey @"ios6_iptv_epg_enabled"
 #define kEPGAutoUpdateKey @"ios6_iptv_epg_auto_update"
@@ -133,6 +134,61 @@
     }
 }
 
+#pragma mark - GZIP 解压支持 (新增)
+
+// 判断数据是否为 GZIP 格式 (通过判断魔数 1F 8B)
+- (BOOL)isGzippedData:(NSData *)data {
+    if (data.length < 2) return NO;
+    const UInt8 *bytes = (const UInt8 *)data.bytes;
+    return (bytes[0] == 0x1f && bytes[1] == 0x8b);
+}
+
+// 解压 GZIP 数据为普通的 XML NSData
+- (NSData *)gunzippedData:(NSData *)data {
+    if (data.length == 0) return data;
+    
+    unsigned full_length = (unsigned)[data length];
+    unsigned half_length = (unsigned)[data length] / 2;
+    
+    NSMutableData *decompressed = [NSMutableData dataWithLength:full_length + half_length];
+    BOOL done = NO;
+    int status;
+    
+    z_stream strm;
+    strm.next_in = (Bytef *)[data bytes];
+    strm.avail_in = (uInt)[data length];
+    strm.total_out = 0;
+    strm.zalloc = Z_NULL;
+    strm.zfree = Z_NULL;
+    
+    // 15 + 32 用于自动检测 zlib 还是 gzip 头部
+    if (inflateInit2(&strm, (15+32)) != Z_OK) return nil;
+    
+    while (!done) {
+        if (strm.total_out >= [decompressed length]) {
+            [decompressed increaseLengthBy:half_length];
+        }
+        strm.next_out = [decompressed mutableBytes] + strm.total_out;
+        strm.avail_out = (uInt)([decompressed length] - strm.total_out);
+        
+        status = inflate(&strm, Z_SYNC_FLUSH);
+        if (status == Z_STREAM_END) {
+            done = YES;
+        } else if (status != Z_OK) {
+            break;
+        }
+    }
+    
+    if (inflateEnd(&strm) != Z_OK) return nil;
+    
+    if (done) {
+        [decompressed setLength:strm.total_out];
+        return [NSData dataWithData:decompressed];
+    } else {
+        return nil;
+    }
+}
+
 #pragma mark - Auto Update Logic
 
 // 检查是否需要更新（判断缓存中最晚的节目结束时间是否小于明天凌晨 0 点）
@@ -187,7 +243,7 @@
     }
     
     dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
-        // 下载 XML 数据
+        // 下载 XML (或 XML.GZ) 数据
         NSError *error = nil;
         NSData *xmlData = [NSData dataWithContentsOfURL:url options:0 error:&error];
         
@@ -198,7 +254,18 @@
             return;
         }
         
-        // 开始解析
+        // 新增：判断是否为 GZIP 压缩数据，如果是则在后台线程进行解压
+        if ([self isGzippedData:xmlData]) {
+            xmlData = [self gunzippedData:xmlData];
+            if (!xmlData || xmlData.length == 0) {
+                dispatch_async(dispatch_get_main_queue(), ^{
+                    if (completion) completion(NO, @"DECOMPRESS_FAILED");
+                });
+                return;
+            }
+        }
+        
+        // 开始解析 (解压后就是标准的 XML 数据)
         NSDictionary *parsedDict = [EPGParser parseEPGXMLData:xmlData];
         
         if (parsedDict && parsedDict.count > 0) {
