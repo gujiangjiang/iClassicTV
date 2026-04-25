@@ -167,7 +167,7 @@
 @end
 // -------------------------------------------------------------
 
-#pragma mark - [新增] 内部类：EPG 定时刷新时间选择控制器
+#pragma mark - 内部类：EPG 定时刷新时间选择控制器
 // -------------------------------------------------------------
 @interface EPGScheduledTimeViewController : UIViewController
 @property (nonatomic, strong) UIDatePicker *datePicker;
@@ -227,7 +227,7 @@
 @interface EPGManagerViewController ()
 @property (nonatomic, strong) UISwitch *epgSwitch;
 @property (nonatomic, strong) UISwitch *autoUpdateSwitch;
-@property (nonatomic, strong) UISwitch *autoExpireSwitch; // [新增]
+@property (nonatomic, strong) UISwitch *autoExpireSwitch;
 @end
 
 @implementation EPGManagerViewController
@@ -258,7 +258,6 @@
     self.autoUpdateSwitch.on = [EPGManager sharedManager].autoUpdateOnLaunch;
     [self.autoUpdateSwitch addTarget:self action:@selector(autoUpdateSwitchChanged:) forControlEvents:UIControlEventValueChanged];
     
-    // [新增] 过期自动刷新 Switch
     self.autoExpireSwitch = [[UISwitch alloc] init];
     self.autoExpireSwitch.on = [EPGManager sharedManager].autoUpdateOnExpire;
     [self.autoExpireSwitch addTarget:self action:@selector(autoExpireSwitchChanged:) forControlEvents:UIControlEventValueChanged];
@@ -279,6 +278,7 @@
     BOOL isEnabled = sender.isOn;
     [EPGManager sharedManager].isEPGEnabled = isEnabled;
     
+    // [优化] 动态源仅加载 2 个子 Section (源设置、界面设置)，非动态源加载 4 个
     BOOL isDynamic = [EPGManager sharedManager].isDynamicEPGSource;
     NSInteger sectionsCount = isDynamic ? 2 : 4;
     NSIndexSet *indexSet = [NSIndexSet indexSetWithIndexesInRange:NSMakeRange(1, sectionsCount)];
@@ -321,7 +321,6 @@
         UIAlertView *resultAlert = [[UIAlertView alloc] initWithTitle:LocalizedString(@"tips") message:msg delegate:nil cancelButtonTitle:LocalizedString(@"confirm") otherButtonTitles:nil];
         [resultAlert show];
         
-        // [新增] 更新成功后刷新列表展示上次更新时间
         if (success) {
             [self.tableView reloadData];
         }
@@ -331,14 +330,18 @@
 #pragma mark - Table view data source
 
 - (NSInteger)numberOfSectionsInTableView:(UITableView *)tableView {
-    return [EPGManager sharedManager].isEPGEnabled ? 5 : 1;
+    // [优化] 如果 EPG 开启，并且是动态源 (DIYP/EPGInfo) 则不显示获取设置和数据管理 (总计 3 组)；否则显示 5 组
+    if (![EPGManager sharedManager].isEPGEnabled) {
+        return 1;
+    }
+    return [EPGManager sharedManager].isDynamicEPGSource ? 3 : 5;
 }
 
 - (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section {
     if (section == 0) return 1;
     if (section == 1) return 1;
     if (section == 2) return 2;
-    if (section == 3) return 3; // [修改] 返回 3 行（新增过期自动刷新和定时更新）
+    if (section == 3) return 3;
     if (section == 4) return 2;
     return 0;
 }
@@ -417,7 +420,6 @@
         }
         
     } else if (indexPath.section == 3) {
-        // [修改] 增加过期刷新和定时更新
         if (indexPath.row == 0) {
             cell.textLabel.text = LocalizedString(@"auto_update_on_launch");
             cell.accessoryView = self.autoUpdateSwitch;
@@ -436,7 +438,6 @@
     } else if (indexPath.section == 4) {
         if (indexPath.row == 0) {
             cell.textLabel.text = LocalizedString(@"force_update_epg");
-            // [新增] 显示上次更新时间
             NSDate *lastTime = [EPGManager sharedManager].lastEPGUpdateTime;
             if (lastTime) {
                 NSDateFormatter *df = [[NSDateFormatter alloc] init];
@@ -468,7 +469,6 @@
             [self.navigationController pushViewController:scrollVC animated:YES];
         }
     } else if (indexPath.section == 3 && indexPath.row == 2) {
-        // [新增] 推入定时刷新时间选择器
         EPGScheduledTimeViewController *vc = [[EPGScheduledTimeViewController alloc] init];
         [self.navigationController pushViewController:vc animated:YES];
     } else if (indexPath.section == 4) {
