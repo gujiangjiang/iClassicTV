@@ -16,6 +16,7 @@
 #import "EPGProgram.h"
 #import "EPGManagerViewController.h"
 #import "NSString+EncodingHelper.h"
+#import <QuartzCore/QuartzCore.h> // [新增] 引入 QuartzCore 用于绘制拟物化边框
 
 @interface TVPlaybackViewController () <TVPlaybackOverlayDelegate, PlayerEPGViewDelegate>
 
@@ -23,6 +24,7 @@
 @property (nonatomic, strong) TVPlaybackOverlayView *overlayView;
 
 @property (nonatomic, strong) UIView *backgroundView;
+@property (nonatomic, strong) UIView *epgContainerView; // [新增] EPG 容器，用于承载边框和装饰
 
 @property (nonatomic, strong) NSTimer *timer;
 @property (nonatomic, assign) BOOL isFullscreen;
@@ -51,7 +53,6 @@
         self.edgesForExtendedLayout = UIRectEdgeNone;
     }
     
-    // [修复] 移除手动创建的左侧按钮，交还给系统接管，这样原生的带有箭头的 back 按钮就会恢复显示
     self.title = self.channelTitle ?: LocalizedString(@"unknown_channel");
     
     self.epgTimeFormatter = [[NSDateFormatter alloc] init];
@@ -69,12 +70,22 @@
     self.backgroundView = [[UIView alloc] initWithFrame:self.view.bounds];
     [self.view addSubview:self.backgroundView];
     
+    // [新增] 初始化 EPG 容器，用于实现 iOS 6 风格的拟物化边框
+    self.epgContainerView = [[UIView alloc] initWithFrame:CGRectZero];
+    self.epgContainerView.backgroundColor = [UIColor whiteColor];
+    // 模拟 iOS 6 的卡片式阴影
+    self.epgContainerView.layer.shadowColor = [UIColor blackColor].CGColor;
+    self.epgContainerView.layer.shadowOffset = CGSizeMake(0, -1);
+    self.epgContainerView.layer.shadowOpacity = 0.2;
+    self.epgContainerView.layer.shadowRadius = 3.0;
+    [self.backgroundView addSubview:self.epgContainerView];
+    
     self.epgView = [[PlayerEPGView alloc] initWithFrame:CGRectZero];
     self.epgView.channelTitle = self.channelTitle;
     self.epgView.tvgName = self.tvgName;
     self.epgView.delegate = self;
     self.epgView.supportsCatchup = (self.catchupSource && self.catchupSource.length > 0);
-    [self.view addSubview:self.epgView];
+    [self.epgContainerView addSubview:self.epgView];
     
     [self.epgView reloadData];
     
@@ -117,7 +128,6 @@
         self.hasSavedOriginalNavState = YES;
     }
     
-    // [优化] 无论何种情况，进入页面时强制设置一次深色导航栏样式
     self.navigationController.navigationBar.barStyle = UIBarStyleBlack;
     BOOL isIOS7 = [[[UIDevice currentDevice] systemVersion] floatValue] >= 7.0;
     
@@ -126,8 +136,6 @@
     
     self.navigationController.navigationBar.translucent = (isLandscape || isIOS7) ? YES : NO;
     
-    // [修复] 核心修复点：针对 iOS 6，从模态页面返回时，手动触发一次状态栏显隐/颜色刷新
-    // 强制调用 setStatusBarHidden 可以让系统重新根据当前导航栏样式计算状态栏颜色，解决“卡在蓝色”的问题
     if (!isIOS7) {
         [[UIApplication sharedApplication] setStatusBarHidden:self.isFullscreen withAnimation:UIStatusBarAnimationNone];
     }
@@ -142,7 +150,6 @@
 - (void)viewWillDisappear:(BOOL)animated {
     [super viewWillDisappear:animated];
     
-    // [修复] 监听系统的返回事件。当用户点击原生左上角返回（导致当前页面即将被移出父控制器）时执行资源清理
     if ([self isMovingFromParentViewController]) {
         [self performCleanupBeforePop];
     }
@@ -156,7 +163,6 @@
     }
 }
 
-// [修复] 专门用于退出前的资源清理和强制竖屏的方法，替代之前的 closePlayer
 - (void)performCleanupBeforePop {
     [[UIApplication sharedApplication] endReceivingRemoteControlEvents];
     [self resignFirstResponder];
@@ -169,7 +175,6 @@
     [self.player stop];
     [[NSNotificationCenter defaultCenter] removeObserver:self];
     
-    // 强制切回竖屏，以免造成上一个页面横屏布局错乱
     [self forceRotateToOrientation:UIInterfaceOrientationPortrait];
 }
 
@@ -189,6 +194,7 @@
         self.backgroundView.frame = self.view.bounds;
         self.backgroundView.backgroundColor = [UIColor blackColor];
         
+        self.epgContainerView.hidden = YES;
         self.epgView.hidden = YES;
         
         if (!isIOS7 && !self.navigationController.navigationBarHidden) {
@@ -202,16 +208,25 @@
         videoFrame = CGRectMake(0, 0, self.view.bounds.size.width, self.view.bounds.size.width * 9.0 / 16.0);
         
         self.backgroundView.frame = self.view.bounds;
-        // [优化] 统一改为纯白色背景，提升无 EPG 时的文字对比度和界面清爽度，告别 iOS6 压抑的灰色
-        self.backgroundView.backgroundColor = [UIColor whiteColor];
+        // [优化] 使用经典的 iOS 6 浅灰纹理色作为底层，让纯白的 EPG 区域更有层次感
+        self.backgroundView.backgroundColor = isIOS7 ? [UIColor groupTableViewBackgroundColor] : [UIColor scrollViewTexturedBackgroundColor];
         
         CGFloat tableY = CGRectGetMaxY(videoFrame);
         CGFloat tableHeight = self.view.bounds.size.height - tableY;
-        self.epgView.frame = CGRectMake(0, tableY, self.view.bounds.size.width, tableHeight);
-        self.epgView.hidden = NO;
         
-        // [优化] 确保 EPG 视图本身的背景也是透明或白色，以匹配父容器
-        self.epgView.backgroundColor = [UIColor clearColor];
+        // [优化] 增加边距，使 EPG 区域看起来像是一个嵌入式的卡片
+        CGFloat padding = 10.0;
+        self.epgContainerView.frame = CGRectMake(padding, tableY + padding, self.view.bounds.size.width - padding * 2, tableHeight - padding * 2);
+        self.epgContainerView.layer.cornerRadius = 8.0;
+        self.epgContainerView.layer.masksToBounds = NO; // 允许阴影显示
+        self.epgContainerView.hidden = NO;
+        
+        // EPG 视图填满容器
+        self.epgView.frame = self.epgContainerView.bounds;
+        self.epgView.layer.cornerRadius = 8.0;
+        self.epgView.layer.masksToBounds = YES;
+        self.epgView.hidden = NO;
+        self.epgView.backgroundColor = [UIColor whiteColor];
     }
     
     self.player.view.frame = videoFrame;
@@ -468,7 +483,6 @@
         [self setNeedsStatusBarAppearanceUpdate];
     }
     
-    // [优化] 无论全屏还是竖屏，始终保持黑色的沉浸式体验
     self.navigationController.navigationBar.barStyle = UIBarStyleBlack;
     BOOL isIOS7 = [[[UIDevice currentDevice] systemVersion] floatValue] >= 7.0;
     self.navigationController.navigationBar.translucent = (isLandscape || isIOS7) ? YES : NO;
