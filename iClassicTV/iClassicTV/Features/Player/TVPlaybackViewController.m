@@ -40,6 +40,7 @@
 
 @property (nonatomic, assign) UIBarStyle originalBarStyle;
 @property (nonatomic, assign) BOOL originalTranslucent;
+@property (nonatomic, assign) UIStatusBarStyle originalStatusBarStyle; // [新增] 记录原有的状态栏样式，用于 iOS 6 修复
 @property (nonatomic, assign) BOOL hasSavedOriginalNavState;
 
 @end
@@ -133,14 +134,19 @@
     [self.epgView reloadData];
     [self updateFullscreenEPGOverlay];
     
+    BOOL isIOS7 = [[[UIDevice currentDevice] systemVersion] floatValue] >= 7.0;
+    
     if (!self.hasSavedOriginalNavState) {
         self.originalBarStyle = self.navigationController.navigationBar.barStyle;
         self.originalTranslucent = self.navigationController.navigationBar.translucent;
+        if (!isIOS7) {
+            // [新增] 保存原本全局的状态栏样式
+            self.originalStatusBarStyle = [[UIApplication sharedApplication] statusBarStyle];
+        }
         self.hasSavedOriginalNavState = YES;
     }
     
     self.navigationController.navigationBar.barStyle = UIBarStyleBlack;
-    BOOL isIOS7 = [[[UIDevice currentDevice] systemVersion] floatValue] >= 7.0;
     
     UIInterfaceOrientation orientation = [UIApplication sharedApplication].statusBarOrientation;
     BOOL isLandscape = UIInterfaceOrientationIsLandscape(orientation);
@@ -149,6 +155,8 @@
     
     if (!isIOS7) {
         [[UIApplication sharedApplication] setStatusBarHidden:self.isFullscreen withAnimation:UIStatusBarAnimationNone];
+        // [修复] 强制将 iOS 6 的状态栏变为黑色，以防从设置页弹回后依然保持蓝色
+        [[UIApplication sharedApplication] setStatusBarStyle:(isLandscape ? UIStatusBarStyleBlackTranslucent : UIStatusBarStyleBlackOpaque) animated:animated];
     }
     
     if (isLandscape) {
@@ -168,6 +176,12 @@
     [self.navigationController setNavigationBarHidden:NO animated:animated];
     self.navigationController.navigationBar.barStyle = self.originalBarStyle;
     self.navigationController.navigationBar.translucent = self.originalTranslucent;
+    
+    BOOL isIOS7 = [[[UIDevice currentDevice] systemVersion] floatValue] >= 7.0;
+    if (!isIOS7) {
+        // [修复] 退出播放页时，还原 iOS 6 之前的状态栏样式
+        [[UIApplication sharedApplication] setStatusBarStyle:self.originalStatusBarStyle animated:animated];
+    }
     
     if (![self respondsToSelector:@selector(setNeedsStatusBarAppearanceUpdate)]) {
         [[UIApplication sharedApplication] setStatusBarHidden:NO withAnimation:UIStatusBarAnimationFade];
