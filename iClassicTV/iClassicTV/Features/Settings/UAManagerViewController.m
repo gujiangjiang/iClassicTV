@@ -133,4 +133,9 @@
     }
 }
 
+// 新增：为左滑删除按钮提供多语言支持
+- (NSString *)tableView:(UITableView *)tableView titleForDeleteConfirmationButtonForRowAtIndexPath:(NSIndexPath *)indexPath {
+    return LocalizedString(@"delete");
+}
+
 @end

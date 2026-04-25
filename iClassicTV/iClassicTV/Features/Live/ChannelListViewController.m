@@ -25,6 +25,55 @@
 
 @implementation CustomNativePlayerViewController
 
+- (void)viewDidLoad {
+    [super viewDidLoad];
+    // 新增：监听播放器状态变化，以便在系统重新布局控制栏时再次执行汉化操作
+    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(localizeSystemDoneButton) name:MPMoviePlayerNowPlayingMovieDidChangeNotification object:nil];
+    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(localizeSystemDoneButton) name:MPMoviePlayerPlaybackStateDidChangeNotification object:nil];
+}
+
+- (void)dealloc {
+    [[NSNotificationCenter defaultCenter] removeObserver:self];
+}
+
+- (void)viewDidAppear:(BOOL)animated {
+    [super viewDidAppear:animated];
+    [self localizeSystemDoneButton];
+}
+
+// 新增：分发到主线程对原生界面的 Done 按钮进行强行多语言替换
+- (void)localizeSystemDoneButton {
+    dispatch_async(dispatch_get_main_queue(), ^{
+        [self traverseAndUpdateDoneButtonInView:self.view];
+    });
+}
+
+// 新增：递归遍历视图层级，寻找并替换文本为 Done 的控件
+- (void)traverseAndUpdateDoneButtonInView:(UIView *)view {
+    if ([view isKindOfClass:[UINavigationBar class]]) {
+        UINavigationBar *navBar = (UINavigationBar *)view;
+        for (UINavigationItem *item in navBar.items) {
+            if ([item.leftBarButtonItem.title isEqualToString:@"Done"]) {
+                item.leftBarButtonItem.title = LocalizedString(@"back");
+            }
+            if ([item.rightBarButtonItem.title isEqualToString:@"Done"]) {
+                item.rightBarButtonItem.title = LocalizedString(@"back");
+            }
+        }
+    }
+    
+    for (UIView *subview in view.subviews) {
+        if ([subview isKindOfClass:[UIButton class]]) {
+            UIButton *btn = (UIButton *)subview;
+            if ([[btn currentTitle] isEqualToString:@"Done"] || [[btn titleForState:UIControlStateNormal] isEqualToString:@"Done"]) {
+                [btn setTitle:LocalizedString(@"back") forState:UIControlStateNormal];
+                [btn setTitle:LocalizedString(@"back") forState:UIControlStateHighlighted];
+            }
+        }
+        [self traverseAndUpdateDoneButtonInView:subview];
+    }
+}
+
 - (BOOL)shouldAutorotate {
     return YES;
 }
