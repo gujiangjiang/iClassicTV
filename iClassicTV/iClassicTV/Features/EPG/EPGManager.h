@@ -19,6 +19,9 @@
 // 打开软件自动静默更新 EPG 开关
 @property (nonatomic, assign) BOOL autoUpdateOnLaunch;
 
+// EPG 节目单使用的时区（默认跟随设备系统时区）
+@property (nonatomic, strong) NSTimeZone *epgTimeZone;
+
 // 当前获取的 EPG 接口 URL（动态计算当前活跃的接口）
 @property (nonatomic, readonly, copy) NSString *epgSourceURL;
 

@@ -15,6 +15,7 @@
 #define kEPGEnabledKey @"ios6_iptv_epg_enabled"
 #define kEPGAutoUpdateKey @"ios6_iptv_epg_auto_update"
 #define kEPGSourcesKey @"ios6_iptv_epg_sources_list"
+#define kEPGTimeZoneNameKey @"ios6_iptv_epg_timezone_name"
 
 @interface EPGManager ()
 @property (nonatomic, strong) NSDictionary *epgCacheDict;
@@ -58,6 +59,28 @@
 
 - (void)setAutoUpdateOnLaunch:(BOOL)autoUpdateOnLaunch {
     [[NSUserDefaults standardUserDefaults] setBool:autoUpdateOnLaunch forKey:kEPGAutoUpdateKey];
+    [[NSUserDefaults standardUserDefaults] synchronize];
+}
+
+- (NSTimeZone *)epgTimeZone {
+    NSString *tzName = [[NSUserDefaults standardUserDefaults] stringForKey:kEPGTimeZoneNameKey];
+    if (tzName && tzName.length > 0) {
+        if ([tzName isEqualToString:@"System"]) {
+            return [NSTimeZone localTimeZone];
+        }
+        NSTimeZone *tz = [NSTimeZone timeZoneWithName:tzName];
+        if (tz) return tz;
+    }
+    // 默认跟随设备时区
+    return [NSTimeZone localTimeZone];
+}
+
+- (void)setEpgTimeZone:(NSTimeZone *)epgTimeZone {
+    if (!epgTimeZone) {
+        [[NSUserDefaults standardUserDefaults] setObject:@"System" forKey:kEPGTimeZoneNameKey];
+    } else {
+        [[NSUserDefaults standardUserDefaults] setObject:epgTimeZone.name forKey:kEPGTimeZoneNameKey];
+    }
     [[NSUserDefaults standardUserDefaults] synchronize];
 }
 
@@ -272,8 +295,8 @@
         }
     }
     NSCalendar *calendar = [NSCalendar currentCalendar];
-    // 修复：计算“明日凌晨”时强行锁定为东八区，避免跨时区导致更新逻辑误判
-    [calendar setTimeZone:[NSTimeZone timeZoneForSecondsFromGMT:8 * 3600]];
+    // 优化：计算“明日凌晨”时使用用户配置的 EPG 时区，避免跨时区导致更新逻辑误判
+    [calendar setTimeZone:self.epgTimeZone];
     NSDateComponents *components = [calendar components:(NSYearCalendarUnit | NSMonthCalendarUnit | NSDayCalendarUnit) fromDate:[NSDate date]];
     components.day += 1;
     NSDate *tomorrowMidnight = [calendar dateFromComponents:components];
@@ -431,9 +454,9 @@
         return;
     }
     
-    // 修复：发起请求时，日期的计算必须严格采用东八区，否则在美国晚上发起请求可能拉到错误日期的节目单
+    // 优化：发起请求时，日期的计算必须严格采用配置的时区
     NSDateFormatter *df = [[NSDateFormatter alloc] init];
-    [df setTimeZone:[NSTimeZone timeZoneForSecondsFromGMT:8 * 3600]];
+    [df setTimeZone:self.epgTimeZone];
     [df setDateFormat:@"yyyy-MM-dd"];
     NSString *dateStr = [df stringFromDate:date];
     NSString *encodedChannel = [channelName stringByAddingPercentEscapesUsingEncoding:NSUTF8StringEncoding];
@@ -473,8 +496,8 @@
         
         NSMutableArray *programs = [NSMutableArray array];
         
-        // 修复：解析返回数据时，强行让 Formatter 将文本认定为东八区的时间，转换为绝对时间戳
-        NSTimeZone *cstZone = [NSTimeZone timeZoneForSecondsFromGMT:8 * 3600];
+        // 优化：解析返回数据时，强行让 Formatter 将文本认定为配置的时区时间，转换为绝对时间戳
+        NSTimeZone *cstZone = self.epgTimeZone;
         NSDateFormatter *timeFormatter = [[NSDateFormatter alloc] init];
         [timeFormatter setTimeZone:cstZone];
         [timeFormatter setDateFormat:@"yyyy-MM-dd HH:mm"];

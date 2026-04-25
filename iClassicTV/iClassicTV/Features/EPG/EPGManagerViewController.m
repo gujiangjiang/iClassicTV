@@ -11,6 +11,104 @@
 #import "EPGSourceListViewController.h"
 #import "LanguageManager.h"
 
+#pragma mark - 内部新增类：EPG 时区选择控制器
+// -------------------------------------------------------------
+@interface EPGTimeZoneListViewController : UITableViewController
+@property (nonatomic, strong) NSArray *timeZones;
+@property (nonatomic, copy) NSString *selectedTimeZoneName;
+@end
+
+@implementation EPGTimeZoneListViewController
+
+- (void)viewDidLoad {
+    [super viewDidLoad];
+    self.title = @"EPG 时区";
+    
+    // 生成从 GMT-12 到 GMT+14 的时区列表，把跟随系统默认放在首位
+    NSMutableArray *arr = [NSMutableArray array];
+    [arr addObject:@"System"];
+    for (NSInteger i = -12; i <= 14; i++) {
+        NSString *sign = i >= 0 ? @"+" : @"-";
+        NSString *tzName = [NSString stringWithFormat:@"GMT%@%02ld00", sign, (long)ABS(i)];
+        [arr addObject:tzName];
+    }
+    self.timeZones = [arr copy];
+    
+    self.selectedTimeZoneName = [[NSUserDefaults standardUserDefaults] stringForKey:@"ios6_iptv_epg_timezone_name"];
+    if (self.selectedTimeZoneName.length == 0) {
+        self.selectedTimeZoneName = @"System";
+    }
+}
+
+- (void)viewWillAppear:(BOOL)animated {
+    [super viewWillAppear:animated];
+    NSUInteger index = [self.timeZones indexOfObject:self.selectedTimeZoneName];
+    if (index != NSNotFound) {
+        [self.tableView scrollToRowAtIndexPath:[NSIndexPath indexPathForRow:index inSection:0] atScrollPosition:UITableViewScrollPositionMiddle animated:NO];
+    }
+}
+
+- (NSInteger)numberOfSectionsInTableView:(UITableView *)tableView {
+    return 1;
+}
+
+- (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section {
+    return self.timeZones.count;
+}
+
+- (UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath {
+    static NSString *cellId = @"TZCell";
+    UITableViewCell *cell = [tableView dequeueReusableCellWithIdentifier:cellId];
+    if (!cell) {
+        cell = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleDefault reuseIdentifier:cellId];
+    }
+    
+    NSString *tz = self.timeZones[indexPath.row];
+    if ([tz isEqualToString:@"System"]) {
+        cell.textLabel.text = @"跟随设备默认时区";
+    } else {
+        if ([tz hasPrefix:@"GMT"] && tz.length == 8) {
+            NSString *sign = [tz substringWithRange:NSMakeRange(3, 1)];
+            NSString *hour = [tz substringWithRange:NSMakeRange(4, 2)];
+            NSString *min = [tz substringWithRange:NSMakeRange(6, 2)];
+            cell.textLabel.text = [NSString stringWithFormat:@"GMT%@%@:%@", sign, hour, min];
+        } else {
+            cell.textLabel.text = tz;
+        }
+    }
+    
+    if ([tz isEqualToString:self.selectedTimeZoneName]) {
+        cell.accessoryType = UITableViewCellAccessoryCheckmark;
+        cell.textLabel.textColor = [UIColor colorWithRed:0.0 green:0.478 blue:1.0 alpha:1.0];
+    } else {
+        cell.accessoryType = UITableViewCellAccessoryNone;
+        cell.textLabel.textColor = [UIColor blackColor];
+    }
+    
+    return cell;
+}
+
+- (void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath {
+    [tableView deselectRowAtIndexPath:indexPath animated:YES];
+    NSString *tz = self.timeZones[indexPath.row];
+    self.selectedTimeZoneName = tz;
+    
+    if ([tz isEqualToString:@"System"]) {
+        [EPGManager sharedManager].epgTimeZone = nil;
+    } else {
+        [EPGManager sharedManager].epgTimeZone = [NSTimeZone timeZoneWithName:tz];
+    }
+    
+    [self.tableView reloadData];
+    [self.navigationController popViewControllerAnimated:YES];
+}
+
+@end
+// -------------------------------------------------------------
+
+
+#pragma mark - EPGManagerViewController 主类实现
+
 @interface EPGManagerViewController ()
 @property (nonatomic, strong) UISwitch *epgSwitch;
 @property (nonatomic, strong) UISwitch *autoUpdateSwitch;
@@ -62,8 +160,9 @@
     BOOL isEnabled = sender.isOn;
     [EPGManager sharedManager].isEPGEnabled = isEnabled;
     
+    // 优化：修改动态插入的 section 数量，以适配新增的时区选项
     BOOL isDynamic = [EPGManager sharedManager].isDynamicEPGSource;
-    NSInteger sectionsCount = isDynamic ? 1 : 3;
+    NSInteger sectionsCount = isDynamic ? 2 : 4;
     NSIndexSet *indexSet = [NSIndexSet indexSetWithIndexesInRange:NSMakeRange(1, sectionsCount)];
     
     [self.tableView beginUpdates];
@@ -105,27 +204,32 @@
 #pragma mark - Table view data source
 
 - (NSInteger)numberOfSectionsInTableView:(UITableView *)tableView {
-    return [EPGManager sharedManager].isEPGEnabled ? 4 : 1;
+    // 优化：返回对应的 section 数（增加了一个时区选项 section）
+    return [EPGManager sharedManager].isEPGEnabled ? 5 : 1;
 }
 
 - (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section {
     if (section == 0) return 1;
     if (section == 1) return 1;
-    if (section == 2) return 1;
-    if (section == 3) return 2;
+    if (section == 2) return 1; // 新增的时区选项
+    if (section == 3) return 1; // 原自动更新设置
+    if (section == 4) return 2; // 原数据管理
     return 0;
 }
 
 - (NSString *)tableView:(UITableView *)tableView titleForHeaderInSection:(NSInteger)section {
     if (section == 1) return LocalizedString(@"epg_source_settings");
-    if (section == 2) return LocalizedString(@"epg_fetch_settings");
-    if (section == 3) return LocalizedString(@"data_management");
+    if (section == 2) return @"EPG 时区设置"; // 使用默认中文标识
+    if (section == 3) return LocalizedString(@"epg_fetch_settings");
+    if (section == 4) return LocalizedString(@"data_management");
     return nil;
 }
 
 - (NSString *)tableView:(UITableView *)tableView titleForFooterInSection:(NSInteger)section {
     if (section == 0) return LocalizedString(@"epg_switch_footer");
-    if (section == 2) return LocalizedString(@"epg_auto_update_footer");
+    // 新增：针对时区设置添加详细解释说明
+    if (section == 2) return @"默认跟随设备所在时区。如果您的直播源节目单对应其他时区（如中国源通常为东八区），可手动指定以确保时间匹配。";
+    if (section == 3) return LocalizedString(@"epg_auto_update_footer");
     return nil;
 }
 
@@ -160,11 +264,29 @@
         cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
         
     } else if (indexPath.section == 2) {
+        // 新增：时区展示和格式化
+        cell.textLabel.text = @"EPG 时区";
+        NSString *tzName = [[NSUserDefaults standardUserDefaults] stringForKey:@"ios6_iptv_epg_timezone_name"];
+        if (!tzName || tzName.length == 0 || [tzName isEqualToString:@"System"]) {
+            cell.detailTextLabel.text = @"跟随设备默认";
+        } else {
+            if ([tzName hasPrefix:@"GMT"] && tzName.length == 8) {
+                NSString *sign = [tzName substringWithRange:NSMakeRange(3, 1)];
+                NSString *hour = [tzName substringWithRange:NSMakeRange(4, 2)];
+                NSString *min = [tzName substringWithRange:NSMakeRange(6, 2)];
+                cell.detailTextLabel.text = [NSString stringWithFormat:@"GMT%@%@:%@", sign, hour, min];
+            } else {
+                cell.detailTextLabel.text = tzName;
+            }
+        }
+        cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
+        
+    } else if (indexPath.section == 3) {
         cell.textLabel.text = LocalizedString(@"auto_update_on_launch");
         cell.accessoryView = self.autoUpdateSwitch;
         cell.selectionStyle = UITableViewCellSelectionStyleNone;
         
-    } else if (indexPath.section == 3) {
+    } else if (indexPath.section == 4) {
         if (indexPath.row == 0) {
             cell.textLabel.text = LocalizedString(@"force_update_epg");
         } else {
@@ -181,7 +303,11 @@
     if (indexPath.section == 1) {
         EPGSourceListViewController *listVC = [[EPGSourceListViewController alloc] initWithStyle:UITableViewStyleGrouped];
         [self.navigationController pushViewController:listVC animated:YES];
-    } else if (indexPath.section == 3) {
+    } else if (indexPath.section == 2) {
+        // 新增：点击跳转到时区选择列表页面
+        EPGTimeZoneListViewController *tzVC = [[EPGTimeZoneListViewController alloc] initWithStyle:UITableViewStyleGrouped];
+        [self.navigationController pushViewController:tzVC animated:YES];
+    } else if (indexPath.section == 4) {
         if (indexPath.row == 0) {
             [self fetchEPGData];
         } else if (indexPath.row == 1) {

@@ -42,9 +42,9 @@
         self.backgroundColor = [UIColor clearColor];
         self.isIOS7 = [[[UIDevice currentDevice] systemVersion] floatValue] >= 7.0;
         
-        // 修复：让列表展示时间时也严格遵循东八区
+        // 优化：让列表展示时间时严格遵循配置的时区
         self.timeFormatter = [[NSDateFormatter alloc] init];
-        [self.timeFormatter setTimeZone:[NSTimeZone timeZoneForSecondsFromGMT:8 * 3600]];
+        [self.timeFormatter setTimeZone:[EPGManager sharedManager].epgTimeZone];
         [self.timeFormatter setDateFormat:@"HH:mm"];
         
         self.dateButtons = [NSMutableArray array];
@@ -303,10 +303,10 @@
     }
 }
 
-// 修复：提取日期时，将比较轴设定为东八区，否则在别的国家午夜使用会跨天导致数据错乱
+// 优化：提取日期时，将比较轴设定为配置的时区，避免跨天导致数据错乱
 - (NSDate *)startOfDayForDate:(NSDate *)date {
     NSCalendar *calendar = [NSCalendar currentCalendar];
-    [calendar setTimeZone:[NSTimeZone timeZoneForSecondsFromGMT:8 * 3600]];
+    [calendar setTimeZone:[EPGManager sharedManager].epgTimeZone];
     NSDateComponents *components = [calendar components:(NSYearCalendarUnit | NSMonthCalendarUnit | NSDayCalendarUnit) fromDate:date];
     return [calendar dateFromComponents:components];
 }
@@ -321,9 +321,9 @@
     if (days == 2) return LocalizedString(@"day_after_tomorrow");
     if (days == -1) return LocalizedString(@"yesterday");
     
-    // 同样，这里的显示也需要指定为东八区
+    // 同样，这里的显示也需要指定为配置的时区
     NSDateFormatter *df = [[NSDateFormatter alloc] init];
-    [df setTimeZone:[NSTimeZone timeZoneForSecondsFromGMT:8 * 3600]];
+    [df setTimeZone:[EPGManager sharedManager].epgTimeZone];
     [df setDateFormat:@"MM-dd"];
     return [df stringFromDate:date];
 }
