@@ -22,7 +22,6 @@
 @property (nonatomic, strong) MPMoviePlayerController *player;
 @property (nonatomic, strong) TVPlaybackOverlayView *overlayView;
 
-@property (nonatomic, strong) UINavigationBar *navBar;
 @property (nonatomic, strong) UIView *backgroundView;
 
 @property (nonatomic, strong) NSTimer *timer;
@@ -43,6 +42,16 @@
 - (void)viewDidLoad {
     [super viewDidLoad];
     self.view.backgroundColor = [UIColor blackColor];
+    
+    // [修复] 适配 iOS7+ 下导航栏的边缘扩展，统一设置保证视频始终紧贴着导航栏下方显示，避免布局漂移
+    if ([self respondsToSelector:@selector(setEdgesForExtendedLayout:)]) {
+        self.edgesForExtendedLayout = UIRectEdgeNone;
+    }
+    
+    // [修复] 直接使用系统的标题和返回按钮，不再手动绘制假导航栏
+    self.title = self.channelTitle ?: LocalizedString(@"unknown_channel");
+    UIBarButtonItem *backItem = [[UIBarButtonItem alloc] initWithTitle:LocalizedString(@"back") style:UIBarButtonItemStyleBordered target:self action:@selector(closePlayer)];
+    self.navigationItem.leftBarButtonItem = backItem;
     
     // 优化：确保全屏悬浮的节目单时间展示也使用配置的时区，对齐实际数据
     self.epgTimeFormatter = [[NSDateFormatter alloc] init];
@@ -85,13 +94,6 @@
     self.overlayView.delegate = self;
     [self.view addSubview:self.overlayView];
     
-    self.navBar = [[UINavigationBar alloc] initWithFrame:CGRectZero];
-    UINavigationItem *navItem = [[UINavigationItem alloc] initWithTitle:self.channelTitle ?: LocalizedString(@"unknown_channel")];
-    UIBarButtonItem *backItem = [[UIBarButtonItem alloc] initWithTitle:LocalizedString(@"back") style:UIBarButtonItemStyleBordered target:self action:@selector(closePlayer)];
-    navItem.leftBarButtonItem = backItem;
-    [self.navBar pushNavigationItem:navItem animated:NO];
-    [self.view addSubview:self.navBar];
-    
     [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(playbackStateChanged) name:MPMoviePlayerPlaybackStateDidChangeNotification object:self.player];
     [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(loadStateChanged) name:MPMoviePlayerLoadStateDidChangeNotification object:self.player];
     [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(mediaTypesAvailable) name:MPMovieMediaTypesAvailableNotification object:self.player];
@@ -110,6 +112,15 @@
     [super viewWillAppear:animated];
     [self.epgView reloadData];
     [self updateFullscreenEPGOverlay];
+    
+    // [修复] 确保进入页面时系统导航栏处于正常显示状态
+    [self.navigationController setNavigationBarHidden:NO animated:animated];
+}
+
+- (void)viewWillDisappear:(BOOL)animated {
+    [super viewWillDisappear:animated];
+    // [修复] 确保离开页面时恢复导航栏的显示，防止全屏状态下返回导致上一级页面导航栏也消失
+    [self.navigationController setNavigationBarHidden:NO animated:animated];
 }
 
 - (void)viewWillLayoutSubviews {
@@ -121,42 +132,26 @@
     [self.overlayView.bottomBar updateFullscreenButtonState:self.isFullscreen];
     
     CGRect videoFrame;
-    BOOL isIOS7 = [[[UIDevice currentDevice] systemVersion] floatValue] >= 7.0;
     
     if (self.isFullscreen) {
+        // [修复] 全屏模式下，此时由于系统的导航栏已被我们隐藏，整个 bounds 都是干净的显示区域
         videoFrame = self.view.bounds;
         self.backgroundView.frame = self.view.bounds;
         self.backgroundView.backgroundColor = [UIColor blackColor];
         
         self.epgView.hidden = YES;
-        self.navBar.frame = CGRectMake(0, 0, self.view.bounds.size.width, 44);
-        self.navBar.barStyle = UIBarStyleBlack;
     } else {
-        CGFloat topBarHeight = isIOS7 ? 64.0 : 44.0;
-        CGFloat videoHeight = self.view.bounds.size.width * 9.0 / 16.0;
-        videoFrame = CGRectMake(0, topBarHeight, self.view.bounds.size.width, videoHeight);
+        // [修复] 竖屏模式下，受 edgesForExtendedLayout = None 影响，y=0 直接从导航栏下方开始，布局极其干净且兼容性极佳
+        videoFrame = CGRectMake(0, 0, self.view.bounds.size.width, self.view.bounds.size.width * 9.0 / 16.0);
         
         self.backgroundView.frame = self.view.bounds;
+        BOOL isIOS7 = [[[UIDevice currentDevice] systemVersion] floatValue] >= 7.0;
         self.backgroundView.backgroundColor = isIOS7 ? [UIColor groupTableViewBackgroundColor] : [UIColor scrollViewTexturedBackgroundColor];
         
         CGFloat tableY = CGRectGetMaxY(videoFrame);
         CGFloat tableHeight = self.view.bounds.size.height - tableY;
         self.epgView.frame = CGRectMake(0, tableY, self.view.bounds.size.width, tableHeight);
         self.epgView.hidden = NO;
-        
-        if (isIOS7) {
-            self.navBar.frame = CGRectMake(0, 0, self.view.bounds.size.width, 64);
-            self.navBar.barStyle = UIBarStyleDefault;
-        } else {
-            self.navBar.frame = CGRectMake(0, 0, self.view.bounds.size.width, 44);
-            self.navBar.barStyle = UIBarStyleBlack;
-        }
-    }
-    
-    if (self.overlayView.isLocked) {
-        self.navBar.alpha = 0.0;
-    } else {
-        self.navBar.alpha = (!self.isFullscreen) ? 1.0 : (self.isControlsHidden ? 0.0 : 1.0);
     }
     
     self.player.view.frame = videoFrame;
@@ -296,13 +291,14 @@
 - (void)overlayControlsHiddenDidChange:(BOOL)isHidden {
     self.isControlsHidden = isHidden;
     
-    [UIView animateWithDuration:0.3 animations:^{
-        if (self.overlayView.isLocked) {
-            self.navBar.alpha = 0.0;
-        } else {
-            self.navBar.alpha = (!self.isFullscreen) ? 1.0 : (isHidden ? 0.0 : 1.0);
-        }
-    }];
+    // [修复] 根据控制层状态，无缝利用系统 NavigationBar 做顶部控制栏（带有标题和返回键）
+    if (self.overlayView.isLocked) {
+        [self.navigationController setNavigationBarHidden:YES animated:YES];
+    } else {
+        // 只有在全屏模式下才动态隐藏系统导航栏，竖屏下始终保持显示
+        BOOL shouldHide = self.isFullscreen ? isHidden : NO;
+        [self.navigationController setNavigationBarHidden:shouldHide animated:YES];
+    }
     
     if ([self respondsToSelector:@selector(setNeedsStatusBarAppearanceUpdate)]) {
         [self setNeedsStatusBarAppearanceUpdate];
@@ -411,8 +407,11 @@
     [self.player stop];
     [[NSNotificationCenter defaultCenter] removeObserver:self];
     
+    // 确保返回前强制切回竖屏，以免造成上一个页面横屏布局错乱
     [self forceRotateToOrientation:UIInterfaceOrientationPortrait];
-    [self dismissViewControllerAnimated:YES completion:nil];
+    
+    // [修复] 由于现在使用的是 NavigationController 推入的方式，所以改为使用 popViewController 返回
+    [self.navigationController popViewControllerAnimated:YES];
 }
 
 - (BOOL)shouldAutorotate { return YES; }
