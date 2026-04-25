@@ -29,7 +29,7 @@
     
     self.title = @"EPG 节目单管理";
     
-    // 新增：判断当前控制器是否为导航控制器的根控制器（即通过 present 方式模态弹出），如果是则添加关闭按钮
+    // 判断当前控制器是否为导航控制器的根控制器（即通过 present 方式模态弹出），如果是则添加关闭按钮
     if (self.navigationController.viewControllers.firstObject == self) {
         UIBarButtonItem *closeItem = [[UIBarButtonItem alloc] initWithTitle:@"关闭" style:UIBarButtonItemStyleBordered target:self action:@selector(closeSettings)];
         self.navigationItem.leftBarButtonItem = closeItem;
@@ -53,7 +53,7 @@
 
 #pragma mark - Actions
 
-// 新增：关闭当前设置页面的方法，返回播放界面
+// 关闭当前设置页面的方法，返回播放界面
 - (void)closeSettings {
     [self dismissViewControllerAnimated:YES completion:nil];
 }
@@ -63,8 +63,10 @@
     BOOL isEnabled = sender.isOn;
     [EPGManager sharedManager].isEPGEnabled = isEnabled;
     
-    // 修复：当增删 Section 时，必须使用 insertSections 和 deleteSections，否则会导致数据源与 UI 不匹配崩溃
-    NSIndexSet *indexSet = [NSIndexSet indexSetWithIndexesInRange:NSMakeRange(1, 3)];
+    // 优化：计算需要插入或删除的区块数量，如果是动态源，则只显示源管理，不显示后续刷新缓存设置
+    BOOL isDynamic = [EPGManager sharedManager].isDynamicEPGSource;
+    NSInteger sectionsCount = isDynamic ? 1 : 3;
+    NSIndexSet *indexSet = [NSIndexSet indexSetWithIndexesInRange:NSMakeRange(1, sectionsCount)];
     
     [self.tableView beginUpdates];
     if (isEnabled) {
@@ -109,8 +111,10 @@
 #pragma mark - Table view data source
 
 - (NSInteger)numberOfSectionsInTableView:(UITableView *)tableView {
-    // 优化：如果未开启 EPG 功能，则只显示开关组，隐藏剩余 3 组
-    return [EPGManager sharedManager].isEPGEnabled ? 4 : 1;
+    // 优化：动态源直接按需获取，不需要缓存/立即刷新功能区块
+    if (![EPGManager sharedManager].isEPGEnabled) return 1;
+    if ([EPGManager sharedManager].isDynamicEPGSource) return 2;
+    return 4;
 }
 
 - (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section {
@@ -130,7 +134,6 @@
 
 - (NSString *)tableView:(UITableView *)tableView titleForFooterInSection:(NSInteger)section {
     if (section == 0) {
-        // 修复：取消动态显隐判断，始终显示这段文字，彻底解决开关动画导致的 UI 重叠错乱 Bug
         return @"开启后，播放界面将显示近几天的节目单列表。";
     }
     if (section == 2) {

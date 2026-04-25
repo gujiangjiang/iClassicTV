@@ -8,9 +8,10 @@
 
 #import "EPGSourceListViewController.h"
 #import "EPGManager.h"
-#import "AlertHelper.h" // 新增：引入提取好的弹窗模块
+#import "AlertHelper.h"
 
-@interface EPGSourceListViewController ()
+// 新增：引入 UIActionSheetDelegate 以选择接口类型
+@interface EPGSourceListViewController () <UIActionSheetDelegate>
 
 @property (nonatomic, assign) NSInteger editingIndex;
 
@@ -38,20 +39,10 @@
 #pragma mark - Actions
 
 - (void)addButtonTapped {
-    // 优化：调用封装好的公共双输入框模块，摆脱冗余的 Delegate 实现
-    __weak typeof(self) weakSelf = self;
-    [AlertHelper showDoubleInputAlertWithTitle:@"添加 EPG"
-                                       message:@"请输入 EPG 接口名称和链接"
-                               namePlaceholder:@"名称 (留空默认为当前时间)"
-                            contentPlaceholder:@"http://..."
-                                      nameText:nil
-                                   contentText:nil
-                                  keyboardType:UIKeyboardTypeURL
-                                  confirmTitle:@"保存"
-                                   cancelTitle:@"取消"
-                                  confirmBlock:^(NSString *name, NSString *content) {
-                                      [weakSelf handleSaveEPGWithName:name url:content isEditing:NO];
-                                  } cancelBlock:nil];
+    // 优化：先让用户选择添加的 EPG 接口类型
+    UIActionSheet *sheet = [[UIActionSheet alloc] initWithTitle:@"选择接口类型" delegate:self cancelButtonTitle:@"取消" destructiveButtonTitle:nil otherButtonTitles:@"XML 压缩包 (全局下载)", @"DIYP 接口 (按需动态)", @"EPGInfo 接口 (按需动态)", nil];
+    sheet.tag = 100;
+    [sheet showInView:self.view];
 }
 
 - (void)handleLongPress:(UILongPressGestureRecognizer *)gesture {
@@ -60,29 +51,47 @@
         NSIndexPath *indexPath = [self.tableView indexPathForRowAtPoint:point];
         if (indexPath) {
             self.editingIndex = indexPath.row;
-            NSArray *sources = [EPGManager sharedManager].epgSources;
-            NSDictionary *source = sources[indexPath.row];
-            
-            // 优化：复用统一模块
-            __weak typeof(self) weakSelf = self;
-            [AlertHelper showDoubleInputAlertWithTitle:@"修改 EPG"
-                                               message:@"请输入新的名称和链接"
-                                       namePlaceholder:@"名称 (留空默认为当前时间)"
-                                    contentPlaceholder:@"http://..."
-                                              nameText:source[@"name"]
-                                           contentText:source[@"url"]
-                                          keyboardType:UIKeyboardTypeURL
-                                          confirmTitle:@"保存"
-                                           cancelTitle:@"取消"
-                                          confirmBlock:^(NSString *name, NSString *content) {
-                                              [weakSelf handleSaveEPGWithName:name url:content isEditing:YES];
-                                          } cancelBlock:nil];
+            // 优化：编辑时同样也支持选择接口类型
+            UIActionSheet *sheet = [[UIActionSheet alloc] initWithTitle:@"修改接口类型" delegate:self cancelButtonTitle:@"取消" destructiveButtonTitle:nil otherButtonTitles:@"XML 压缩包 (全局下载)", @"DIYP 接口 (按需动态)", @"EPGInfo 接口 (按需动态)", nil];
+            sheet.tag = 101;
+            [sheet showInView:self.view];
         }
     }
 }
 
+#pragma mark - UIActionSheet Delegate
+
+- (void)actionSheet:(UIActionSheet *)actionSheet clickedButtonAtIndex:(NSInteger)buttonIndex {
+    if (buttonIndex == actionSheet.cancelButtonIndex) return;
+    
+    NSString *type = @"xml";
+    if (buttonIndex == 1) type = @"diyp";
+    else if (buttonIndex == 2) type = @"epginfo";
+    
+    BOOL isEditing = (actionSheet.tag == 101);
+    NSDictionary *source = isEditing ? [EPGManager sharedManager].epgSources[self.editingIndex] : nil;
+    
+    __weak typeof(self) weakSelf = self;
+    
+    // 延迟弹出 Alert 保证界面流转顺滑
+    dispatch_async(dispatch_get_main_queue(), ^{
+        [AlertHelper showDoubleInputAlertWithTitle:isEditing ? @"修改 EPG" : @"添加 EPG"
+                                           message:@"请输入 EPG 接口名称和链接"
+                                   namePlaceholder:@"名称 (留空默认为当前时间)"
+                                contentPlaceholder:@"http://..."
+                                          nameText:source[@"name"]
+                                       contentText:source[@"url"]
+                                      keyboardType:UIKeyboardTypeURL
+                                      confirmTitle:@"保存"
+                                       cancelTitle:@"取消"
+                                      confirmBlock:^(NSString *name, NSString *content) {
+                                          [weakSelf handleSaveEPGWithName:name url:content type:type isEditing:isEditing];
+                                      } cancelBlock:nil];
+    });
+}
+
 // 统一的 EPG 保存/更新处理逻辑
-- (void)handleSaveEPGWithName:(NSString *)name url:(NSString *)url isEditing:(BOOL)isEditing {
+- (void)handleSaveEPGWithName:(NSString *)name url:(NSString *)url type:(NSString *)type isEditing:(BOOL)isEditing {
     NSString *nameText = [name stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
     NSString *urlText = [url stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
     
@@ -92,7 +101,7 @@
         return;
     }
     
-    // 优化：若名称留空，按要求默认设置为当前时间
+    // 若名称留空，按要求默认设置为当前时间
     if (nameText.length == 0) {
         NSDateFormatter *df = [[NSDateFormatter alloc] init];
         [df setDateFormat:@"yyyy-MM-dd HH:mm:ss"];
@@ -100,9 +109,9 @@
     }
     
     if (isEditing) {
-        [[EPGManager sharedManager] renameEPGSourceAtIndex:self.editingIndex withName:nameText url:urlText];
+        [[EPGManager sharedManager] renameEPGSourceAtIndex:self.editingIndex withName:nameText url:urlText type:type];
     } else {
-        [[EPGManager sharedManager] addEPGSourceWithName:nameText url:urlText];
+        [[EPGManager sharedManager] addEPGSourceWithName:nameText url:urlText type:type];
     }
     
     [self.tableView reloadData];
@@ -133,7 +142,14 @@
     NSDictionary *source = sources[indexPath.row];
     
     cell.textLabel.text = source[@"name"];
-    cell.detailTextLabel.text = source[@"url"];
+    
+    // 优化：右下角直接标识出源的类型，方便用户区分
+    NSString *type = source[@"type"];
+    NSString *typeDesc = @"XML";
+    if ([type isEqualToString:@"diyp"]) typeDesc = @"DIYP";
+    else if ([type isEqualToString:@"epginfo"]) typeDesc = @"EPGInfo";
+    
+    cell.detailTextLabel.text = [NSString stringWithFormat:@"[%@] %@", typeDesc, source[@"url"]];
     
     // 高亮当前选中的源
     if ([source[@"isActive"] boolValue]) {
