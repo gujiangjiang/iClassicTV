@@ -303,9 +303,8 @@
                 self.sources = [[AppDataManager sharedManager] getAllSources];
                 [ToastHelper showToastWithMessage:LocalizedString(@"refresh_success")];
             } else {
-                // 优化：删除了原本独立的 error，直接复用了合并后的 sync_failed
-                UIAlertView *alert = [[UIAlertView alloc] initWithTitle:LocalizedString(@"sync_failed") message:LocalizedString(@"refresh_failed") delegate:nil cancelButtonTitle:LocalizedString(@"confirm") otherButtonTitles:nil];
-                [alert show];
+                // 优化：将与 HUD 动画可能发生冲突的原生 UIAlertView 改为更平滑的 Toast 提示
+                [ToastHelper showToastWithMessage:LocalizedString(@"refresh_failed")];
             }
         });
     });

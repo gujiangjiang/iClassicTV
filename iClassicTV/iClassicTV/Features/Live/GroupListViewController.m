@@ -15,6 +15,7 @@
 #import "NetworkManager.h"
 #import "UIViewController+ScrollToTop.h"
 #import "LanguageManager.h"
+#import "ToastHelper.h" // 新增：引入 ToastHelper 用于刷新状态提示
 
 @implementation GroupListViewController
 
@@ -143,10 +144,12 @@
                 
                 if (activeIndex != NSNotFound) {
                     [[AppDataManager sharedManager] updateSourceContentAtIndex:activeIndex withContent:m3uData];
+                    // 优化：在此处统一补上刷新成功的 Toast 提示
+                    [ToastHelper showToastWithMessage:LocalizedString(@"refresh_success")];
                 }
             } else {
-                UIAlertView *alert = [[UIAlertView alloc] initWithTitle:LocalizedString(@"sync_failed") message:LocalizedString(@"sync_failed_msg") delegate:nil cancelButtonTitle:LocalizedString(@"confirm") otherButtonTitles:nil];
-                [alert show];
+                // 优化：将原本可能因为和 HUD 冲突被吞掉的原生弹窗改为 Toast 提示
+                [ToastHelper showToastWithMessage:LocalizedString(@"refresh_failed")];
             }
         });
     });
