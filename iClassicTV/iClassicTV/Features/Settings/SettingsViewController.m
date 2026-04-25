@@ -14,6 +14,7 @@
 #import "UIViewController+ScrollToTop.h"
 #import "DataManagementViewController.h"
 #import "LanguageManager.h"
+#import "EPGManagerViewController.h" // [新增] 引入 EPG 管理页面
 
 @interface SettingsViewController () <UIActionSheetDelegate>
 @property (nonatomic, strong) NSArray *sections;
@@ -54,8 +55,9 @@
     self.navigationItem.backBarButtonItem = backItem;
     
     // 优化：将语言设置调整到软件设置分组的第 1 项
+    // [优化] 在 source_settings 分组中新增 "EPG 节目单管理" 的入口
     self.sections = @[
-                      @{@"title": LocalizedString(@"source_settings"), @"rows": @[LocalizedString(@"my_sources_manage")]},
+                      @{@"title": LocalizedString(@"source_settings"), @"rows": @[LocalizedString(@"my_sources_manage"), @"EPG 节目单管理"]},
                       @{@"title": LocalizedString(@"software_settings"), @"rows": @[LocalizedString(@"language_settings"), LocalizedString(@"default_fullscreen_logic"), LocalizedString(@"default_player"), LocalizedString(@"ua_settings")]},
                       @{@"title": LocalizedString(@"data_and_security"), @"rows": @[LocalizedString(@"data_management_and_backup")]},
                       @{@"title": LocalizedString(@"about"), @"rows": @[LocalizedString(@"about_iclassictv")]}
@@ -106,8 +108,13 @@
 - (void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath {
     [tableView deselectRowAtIndexPath:indexPath animated:YES];
     
-    if (indexPath.section == 0 && indexPath.row == 0) {
-        [self.navigationController pushViewController:[[SourceManagerViewController alloc] init] animated:YES];
+    if (indexPath.section == 0) {
+        if (indexPath.row == 0) {
+            [self.navigationController pushViewController:[[SourceManagerViewController alloc] init] animated:YES];
+        } else if (indexPath.row == 1) {
+            // [新增] 点击进入 EPG 节目单管理页面
+            [self.navigationController pushViewController:[[EPGManagerViewController alloc] init] animated:YES];
+        }
     } else if (indexPath.section == 1) {
         if (indexPath.row == 0) {
             self.currentAvailableLanguages = [[LanguageManager sharedManager] availableLanguages];
