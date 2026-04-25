@@ -15,6 +15,7 @@
 #import "EPGManager.h"
 #import "EPGProgram.h"
 #import "EPGManagerViewController.h"
+#import "NSString+EncodingHelper.h" // [优化] 引入编码助手以使用 toSafeURL
 
 @interface TVPlaybackViewController () <TVPlaybackOverlayDelegate, PlayerEPGViewDelegate>
 
@@ -72,11 +73,8 @@
     [[UIApplication sharedApplication] beginReceivingRemoteControlEvents];
     [self becomeFirstResponder];
     
-    // [优化] 播放源 URL 处理优化：先判断原生能否解析，再使用转码，避免带参或已转码 URL 失败
-    NSURL *url = [NSURL URLWithString:self.videoURLString];
-    if (!url) {
-        url = [NSURL URLWithString:[self.videoURLString stringByAddingPercentEscapesUsingEncoding:NSUTF8StringEncoding]];
-    }
+    // [优化] 调用统一定义的 toSafeURL 方法进行源地址转换
+    NSURL *url = [self.videoURLString toSafeURL];
     
     self.player = [[MPMoviePlayerController alloc] initWithContentURL:url];
     self.player.controlStyle = MPMovieControlStyleNone;
@@ -197,11 +195,8 @@
         self.epgView.replayingProgram = nil;
         self.overlayView.widgetsView.isCatchupMode = NO;
         
-        // [优化] URL 健壮性处理
-        NSURL *url = [NSURL URLWithString:self.videoURLString];
-        if (!url) {
-            url = [NSURL URLWithString:[self.videoURLString stringByAddingPercentEscapesUsingEncoding:NSUTF8StringEncoding]];
-        }
+        // [优化] 调用统一定义的 toSafeURL 方法进行转换
+        NSURL *url = [self.videoURLString toSafeURL];
         
         [self.player setContentURL:url];
         [self.player play];
@@ -234,11 +229,8 @@
         finalURLStr = [finalURLStr stringByAppendingString:catchupParams];
     }
     
-    // [优化] URL 健壮性处理
-    NSURL *url = [NSURL URLWithString:finalURLStr];
-    if (!url) {
-        url = [NSURL URLWithString:[finalURLStr stringByAddingPercentEscapesUsingEncoding:NSUTF8StringEncoding]];
-    }
+    // [优化] 调用统一定义的 toSafeURL 方法进行转换
+    NSURL *url = [finalURLStr toSafeURL];
     
     [self.player setContentURL:url];
     [self.player play];

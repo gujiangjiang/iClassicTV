@@ -16,6 +16,7 @@
 #import "PlayerConfigManager.h"
 #import "UIViewController+ScrollToTop.h"
 #import "LanguageManager.h"
+#import "NSString+EncodingHelper.h" // [优化] 引入编码助手以使用 toSafeURL
 
 @interface CustomNativePlayerViewController : MPMoviePlayerViewController
 @end
@@ -108,7 +109,8 @@
     cell.textLabel.text = ch.name;
     cell.accessoryType = UITableViewCellAccessoryDetailDisclosureButton;
     
-    NSString *logoKey = ch.logo.length > 0 ? ch.logo : ch.name;
+    // [优化] 使用统一的方法获取 logoKey
+    NSString *logoKey = [ch logoIdentifier];
     UIImage *cachedImage = [self.imageCache objectForKey:logoKey];
     
     if (cachedImage) {
@@ -123,9 +125,8 @@
             dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
                 NSString *cleanURLStr = [ch.logo stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
                 
-                // [优化] 先尝试直接解析，如果包含中文等字符失败后再进行转码，防止被二次转码
-                NSURL *url = [NSURL URLWithString:cleanURLStr];
-                if (!url) url = [NSURL URLWithString:[cleanURLStr stringByAddingPercentEscapesUsingEncoding:NSUTF8StringEncoding]];
+                // [优化] 调用统一定义的 toSafeURL 方法解析 URL
+                NSURL *url = [cleanURLStr toSafeURL];
                 
                 if (url) {
                     // [优化] 提取冗余的网络请求逻辑，直接复用 NetworkManager 的同步下载方法，内部已封装好 SSL、UA 和 超时处理
@@ -139,7 +140,7 @@
                                 // [优化] 安全检查 self 是否还存在
                                 if (weakSelf && indexPath.row < weakSelf.channels.count) {
                                     Channel *currentChannel = weakSelf.channels[indexPath.row];
-                                    NSString *currentLogoKey = currentChannel.logo.length > 0 ? currentChannel.logo : currentChannel.name;
+                                    NSString *currentLogoKey = [currentChannel logoIdentifier];
                                     if ([currentLogoKey isEqualToString:logoKey]) {
                                         UITableViewCell *updateCell = [tableView cellForRowAtIndexPath:indexPath];
                                         if (updateCell) {
@@ -171,7 +172,8 @@
         [[NSUserDefaults standardUserDefaults] setInteger:0 forKey:[ch persistenceKey]];
     }
     
-    NSString *logoKey = ch.logo.length > 0 ? ch.logo : ch.name;
+    // [优化] 使用统一的方法获取 logoKey
+    NSString *logoKey = [ch logoIdentifier];
     UIImage *cachedLogo = [self.imageCache objectForKey:logoKey];
     
     [self playVideoWithURL:ch.urls[savedIndex] title:ch.name logo:cachedLogo channel:ch];
@@ -200,7 +202,8 @@
     [[NSUserDefaults standardUserDefaults] synchronize];
     [self.tableView reloadData];
     
-    NSString *logoKey = self.selectedChannel.logo.length > 0 ? self.selectedChannel.logo : self.selectedChannel.name;
+    // [优化] 使用统一的方法获取 logoKey
+    NSString *logoKey = [self.selectedChannel logoIdentifier];
     UIImage *cachedLogo = [self.imageCache objectForKey:logoKey];
     [self playVideoWithURL:self.selectedChannel.urls[sourceIndex] title:self.selectedChannel.name logo:cachedLogo channel:self.selectedChannel];
 }
@@ -209,11 +212,8 @@
     NSInteger playerPref = [PlayerConfigManager preferredPlayerType];
     
     if (playerPref == 1) {
-        // [优化] URL 健壮性处理，防止已经被百分号编码过的链接被二次编码导致无法解析
-        NSURL *url = [NSURL URLWithString:urlString];
-        if (!url) {
-            url = [NSURL URLWithString:[urlString stringByAddingPercentEscapesUsingEncoding:NSUTF8StringEncoding]];
-        }
+        // [优化] 直接使用统一封装的 toSafeURL 方法进行 URL 转换
+        NSURL *url = [urlString toSafeURL];
         
         CustomNativePlayerViewController *playerVC = [[CustomNativePlayerViewController alloc] initWithContentURL:url];
         

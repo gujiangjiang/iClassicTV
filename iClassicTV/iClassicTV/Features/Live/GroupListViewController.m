@@ -121,11 +121,8 @@
     NSString *urlStr = activeSource[@"url"];
     if (urlStr.length == 0) return;
     
-    // [优化] 先尝试直接解析 URL，防止 URL 已经被编码过再次编码出现问题
-    NSURL *url = [NSURL URLWithString:urlStr];
-    if (!url) {
-        url = [NSURL URLWithString:[urlStr stringByAddingPercentEscapesUsingEncoding:NSUTF8StringEncoding]];
-    }
+    // [优化] 直接使用统一封装的 toSafeURL 方法进行转换
+    NSURL *url = [urlStr toSafeURL];
     if (!url) return;
     
     UIAlertView *hud = [[UIAlertView alloc] initWithTitle:LocalizedString(@"syncing") message:LocalizedString(@"syncing_msg") delegate:nil cancelButtonTitle:nil otherButtonTitles:nil];
