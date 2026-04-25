@@ -21,6 +21,8 @@
 @property (nonatomic, strong) NSMutableString *currentChars;
 @property (nonatomic, strong) NSDateFormatter *dateFormatterWithZone;
 @property (nonatomic, strong) NSDateFormatter *dateFormatterSimple;
+// [优化] 新增字符集属性，避免在循环中重复创建字符集对象，提升解析效率
+@property (nonatomic, strong) NSCharacterSet *normalizeCharacterSet;
 
 @end
 
@@ -39,6 +41,9 @@
     self.channelNameToPrograms = [NSMutableDictionary dictionary];
     self.currentChars = [NSMutableString string];
     
+    // [优化] 预先初始化归一化用的字符集
+    self.normalizeCharacterSet = [NSCharacterSet characterSetWithCharactersInString:@"-_ "];
+    
     // 初始化时间解析器，XMLTV 时间格式一般为：20260425120000 +0800
     self.dateFormatterWithZone = [[NSDateFormatter alloc] init];
     [self.dateFormatterWithZone setDateFormat:@"yyyyMMddHHmmss Z"];
@@ -50,6 +55,12 @@
     NSInputStream *inputStream = [NSInputStream inputStreamWithData:xmlData];
     NSXMLParser *parser = [[NSXMLParser alloc] initWithStream:inputStream];
     parser.delegate = self;
+    
+    // [优化] 开启此项可以减少对命名空间的处理，进一步提升解析速度
+    [parser setShouldProcessNamespaces:NO];
+    [parser setShouldReportNamespacePrefixes:NO];
+    [parser setShouldResolveExternalEntities:NO];
+    
     [parser parse];
     
     return [NSDictionary dictionaryWithDictionary:self.channelNameToPrograms];
@@ -116,10 +127,8 @@
 - (NSString *)normalizeChannelName:(NSString *)name {
     if (!name || name.length == 0) return @"";
     
-    // [优化] 使用 NSCharacterSet 配合 componentsSeparatedByCharactersInSet 替代 3 次字符串替换逻辑
-    // 这种方法在处理大量 EPG 频道名映射时效率更高，且代码更简洁
-    NSCharacterSet *charsToRemove = [NSCharacterSet characterSetWithCharactersInString:@"-_ "];
-    NSArray *components = [name componentsSeparatedByCharactersInSet:charsToRemove];
+    // [优化] 使用预设的字符集属性替代临时创建，大幅降低内存抖动
+    NSArray *components = [name componentsSeparatedByCharactersInSet:self.normalizeCharacterSet];
     return [[components componentsJoinedByString:@""] lowercaseString];
 }
 
