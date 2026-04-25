@@ -14,7 +14,8 @@
 #import "UIViewController+ScrollToTop.h"
 #import "DataManagementViewController.h"
 #import "LanguageManager.h"
-#import "EPGManagerViewController.h" // [新增] 引入 EPG 管理页面
+#import "EPGManagerViewController.h"
+#import "PlayerSettingsViewController.h" // [新增] 引入独立的播放器设置页面
 
 @interface SettingsViewController () <UIActionSheetDelegate>
 @property (nonatomic, strong) NSArray *sections;
@@ -54,11 +55,10 @@
     UIBarButtonItem *backItem = [[UIBarButtonItem alloc] initWithTitle:LocalizedString(@"back") style:UIBarButtonItemStyleBordered target:nil action:nil];
     self.navigationItem.backBarButtonItem = backItem;
     
-    // 优化：将语言设置调整到软件设置分组的第 1 项
-    // [优化] 在 source_settings 分组中新增 "EPG 节目单管理" 的入口
+    // [优化] 将原本独立的 全屏逻辑和播放器选项 合并为 “播放器设置”
     self.sections = @[
                       @{@"title": LocalizedString(@"source_settings"), @"rows": @[LocalizedString(@"my_sources_manage"), @"EPG 节目单管理"]},
-                      @{@"title": LocalizedString(@"software_settings"), @"rows": @[LocalizedString(@"language_settings"), LocalizedString(@"default_fullscreen_logic"), LocalizedString(@"default_player"), LocalizedString(@"ua_settings")]},
+                      @{@"title": LocalizedString(@"software_settings"), @"rows": @[LocalizedString(@"language_settings"), @"播放器设置", LocalizedString(@"ua_settings")]},
                       @{@"title": LocalizedString(@"data_and_security"), @"rows": @[LocalizedString(@"data_management_and_backup")]},
                       @{@"title": LocalizedString(@"about"), @"rows": @[LocalizedString(@"about_iclassictv")]}
                       ];
@@ -93,13 +93,8 @@
             } else {
                 cell.detailTextLabel.text = [[LanguageManager sharedManager] currentLanguageDisplayName];
             }
-        } else if (indexPath.row == 1) {
-            NSInteger pref = [[NSUserDefaults standardUserDefaults] integerForKey:@"PlayerOrientationPref"];
-            cell.detailTextLabel.text = (pref == 1) ? LocalizedString(@"landscape") : ((pref == 2) ? LocalizedString(@"portrait") : LocalizedString(@"follow_system"));
-        } else if (indexPath.row == 2) {
-            NSInteger pref = [[NSUserDefaults standardUserDefaults] integerForKey:@"PlayerTypePref"];
-            cell.detailTextLabel.text = (pref == 1) ? LocalizedString(@"ios_native_player") : LocalizedString(@"custom_player");
         }
+        // index 1 是“播放器设置”，不再需要显示 detailText
     }
     
     return cell;
@@ -112,7 +107,6 @@
         if (indexPath.row == 0) {
             [self.navigationController pushViewController:[[SourceManagerViewController alloc] init] animated:YES];
         } else if (indexPath.row == 1) {
-            // [新增] 点击进入 EPG 节目单管理页面
             [self.navigationController pushViewController:[[EPGManagerViewController alloc] init] animated:YES];
         }
     } else if (indexPath.section == 1) {
@@ -127,12 +121,10 @@
             sheet.tag = 201;
             [sheet showInView:self.view];
         } else if (indexPath.row == 1) {
-            UIActionSheet *sheet = [[UIActionSheet alloc] initWithTitle:LocalizedString(@"default_fullscreen_logic") delegate:self cancelButtonTitle:LocalizedString(@"cancel") destructiveButtonTitle:nil otherButtonTitles:LocalizedString(@"follow_system"), LocalizedString(@"landscape"), LocalizedString(@"portrait"), nil];
-            sheet.tag = 202; [sheet showInView:self.view];
+            // [新增] 点击进入独立的播放器设置页面
+            PlayerSettingsViewController *playerVC = [[PlayerSettingsViewController alloc] init];
+            [self.navigationController pushViewController:playerVC animated:YES];
         } else if (indexPath.row == 2) {
-            UIActionSheet *sheet = [[UIActionSheet alloc] initWithTitle:LocalizedString(@"default_player") delegate:self cancelButtonTitle:LocalizedString(@"cancel") destructiveButtonTitle:nil otherButtonTitles:LocalizedString(@"custom_player_recommended"), LocalizedString(@"ios_native_player"), nil];
-            sheet.tag = 203; [sheet showInView:self.view];
-        } else if (indexPath.row == 3) {
             UAManagerViewController *uaVC = [[UAManagerViewController alloc] initWithStyle:UITableViewStyleGrouped];
             [self.navigationController pushViewController:uaVC animated:YES];
         }
@@ -147,6 +139,7 @@
 - (void)actionSheet:(UIActionSheet *)actionSheet clickedButtonAtIndex:(NSInteger)buttonIndex {
     if (buttonIndex == actionSheet.cancelButtonIndex) return;
     
+    // [优化] 只保留语言设置的 actionSheet，播放器相关的 actionSheet 已迁移
     if (actionSheet.tag == 201) {
         if (buttonIndex == 0) {
             [[LanguageManager sharedManager] changeLanguageTo:@"system"];
@@ -154,14 +147,6 @@
             NSDictionary *selectedLang = self.currentAvailableLanguages[buttonIndex - 1];
             [[LanguageManager sharedManager] changeLanguageTo:selectedLang[@"code"]];
         }
-    } else if (actionSheet.tag == 202) {
-        [[NSUserDefaults standardUserDefaults] setInteger:buttonIndex forKey:@"PlayerOrientationPref"];
-        [[NSUserDefaults standardUserDefaults] synchronize];
-        [self.tableView reloadData];
-    } else if (actionSheet.tag == 203) {
-        [[NSUserDefaults standardUserDefaults] setInteger:buttonIndex forKey:@"PlayerTypePref"];
-        [[NSUserDefaults standardUserDefaults] synchronize];
-        [self.tableView reloadData];
     }
 }
 

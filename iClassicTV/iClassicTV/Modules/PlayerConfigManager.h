@@ -13,8 +13,24 @@
 
 // 获取默认播放器类型 (0: 自定义, 1: 原生)
 + (NSInteger)preferredPlayerType;
+// 设置默认播放器类型
++ (void)setPreferredPlayerType:(NSInteger)type;
 
-// 获取默认全屏方向
+// 获取默认全屏方向设置的原始值 (0: 跟随系统, 1: 横屏, 2: 竖屏)
++ (NSInteger)preferredInterfaceOrientationPref;
+// 获取默认全屏方向对应的 UIInterfaceOrientation
 + (UIInterfaceOrientation)preferredInterfaceOrientation;
+// 设置默认全屏方向
++ (void)setPreferredInterfaceOrientationPref:(NSInteger)pref;
+
+// 获取全屏状态下是否显示节目单 (默认 YES)
++ (BOOL)showEPGInFullscreen;
+// 设置全屏状态下是否显示节目单
++ (void)setShowEPGInFullscreen:(BOOL)show;
+
+// 获取全屏状态下是否显示悬浮时间 (默认 YES)
++ (BOOL)showTimeInFullscreen;
+// 设置全屏状态下是否显示悬浮时间
++ (void)setShowTimeInFullscreen:(BOOL)show;
 
 @end

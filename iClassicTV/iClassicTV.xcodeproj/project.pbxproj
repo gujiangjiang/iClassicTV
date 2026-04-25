@@ -37,6 +37,7 @@
 		4843BC212F9BDFE3007A0595 /* en-US.json in Resources */ = {isa = PBXBuildFile; fileRef = 4843BC1F2F9BDFE3007A0595 /* en-US.json */; };
 		4843BC222F9BDFE3007A0595 /* zh-CN.json in Resources */ = {isa = PBXBuildFile; fileRef = 4843BC202F9BDFE3007A0595 /* zh-CN.json */; };
 		489537482F9C8F8D005D3CA3 /* PlayerEPGView.m in Sources */ = {isa = PBXBuildFile; fileRef = 489537472F9C8F8D005D3CA3 /* PlayerEPGView.m */; };
+		4895374E2F9C9D0D005D3CA3 /* PlayerSettingsViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 4895374D2F9C9D0D005D3CA3 /* PlayerSettingsViewController.m */; };
 		48C2CB602F9BB73000A9379F /* UserAgentManager.m in Sources */ = {isa = PBXBuildFile; fileRef = 48C2CB5F2F9BB73000A9379F /* UserAgentManager.m */; };
 		48C2CB632F9BB76900A9379F /* UAManagerViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 48C2CB622F9BB76900A9379F /* UAManagerViewController.m */; };
 		48C2CB662F9BB9E200A9379F /* NetworkManager.m in Sources */ = {isa = PBXBuildFile; fileRef = 48C2CB652F9BB9E200A9379F /* NetworkManager.m */; };
@@ -121,6 +122,8 @@
 		4843BC202F9BDFE3007A0595 /* zh-CN.json */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.json; name = "zh-CN.json"; path = "i18n/zh-CN.json"; sourceTree = "<group>"; };
 		489537462F9C8F8D005D3CA3 /* PlayerEPGView.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = PlayerEPGView.h; sourceTree = "<group>"; };
 		489537472F9C8F8D005D3CA3 /* PlayerEPGView.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = PlayerEPGView.m; sourceTree = "<group>"; };
+		4895374C2F9C9D0D005D3CA3 /* PlayerSettingsViewController.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = PlayerSettingsViewController.h; sourceTree = "<group>"; };
+		4895374D2F9C9D0D005D3CA3 /* PlayerSettingsViewController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = PlayerSettingsViewController.m; sourceTree = "<group>"; };
 		48C2CB5E2F9BB73000A9379F /* UserAgentManager.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = UserAgentManager.h; path = ../Features/Settings/UserAgentManager.h; sourceTree = "<group>"; };
 		48C2CB5F2F9BB73000A9379F /* UserAgentManager.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = UserAgentManager.m; path = ../Features/Settings/UserAgentManager.m; sourceTree = "<group>"; };
 		48C2CB612F9BB76900A9379F /* UAManagerViewController.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = UAManagerViewController.h; sourceTree = "<group>"; };
@@ -270,6 +273,8 @@
 				48C2CB622F9BB76900A9379F /* UAManagerViewController.m */,
 				48FBEB192F9BCCA300DD08EE /* DataManagementViewController.h */,
 				48FBEB1A2F9BCCA300DD08EE /* DataManagementViewController.m */,
+				4895374C2F9C9D0D005D3CA3 /* PlayerSettingsViewController.h */,
+				4895374D2F9C9D0D005D3CA3 /* PlayerSettingsViewController.m */,
 			);
 			path = Settings;
 			sourceTree = "<group>";
@@ -479,6 +484,7 @@
 			files = (
 				482437082F9C8970004B9756 /* EPGSourceListViewController.m in Sources */,
 				48317BA42F9A78E9002489FE /* GroupListViewController.m in Sources */,
+				4895374E2F9C9D0D005D3CA3 /* PlayerSettingsViewController.m in Sources */,
 				48317BAB2F9A78E9002489FE /* AppDataManager.m in Sources */,
 				48C2CB632F9BB76900A9379F /* UAManagerViewController.m in Sources */,
 				4816D5492F9C813800D0A5AE /* EPGManager.m in Sources */,

@@ -78,6 +78,11 @@
     [defs removeObjectForKey:@"kUAManagerSelectedIndexKey"];
     [defs removeObjectForKey:@"PlayerOrientationPref"];
     [defs removeObjectForKey:@"PlayerTypePref"];
+    
+    // [优化] 清理新增的播放器专属配置项
+    [defs removeObjectForKey:@"ShowEPGInFullscreenPref"];
+    [defs removeObjectForKey:@"ShowTimeInFullscreenPref"];
+    
     [defs synchronize];
 }
 
