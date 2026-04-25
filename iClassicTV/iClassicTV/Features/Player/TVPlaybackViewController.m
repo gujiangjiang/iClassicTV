@@ -117,15 +117,20 @@
         self.hasSavedOriginalNavState = YES;
     }
     
-    // [优化] 采纳建议：在播放器页面中，无论是横屏还是竖屏，统一强制使用黑色的沉浸式导航栏
+    // [优化] 无论何种情况，进入页面时强制设置一次深色导航栏样式
     self.navigationController.navigationBar.barStyle = UIBarStyleBlack;
     BOOL isIOS7 = [[[UIDevice currentDevice] systemVersion] floatValue] >= 7.0;
     
     UIInterfaceOrientation orientation = [UIApplication sharedApplication].statusBarOrientation;
     BOOL isLandscape = UIInterfaceOrientationIsLandscape(orientation);
     
-    // iOS6 下竖屏为了避免遮挡保留不透明，横屏半透明；iOS7 统一半透明
     self.navigationController.navigationBar.translucent = (isLandscape || isIOS7) ? YES : NO;
+    
+    // [修复] 核心修复点：针对 iOS 6，从模态页面返回时，手动触发一次状态栏显隐/颜色刷新
+    // 强制调用 setStatusBarHidden 可以让系统重新根据当前导航栏样式计算状态栏颜色，解决“卡在蓝色”的问题
+    if (!isIOS7) {
+        [[UIApplication sharedApplication] setStatusBarHidden:self.isFullscreen withAnimation:UIStatusBarAnimationNone];
+    }
     
     if (isLandscape) {
         [self.navigationController setNavigationBarHidden:self.isControlsHidden animated:animated];
