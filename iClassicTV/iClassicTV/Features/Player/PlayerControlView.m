@@ -30,7 +30,7 @@
 @property (nonatomic, strong) UILabel *timeLabel;
 @property (nonatomic, strong) NSDateFormatter *timeFormatter;
 
-// 新增：防遮挡全屏常驻回放角标
+// 防遮挡全屏常驻回放角标
 @property (nonatomic, strong) UILabel *catchupBadge;
 
 @property (nonatomic, assign) BOOL isLocked;
@@ -164,7 +164,6 @@
     self.timeLabel.hidden = YES;
     [self addSubview:self.timeLabel];
     
-    // 新增：构建回放防遮挡角标，最外层，不参与控制栏透明动画
     self.catchupBadge = [[UILabel alloc] initWithFrame:CGRectZero];
     self.catchupBadge.text = @"回放";
     self.catchupBadge.textColor = [UIColor whiteColor];
@@ -186,10 +185,10 @@
     [self.gestureCatcherView addGestureRecognizer:singleTap];
 }
 
-// 自动响应回放状态的变更以控制常驻角标的显示和隐藏
+// [修改] 自动响应回放状态的变更以控制常驻角标的显示和隐藏，加入全局设置项判断
 - (void)setIsCatchupMode:(BOOL)isCatchupMode {
     _isCatchupMode = isCatchupMode;
-    if (self.currentIsFullscreen && isCatchupMode) {
+    if (self.currentIsFullscreen && isCatchupMode && [PlayerConfigManager showCatchupBadgeInFullscreen]) {
         self.catchupBadge.hidden = NO;
     } else {
         self.catchupBadge.hidden = YES;
@@ -225,9 +224,9 @@
             [self updateSystemTime];
         }
         
-        // 布局防遮挡回放角标，放置在屏幕左下角偏上的位置，即使底部工具栏隐藏也自然留白
         self.catchupBadge.frame = CGRectMake(20, self.bounds.size.height - 85, 40, 20);
-        self.catchupBadge.hidden = !self.isCatchupMode;
+        // [修改] 判断当前处于全屏时，同时满足回看模式且设置开启，才展示回看角标
+        self.catchupBadge.hidden = !(self.isCatchupMode && [PlayerConfigManager showCatchupBadgeInFullscreen]);
     } else {
         self.epgOverlayView.hidden = YES;
         self.timeLabel.hidden = YES;

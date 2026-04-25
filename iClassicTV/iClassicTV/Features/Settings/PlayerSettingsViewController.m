@@ -10,7 +10,6 @@
 #import "PlayerConfigManager.h"
 #import "LanguageManager.h"
 
-// [修改] 增加 UIActionSheetDelegate 协议，用于处理弹出选项
 @interface PlayerSettingsViewController () <UIActionSheetDelegate>
 @end
 
@@ -31,14 +30,13 @@
 #pragma mark - Table view data source
 
 - (NSInteger)numberOfSectionsInTableView:(UITableView *)tableView {
-    // 只有当选择的是自定义播放器 (Type == 0) 时，才显示第三个区（高级设置）
     return ([PlayerConfigManager preferredPlayerType] == 0) ? 3 : 2;
 }
 
 - (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section {
-    if (section == 0) return 1; // [修改] 播放器选择改为1行
-    if (section == 1) return 1; // [修改] 全屏逻辑改为1行
-    if (section == 2) return 2; // 自定义播放器高级设置: 显示节目单、显示时间
+    if (section == 0) return 1;
+    if (section == 1) return 1;
+    if (section == 2) return 3; // [修改] 高级设置增加到 3 行（新增回放标识开关）
     return 0;
 }
 
@@ -51,13 +49,13 @@
 
 - (NSString *)tableView:(UITableView *)tableView titleForFooterInSection:(NSInteger)section {
     if (section == 2) {
-        return @"全屏状态下可附带显示节目单列表及右上角的悬浮时间，这些控件会跟随播放进度条同步显示与隐藏。";
+        // [修改] 更新底部提示文案包含回放标识说明
+        return @"全屏状态下可附带显示节目单列表、右上角的悬浮时间以及左下角的回放标识。部分组件会跟随播放进度条同步显示与隐藏。";
     }
     return nil;
 }
 
 - (UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath {
-    // [修改] 区分不同类型的 Cell 样式
     if (indexPath.section == 0 || indexPath.section == 1) {
         static NSString *Value1CellId = @"Value1Cell";
         UITableViewCell *cell = [tableView dequeueReusableCellWithIdentifier:Value1CellId];
@@ -98,6 +96,11 @@
             cell.textLabel.text = @"全屏状态显示悬浮时间";
             [switchView setOn:[PlayerConfigManager showTimeInFullscreen] animated:NO];
             [switchView addTarget:self action:@selector(timeSwitchChanged:) forControlEvents:UIControlEventValueChanged];
+        } else if (indexPath.row == 2) {
+            // [新增] 回放标识开关逻辑
+            cell.textLabel.text = @"全屏状态显示回放标识";
+            [switchView setOn:[PlayerConfigManager showCatchupBadgeInFullscreen] animated:NO];
+            [switchView addTarget:self action:@selector(catchupBadgeSwitchChanged:) forControlEvents:UIControlEventValueChanged];
         }
         cell.accessoryView = switchView;
         
@@ -110,7 +113,6 @@
 - (void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath {
     [tableView deselectRowAtIndexPath:indexPath animated:YES];
     
-    // [修改] 点击后弹出 ActionSheet 进行选择
     if (indexPath.section == 0) {
         UIActionSheet *sheet = [[UIActionSheet alloc] initWithTitle:@"播放器选择"
                                                            delegate:self
@@ -132,7 +134,6 @@
 
 #pragma mark - UIActionSheetDelegate
 
-// [新增] 处理选项结果并刷新表格
 - (void)actionSheet:(UIActionSheet *)actionSheet clickedButtonAtIndex:(NSInteger)buttonIndex {
     if (buttonIndex == actionSheet.cancelButtonIndex) {
         return;
@@ -155,6 +156,11 @@
 
 - (void)timeSwitchChanged:(UISwitch *)sender {
     [PlayerConfigManager setShowTimeInFullscreen:sender.isOn];
+}
+
+// [新增] 回放标识开关交互动作
+- (void)catchupBadgeSwitchChanged:(UISwitch *)sender {
+    [PlayerConfigManager setShowCatchupBadgeInFullscreen:sender.isOn];
 }
 
 @end

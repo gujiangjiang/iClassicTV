@@ -61,4 +61,18 @@
     [[NSUserDefaults standardUserDefaults] synchronize];
 }
 
+// [新增] 存储全屏是否显示回放角标的偏好
++ (BOOL)showCatchupBadgeInFullscreen {
+    NSUserDefaults *defs = [NSUserDefaults standardUserDefaults];
+    if ([defs objectForKey:@"ShowCatchupBadgeInFullscreenPref"] == nil) {
+        return YES; // 默认开启
+    }
+    return [defs boolForKey:@"ShowCatchupBadgeInFullscreenPref"];
+}
+
++ (void)setShowCatchupBadgeInFullscreen:(BOOL)show {
+    [[NSUserDefaults standardUserDefaults] setBool:show forKey:@"ShowCatchupBadgeInFullscreenPref"];
+    [[NSUserDefaults standardUserDefaults] synchronize];
+}
+
 @end
