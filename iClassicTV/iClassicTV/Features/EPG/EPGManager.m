@@ -381,7 +381,7 @@
 - (void)performSilentBackgroundUpdate {
     if (self.isUpdatingEPG) return;
     
-    // 静默更新不再直接弹 Toast，而是交给进度条逻辑
+    // 静默更新交由全局进度条处理
     [self fetchAndParseEPGDataWithCompletion:^(BOOL success, NSString *errorMsg) {
         if (!success) {
             self.lastFailedUpdateTime = [NSDate date];
@@ -440,10 +440,9 @@
     NSArray *urls = [self.epgSourceURL componentsSeparatedByString:@","];
     NSInteger totalUrls = urls.count;
     
-    // [新增] 广播：准备开始
-    dispatch_async(dispatch_get_main_queue(), ^{
-        [[NSNotificationCenter defaultCenter] postNotificationName:@"EPGUpdateProgressNotification" object:nil userInfo:@{@"progress": @(0.05), @"status": LocalizedString(@"epg_status_preparing")}];
-    });
+    // [修改] 调用全新的全局悬浮进度窗
+    [ToastHelper showGlobalProgressHUDWithTitle:LocalizedString(@"epg_status_preparing")];
+    [ToastHelper updateGlobalProgressHUD:0.05 text:LocalizedString(@"epg_status_preparing")];
     
     dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
         NSMutableDictionary *mergedDict = [NSMutableDictionary dictionary];
@@ -455,12 +454,10 @@
             @autoreleasepool {
                 currentUrlIndex++;
                 
-                // [新增] 广播：正在下载第 N 个源
-                dispatch_async(dispatch_get_main_queue(), ^{
-                    CGFloat prog = 0.05 + 0.6 * ((CGFloat)currentUrlIndex / (CGFloat)totalUrls);
-                    NSString *statusMsg = [NSString stringWithFormat:LocalizedString(@"epg_status_downloading_format"), (long)currentUrlIndex, (long)totalUrls];
-                    [[NSNotificationCenter defaultCenter] postNotificationName:@"EPGUpdateProgressNotification" object:nil userInfo:@{@"progress": @(prog), @"status": statusMsg}];
-                });
+                // [修改] 更新全局悬浮进度窗下载状态
+                CGFloat prog = 0.05 + 0.6 * ((CGFloat)currentUrlIndex / (CGFloat)totalUrls);
+                NSString *statusMsg = [NSString stringWithFormat:LocalizedString(@"epg_status_downloading_format"), (long)currentUrlIndex, (long)totalUrls];
+                [ToastHelper updateGlobalProgressHUD:prog text:statusMsg];
                 
                 NSString *urlStr = [rawUrl stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
                 if (urlStr.length == 0) continue;
@@ -489,10 +486,8 @@
                     continue;
                 }
                 
-                // [新增] 广播：数据较大，进入解析阶段
-                dispatch_async(dispatch_get_main_queue(), ^{
-                    [[NSNotificationCenter defaultCenter] postNotificationName:@"EPGUpdateProgressNotification" object:nil userInfo:@{@"progress": @(0.85), @"status": LocalizedString(@"epg_status_parsing")}];
-                });
+                // [修改] 更新全局悬浮进度窗为解析状态
+                [ToastHelper updateGlobalProgressHUD:0.85 text:LocalizedString(@"epg_status_parsing")];
                 
                 NSDictionary *parsedDict = [EPGParser parseEPGXMLData:xmlData];
                 if (parsedDict && parsedDict.count > 0) {
@@ -517,17 +512,17 @@
             
             dispatch_async(dispatch_get_main_queue(), ^{
                 self.isUpdatingEPG = NO;
-                // [新增] 广播：完成状态
-                [[NSNotificationCenter defaultCenter] postNotificationName:@"EPGUpdateProgressNotification" object:nil userInfo:@{@"progress": @(1.0), @"status": LocalizedString(@"epg_manager_title")}];
+                // [修改] 数据处理完成，显示成功并延迟移除全局进度条
+                [ToastHelper dismissGlobalProgressHUDWithText:@"EPG 更新完成" delay:3.0];
                 if (completion) completion(YES, nil);
                 [[NSNotificationCenter defaultCenter] postNotificationName:@"EPGDataDidUpdateNotification" object:nil];
             });
         } else {
             dispatch_async(dispatch_get_main_queue(), ^{
                 self.isUpdatingEPG = NO;
-                // [新增] 广播：失败状态直接隐藏
-                [[NSNotificationCenter defaultCenter] postNotificationName:@"EPGUpdateProgressNotification" object:nil userInfo:@{@"progress": @(1.0), @"status": LocalizedString(@"epg_manager_title")}];
                 NSString *finalError = lastErrorMsg ?: LocalizedString(@"epg_all_sources_failed");
+                // [修改] 数据处理失败，显示失败原因并移除全局进度条
+                [ToastHelper dismissGlobalProgressHUDWithText:finalError delay:3.0];
                 if (completion) completion(NO, finalError);
             });
         }

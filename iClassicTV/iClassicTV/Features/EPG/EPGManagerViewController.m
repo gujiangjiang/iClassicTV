@@ -228,10 +228,6 @@
 @property (nonatomic, strong) UISwitch *epgSwitch;
 @property (nonatomic, strong) UISwitch *autoUpdateSwitch;
 @property (nonatomic, strong) UISwitch *autoExpireSwitch;
-
-// [新增] 标题栏进度条 UI 控件和标题保存
-@property (nonatomic, strong) UIProgressView *navProgressBar;
-@property (nonatomic, copy) NSString *originalTitle;
 @end
 
 @implementation EPGManagerViewController
@@ -244,8 +240,7 @@
 - (void)viewDidLoad {
     [super viewDidLoad];
     
-    self.originalTitle = LocalizedString(@"epg_manager_title");
-    self.title = self.originalTitle;
+    self.title = LocalizedString(@"epg_manager_title");
     
     UIBarButtonItem *backItem = [[UIBarButtonItem alloc] initWithTitle:LocalizedString(@"back") style:UIBarButtonItemStyleBordered target:nil action:nil];
     self.navigationItem.backBarButtonItem = backItem;
@@ -267,53 +262,12 @@
     self.autoExpireSwitch.on = [EPGManager sharedManager].autoUpdateOnExpire;
     [self.autoExpireSwitch addTarget:self action:@selector(autoExpireSwitchChanged:) forControlEvents:UIControlEventValueChanged];
     
-    // [新增] 创建顶部导航栏进度条
-    self.navProgressBar = [[UIProgressView alloc] initWithProgressViewStyle:UIProgressViewStyleBar];
-    // 放置在导航栏的最底部，高度设为细长的 2.5 像素
-    self.navProgressBar.frame = CGRectMake(0, self.navigationController.navigationBar.bounds.size.height - 2.5, self.navigationController.navigationBar.bounds.size.width, 2.5);
-    self.navProgressBar.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleTopMargin;
-    self.navProgressBar.hidden = YES;
-    self.navProgressBar.progressTintColor = [UIColor colorWithRed:0.0 green:0.478 blue:1.0 alpha:1.0]; // 经典 iOS 蓝色
-    [self.navigationController.navigationBar addSubview:self.navProgressBar];
-    
-    // [新增] 监听进度条广播与更新完成广播
-    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(epgUpdateProgressDidChange:) name:@"EPGUpdateProgressNotification" object:nil];
+    // [修改] 仅保留数据解析完毕用于刷新 tableView 的监听
     [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(epgDataDidUpdate) name:@"EPGDataDidUpdateNotification" object:nil];
 }
 
 - (void)dealloc {
-    // [新增] 移除观察者并清理手动附加到全局 NavigationBar 上的控件
     [[NSNotificationCenter defaultCenter] removeObserver:self];
-    if (self.navProgressBar.superview) {
-        [self.navProgressBar removeFromSuperview];
-    }
-}
-
-// [新增] 进度条改变的通知回调
-- (void)epgUpdateProgressDidChange:(NSNotification *)note {
-    dispatch_async(dispatch_get_main_queue(), ^{
-        CGFloat progress = [note.userInfo[@"progress"] floatValue];
-        NSString *status = note.userInfo[@"status"];
-        
-        if (self.navProgressBar.hidden && progress < 1.0) {
-            self.navProgressBar.hidden = NO;
-            self.navProgressBar.progress = 0.0;
-            self.navProgressBar.alpha = 1.0;
-        }
-        
-        [self.navProgressBar setProgress:progress animated:YES];
-        self.title = status ?: self.originalTitle;
-        
-        // 当达到 100% 时，平滑淡出进度条并恢复原标题
-        if (progress >= 1.0) {
-            [UIView animateWithDuration:0.5 delay:0.5 options:0 animations:^{
-                self.navProgressBar.alpha = 0.0;
-            } completion:^(BOOL finished) {
-                self.navProgressBar.hidden = YES;
-                self.title = self.originalTitle;
-            }];
-        }
-    });
 }
 
 // 数据更新后的通知回调
@@ -366,7 +320,7 @@
         return;
     }
     
-    // [优化] 因为有了顶部丝滑的进度条，我们移除了之前丑陋且阻塞屏幕的 UIAlertView Loading 弹窗，改为调用后台静默更新，利用进度条反馈
+    // [优化] 由于已启用 ToastHelper 全局悬浮窗进度条机制，这里直接调用数据方法，UI 层面完全不阻塞
     [[EPGManager sharedManager] fetchAndParseEPGDataWithCompletion:^(BOOL success, NSString *errorMsg) {
         dispatch_async(dispatch_get_main_queue(), ^{
             if (!success) {
