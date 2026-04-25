@@ -364,6 +364,8 @@
     if (self.player.duration > 0 && !isnan(self.player.duration)) {
         [self.overlayView.bottomBar updateProgressWithValue:(self.player.currentPlaybackTime / self.player.duration)];
     }
+    // 优化：借助底层定时器，每秒向 EPG 视图发送时间滴答，触发刷新和滚动检测
+    [self.epgView updateTimeTick];
     [self updateFullscreenEPGOverlay];
     [self.overlayView.widgetsView updateSystemTime];
 }

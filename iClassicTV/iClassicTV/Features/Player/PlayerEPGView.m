@@ -30,6 +30,9 @@
 @property (nonatomic, strong) NSDate *selectedDate;
 @property (nonatomic, copy) NSString *currentChannelName;
 
+// 新增：用于记录上一次检查时的正在播放节目，用于对比是否跨越了时间节点
+@property (nonatomic, strong) EPGProgram *lastPlayingProgram;
+
 @property (nonatomic, assign) BOOL isIOS7;
 
 @end
@@ -138,6 +141,7 @@
         self.availableDates = nil;
         self.groupedPrograms = nil;
         self.selectedDate = nil;
+        self.lastPlayingProgram = nil;
         [self.dateScrollView setContentOffset:CGPointZero animated:NO];
     }
     
@@ -509,6 +513,36 @@
         }
     }
     return nil;
+}
+
+#pragma mark - Timer Tick (Auto Refresh)
+
+- (void)updateTimeTick {
+    if (self.displayPrograms.count == 0) return;
+    
+    // 只有当用户查看的是当天的节目单时，才自动滚动和刷新状态
+    NSDate *todayStart = [self startOfDayForDate:[NSDate date]];
+    if (![self.selectedDate isEqualToDate:todayStart]) return;
+    
+    EPGProgram *current = [self currentPlayingProgram];
+    
+    // 判断是否跨越了节目时间节点
+    BOOL programChanged = NO;
+    if (!self.lastPlayingProgram && current) {
+        programChanged = YES;
+    } else if (self.lastPlayingProgram && !current) {
+        programChanged = YES;
+    } else if (self.lastPlayingProgram && current) {
+        if (![self.lastPlayingProgram.startTime isEqualToDate:current.startTime]) {
+            programChanged = YES;
+        }
+    }
+    
+    if (programChanged) {
+        self.lastPlayingProgram = current;
+        [self.tableView reloadData];
+        [self scrollToCurrentProgram];
+    }
 }
 
 #pragma mark - UITableView

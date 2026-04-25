@@ -42,4 +42,7 @@
 - (EPGProgram *)currentPlayingProgram;
 - (EPGProgram *)nextPlayingProgram;
 
+// 定时检查节目单是否需要更新状态并自动滚动
+- (void)updateTimeTick;
+
 @end
