@@ -142,8 +142,8 @@
             self.lockBtn.alpha = hidden ? 0.0 : 0.6;
         }
         
-        // 挂件组在控制面板隐藏时也同步隐藏 (回放防遮挡角标内部已隔离动画，由 widgetView 自己控制)
-        self.widgetsView.alpha = hidden ? 0.0 : 1.0;
+        // 核心修复：不再粗暴改变整个 widgetsView 的透明度，而是调用专用方法仅隐藏次要组件，不阻隔提示语
+        [self.widgetsView setOverlaysHidden:hidden];
     }];
     
     self.bottomBar.userInteractionEnabled = !self.isLocked && !hidden;

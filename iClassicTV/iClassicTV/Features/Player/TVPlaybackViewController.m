@@ -217,7 +217,14 @@
     [self.player setContentURL:url];
     [self.player play];
     
-    [self.overlayView showStatusMessage:[NSString stringWithFormat:@"正在回看: %@", program.title]];
+    // 补全提示文字：拼出完整的 日期 时间 格式
+    NSDateFormatter *displayDf = [[NSDateFormatter alloc] init];
+    [displayDf setDateFormat:@"MM-dd HH:mm"];
+    NSString *displayTime = [displayDf stringFromDate:program.startTime];
+    
+    [self.overlayView showStatusMessage:[NSString stringWithFormat:@"正在回放: %@ %@", displayTime, program.title]];
+    
+    // 设置三秒后自动隐藏（如果底层播放器立刻缓冲完毕，也会自动接管并隐藏提示，完全符合您的期待逻辑）
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(3.0 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
         [self.overlayView hideStatusMessage];
     });

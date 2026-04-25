@@ -109,7 +109,7 @@
 
 - (UIView *)hitTest:(CGPoint)point withEvent:(UIEvent *)event {
     UIView *hitView = [super hitTest:point withEvent:event];
-    if (hitView == self) return nil; // 允许触摸穿透，不阻挡手势拦截
+    if (hitView == self) return nil;
     return hitView;
 }
 
@@ -204,5 +204,11 @@
 
 - (void)showStatusMessage:(NSString *)message { self.statusLabel.text = message; self.statusLabel.hidden = NO; }
 - (void)hideStatusMessage { self.statusLabel.hidden = YES; }
+
+// 新增：单独控制需要动画隐藏的浮层，绝对不影响 statusLabel 和 catchupBadge 的状态
+- (void)setOverlaysHidden:(BOOL)hidden {
+    self.epgOverlayView.alpha = hidden ? 0.0 : 1.0;
+    self.timeLabel.alpha = hidden ? 0.0 : 1.0;
+}
 
 @end

@@ -47,4 +47,7 @@
 - (void)showStatusMessage:(NSString *)message;
 - (void)hideStatusMessage;
 
+// 新增：精准控制部分挂件的显示与隐藏（不影响状态提示语和常驻角标）
+- (void)setOverlaysHidden:(BOOL)hidden;
+
 @end
