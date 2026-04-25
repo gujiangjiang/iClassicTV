@@ -20,4 +20,10 @@
     NSString *identifier = (self.tvgName.length > 0) ? self.tvgName : self.name;
     return [NSString stringWithFormat:@"SourcePref_%@_%@", self.group, identifier];
 }
+
+// [新增] 统一返回 logo 的缓存 Key 逻辑
+- (NSString *)logoIdentifier {
+    return self.logo.length > 0 ? self.logo : self.name;
+}
+
 @end

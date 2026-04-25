@@ -20,4 +20,7 @@
 // 辅助方法：获取用于持久化存储的唯一 Key
 - (NSString *)persistenceKey;
 
+// [新增] 辅助方法：获取用于图片缓存和查找的唯一标识
+- (NSString *)logoIdentifier;
+
 @end
