@@ -22,6 +22,9 @@
 #define kEPGScheduledUpdateTimeKey @"ios6_iptv_epg_scheduled_update_time"
 #define kEPGLastUpdateTimeKey @"ios6_iptv_epg_last_update_time"
 
+// [优化] 新增：用于单独持久化缓存最大过期时间，避免每次都在主线程遍历整个大字典
+#define kEPGMaxEndTimeKey @"ios6_iptv_epg_max_end_time"
+
 @interface EPGManager ()
 @property (nonatomic, strong) NSDictionary *epgCacheDict;
 @property (nonatomic, strong) NSMutableArray *internalSources;
@@ -403,13 +406,28 @@
         return NO;
     }
     
-    NSDate *maxEndTime = [NSDate distantPast];
-    for (NSArray *programs in self.epgCacheDict.allValues) {
-        for (EPGProgram *p in programs) {
-            if ([p.endTime compare:maxEndTime] == NSOrderedDescending) {
-                maxEndTime = p.endTime;
+    // [修复] 补充 __block 修饰符，使得在 Block 内部可以正常修改这个变量
+    __block NSDate *maxEndTime = [[NSUserDefaults standardUserDefaults] objectForKey:kEPGMaxEndTimeKey];
+    
+    // 如果因某种原因缓存不存在，做一次全量扫描保底，并重新写入缓存
+    if (!maxEndTime) {
+        maxEndTime = [NSDate distantPast];
+        [self.epgCacheDict enumerateKeysAndObjectsUsingBlock:^(id key, NSArray *programs, BOOL *stop) {
+            EPGProgram *lastProgram = [programs lastObject]; // 节目通常按时间排序，只需取最后一个判断即可
+            if (lastProgram && lastProgram.endTime) {
+                if ([lastProgram.endTime compare:maxEndTime] == NSOrderedDescending) {
+                    maxEndTime = lastProgram.endTime;
+                }
+            } else {
+                for (EPGProgram *p in programs) {
+                    if (p.endTime && [p.endTime compare:maxEndTime] == NSOrderedDescending) {
+                        maxEndTime = p.endTime;
+                    }
+                }
             }
-        }
+        }];
+        [[NSUserDefaults standardUserDefaults] setObject:maxEndTime forKey:kEPGMaxEndTimeKey];
+        [[NSUserDefaults standardUserDefaults] synchronize];
     }
     
     NSDate *threshold = [[NSDate date] dateByAddingTimeInterval:7200];
@@ -440,7 +458,6 @@
     NSArray *urls = [self.epgSourceURL componentsSeparatedByString:@","];
     NSInteger totalUrls = urls.count;
     
-    // [修改] 调用全新的全局悬浮进度窗
     [ToastHelper showGlobalProgressHUDWithTitle:LocalizedString(@"epg_status_preparing")];
     [ToastHelper updateGlobalProgressHUD:0.05 text:LocalizedString(@"epg_status_preparing")];
     
@@ -454,7 +471,6 @@
             @autoreleasepool {
                 currentUrlIndex++;
                 
-                // [修改] 更新全局悬浮进度窗下载状态
                 CGFloat prog = 0.05 + 0.6 * ((CGFloat)currentUrlIndex / (CGFloat)totalUrls);
                 NSString *statusMsg = [NSString stringWithFormat:LocalizedString(@"epg_status_downloading_format"), (long)currentUrlIndex, (long)totalUrls];
                 [ToastHelper updateGlobalProgressHUD:prog text:statusMsg];
@@ -486,17 +502,18 @@
                     continue;
                 }
                 
-                // [修改] 更新全局悬浮进度窗为解析状态
                 [ToastHelper updateGlobalProgressHUD:0.85 text:LocalizedString(@"epg_status_parsing")];
                 
                 NSDictionary *parsedDict = [EPGParser parseEPGXMLData:xmlData];
+                
+                // [优化] 摒弃 for-in 循环，使用底层的 Block 枚举方式合并字典，在庞大数据集下效率更高
                 if (parsedDict && parsedDict.count > 0) {
                     atLeastOneSuccess = YES;
-                    for (NSString *channelKey in parsedDict) {
+                    [parsedDict enumerateKeysAndObjectsUsingBlock:^(id channelKey, id programs, BOOL *stop) {
                         if (!mergedDict[channelKey]) {
-                            mergedDict[channelKey] = parsedDict[channelKey];
+                            mergedDict[channelKey] = programs;
                         }
-                    }
+                    }];
                 } else {
                     lastErrorMsg = @"XML parse resulted in empty data";
                 }
@@ -507,12 +524,23 @@
             self.epgCacheDict = mergedDict;
             [self saveCacheToDisk:mergedDict];
             
+            // [优化] 在此异步线程一并计算出全局的最大结束时间，并存入 NSUserDefaults，彻底解放 UI 线程
+            NSDate *globalMaxEndTime = [NSDate distantPast];
+            for (NSArray *programs in mergedDict.allValues) {
+                EPGProgram *lastProgram = [programs lastObject]; // 节目通常按时间排序，只需取最后一个判断即可
+                if (lastProgram && lastProgram.endTime) {
+                    if ([lastProgram.endTime compare:globalMaxEndTime] == NSOrderedDescending) {
+                        globalMaxEndTime = lastProgram.endTime;
+                    }
+                }
+            }
+            
+            [[NSUserDefaults standardUserDefaults] setObject:globalMaxEndTime forKey:kEPGMaxEndTimeKey];
             [[NSUserDefaults standardUserDefaults] setObject:[NSDate date] forKey:kEPGLastUpdateTimeKey];
             [[NSUserDefaults standardUserDefaults] synchronize];
             
             dispatch_async(dispatch_get_main_queue(), ^{
                 self.isUpdatingEPG = NO;
-                // [修改] 数据处理完成，显示成功并延迟移除全局进度条
                 [ToastHelper dismissGlobalProgressHUDWithText:@"EPG 更新完成" delay:3.0];
                 if (completion) completion(YES, nil);
                 [[NSNotificationCenter defaultCenter] postNotificationName:@"EPGDataDidUpdateNotification" object:nil];
@@ -521,7 +549,6 @@
             dispatch_async(dispatch_get_main_queue(), ^{
                 self.isUpdatingEPG = NO;
                 NSString *finalError = lastErrorMsg ?: LocalizedString(@"epg_all_sources_failed");
-                // [修改] 数据处理失败，显示失败原因并移除全局进度条
                 [ToastHelper dismissGlobalProgressHUDWithText:finalError delay:3.0];
                 if (completion) completion(NO, finalError);
             });
@@ -533,11 +560,12 @@
 
 - (NSString *)normalizeQueryName:(NSString *)name {
     if (!name || name.length == 0) return @"";
-    NSMutableString *normalized = [NSMutableString stringWithString:[name lowercaseString]];
-    [normalized replaceOccurrencesOfString:@"-" withString:@"" options:0 range:NSMakeRange(0, normalized.length)];
-    [normalized replaceOccurrencesOfString:@"_" withString:@"" options:0 range:NSMakeRange(0, normalized.length)];
-    [normalized replaceOccurrencesOfString:@" " withString:@"" options:0 range:NSMakeRange(0, normalized.length)];
-    return [NSString stringWithString:normalized];
+    
+    // [优化] 使用 NSCharacterSet 一次性过滤所有特殊字符，
+    // 避免执行 3 次 replaceOccurrencesOfString，大幅提升正则化和查询时的性能。
+    NSCharacterSet *charsToRemove = [NSCharacterSet characterSetWithCharactersInString:@"-_ "];
+    NSArray *components = [name componentsSeparatedByCharactersInSet:charsToRemove];
+    return [[components componentsJoinedByString:@""] lowercaseString];
 }
 
 - (NSArray *)programsForChannelName:(NSString *)channelName {
@@ -595,6 +623,8 @@
     self.epgCacheDict = nil;
     [[NSFileManager defaultManager] removeItemAtPath:[self cacheFilePath] error:nil];
     [[NSUserDefaults standardUserDefaults] removeObjectForKey:kEPGLastUpdateTimeKey];
+    // [优化] 清理缓存时，同步移除最大结束时间的持久化记录
+    [[NSUserDefaults standardUserDefaults] removeObjectForKey:kEPGMaxEndTimeKey];
     [[NSUserDefaults standardUserDefaults] synchronize];
 }
 
