@@ -33,9 +33,8 @@
     [super viewDidLoad];
     self.view.backgroundColor = [UIColor blackColor];
     
-    if ([self respondsToSelector:@selector(setWantsFullScreenLayout:)]) {
-        self.wantsFullScreenLayout = YES;
-    }
+    // 优化：移除了 iOS 6 下容易导致 Modal 视图首次布局错位的 wantsFullScreenLayout = YES，
+    // 改为让系统自动处理状态栏的 20pt 下沉，以彻底解决首次进入时多出一个状态栏高度缝隙的 Bug。
     
     self.backgroundView = [[UIView alloc] initWithFrame:self.view.bounds];
     [self.view addSubview:self.backgroundView];
@@ -103,7 +102,8 @@
         self.navBar.frame = CGRectMake(0, 0, self.view.bounds.size.width, 44);
         self.navBar.barStyle = UIBarStyleBlack;
     } else {
-        CGFloat topBarHeight = isIOS7 ? 64.0 : 64.0;
+        // 优化：修复 iOS 6 下的 topBarHeight 为 44.0，适配移除了 wantsFullScreenLayout 后的逻辑
+        CGFloat topBarHeight = isIOS7 ? 64.0 : 44.0;
         CGFloat videoHeight = self.view.bounds.size.width * 9.0 / 16.0;
         videoFrame = CGRectMake(0, topBarHeight, self.view.bounds.size.width, videoHeight);
         
@@ -118,7 +118,8 @@
             self.navBar.frame = CGRectMake(0, 0, self.view.bounds.size.width, 64);
             self.navBar.barStyle = UIBarStyleDefault; // 系统经典浅色
         } else {
-            self.navBar.frame = CGRectMake(0, 20, self.view.bounds.size.width, 44); // 避开 iOS6 状态栏
+            // 优化：将 iOS 6 的 Y 坐标从 20 调整为 0，因为移除了 wantsFullScreenLayout 后，系统会自动下推 self.view 避开状态栏
+            self.navBar.frame = CGRectMake(0, 0, self.view.bounds.size.width, 44);
             self.navBar.barStyle = UIBarStyleBlack;   // iOS6 经典深色高光
         }
     }
@@ -149,8 +150,8 @@
         [self forceRotateToOrientation:target];
     }
     
-    if ([self respondsToSelector:@selector(setNeedsStatusBarAppearanceUpdate)]) [self setNeedsStatusBarAppearanceUpdate];
-    else [[UIApplication sharedApplication] setStatusBarHidden:[self prefersStatusBarHidden] withAnimation:UIStatusBarAnimationFade];
+    // 优化：将这里的状态栏更新逻辑移除，统一收口交由 willAnimateRotationToInterfaceOrientation 处理，
+    // 确保物理旋转和按钮旋转都能完美同步状态栏。
 }
 
 - (void)controlView:(PlayerControlView *)controlView sliderValueDidChange:(float)value {
@@ -284,6 +285,18 @@
 
 - (void)willAnimateRotationToInterfaceOrientation:(UIInterfaceOrientation)toInterfaceOrientation duration:(NSTimeInterval)duration {
     [super willAnimateRotationToInterfaceOrientation:toInterfaceOrientation duration:duration];
+    
+    // 优化：在这里统一接管所有的状态栏更新逻辑，无论是手动物理旋转还是点击按钮强制旋转，
+    // 都确保能正确触发 iOS 6 和 iOS 7 的状态栏隐藏，修复了全屏发白通知栏的 Bug。
+    BOOL isLandscape = UIInterfaceOrientationIsLandscape(toInterfaceOrientation);
+    self.isFullscreen = isLandscape; // 预先更新标识位以确保后续取值准确
+    
+    if ([self respondsToSelector:@selector(setNeedsStatusBarAppearanceUpdate)]) {
+        [self setNeedsStatusBarAppearanceUpdate];
+    } else {
+        [[UIApplication sharedApplication] setStatusBarHidden:isLandscape withAnimation:UIStatusBarAnimationFade];
+    }
+    
     [UIView animateWithDuration:duration delay:0.0 options:UIViewAnimationOptionCurveEaseInOut animations:^{
         [self.view layoutIfNeeded];
     } completion:nil];
