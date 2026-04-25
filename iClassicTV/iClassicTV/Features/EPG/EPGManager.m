@@ -18,7 +18,6 @@
 #define kEPGTimeZoneNameKey @"ios6_iptv_epg_timezone_name"
 #define kEPGAutoScrollTimeoutKey @"ios6_iptv_epg_autoscroll_timeout"
 
-// [新增] 缓存持久化 Key
 #define kEPGAutoUpdateExpireKey @"ios6_iptv_epg_auto_update_expire"
 #define kEPGScheduledUpdateTimeKey @"ios6_iptv_epg_scheduled_update_time"
 #define kEPGLastUpdateTimeKey @"ios6_iptv_epg_last_update_time"
@@ -27,7 +26,6 @@
 @property (nonatomic, strong) NSDictionary *epgCacheDict;
 @property (nonatomic, strong) NSMutableArray *internalSources;
 
-// [新增] 自动检查计时器和状态位
 @property (nonatomic, strong) NSTimer *autoUpdateTimer;
 @property (nonatomic, assign) BOOL hasTriggeredScheduledUpdateThisMinute;
 @property (nonatomic, assign) BOOL isUpdatingEPG;
@@ -51,7 +49,7 @@
     if (self) {
         [self loadSourcesFromDisk];
         [self loadCacheFromDisk];
-        [self startAutoUpdateTimer]; // [新增] 启动循环检测定时器
+        [self startAutoUpdateTimer];
     }
     return self;
 }
@@ -76,23 +74,19 @@
     [[NSUserDefaults standardUserDefaults] synchronize];
 }
 
-// [新增] 获取过期自动更新偏好
 - (BOOL)autoUpdateOnExpire {
     return [[NSUserDefaults standardUserDefaults] boolForKey:kEPGAutoUpdateExpireKey];
 }
 
-// [新增] 设置过期自动更新偏好
 - (void)setAutoUpdateOnExpire:(BOOL)autoUpdateOnExpire {
     [[NSUserDefaults standardUserDefaults] setBool:autoUpdateOnExpire forKey:kEPGAutoUpdateExpireKey];
     [[NSUserDefaults standardUserDefaults] synchronize];
 }
 
-// [新增] 获取定时更新时间字符串
 - (NSString *)scheduledUpdateTimeString {
     return [[NSUserDefaults standardUserDefaults] stringForKey:kEPGScheduledUpdateTimeKey];
 }
 
-// [新增] 设置定时更新时间字符串
 - (void)setScheduledUpdateTimeString:(NSString *)scheduledUpdateTimeString {
     if (!scheduledUpdateTimeString || scheduledUpdateTimeString.length == 0) {
         [[NSUserDefaults standardUserDefaults] removeObjectForKey:kEPGScheduledUpdateTimeKey];
@@ -102,7 +96,6 @@
     [[NSUserDefaults standardUserDefaults] synchronize];
 }
 
-// [新增] 获取上次成功更新时间
 - (NSDate *)lastEPGUpdateTime {
     return [[NSUserDefaults standardUserDefaults] objectForKey:kEPGLastUpdateTimeKey];
 }
@@ -116,7 +109,6 @@
         NSTimeZone *tz = [NSTimeZone timeZoneWithName:tzName];
         if (tz) return tz;
     }
-    // 默认跟随设备时区
     return [NSTimeZone localTimeZone];
 }
 
@@ -131,7 +123,7 @@
 
 - (NSInteger)autoScrollTimeout {
     if ([[NSUserDefaults standardUserDefaults] objectForKey:kEPGAutoScrollTimeoutKey] == nil) {
-        return 10; // 优化：首次默认设置为 10 秒
+        return 10;
     }
     return [[NSUserDefaults standardUserDefaults] integerForKey:kEPGAutoScrollTimeoutKey];
 }
@@ -299,7 +291,6 @@
             self.internalSources[i] = [dict copy];
         }
         [self saveSourcesToDisk];
-        // [修改] 如果活动的 EPG 源发生了改变，则自动清空缓存并重置上次更新时间
         if (changed) {
             [self clearEPGCache];
         }
@@ -350,7 +341,6 @@
 
 #pragma mark - Auto Update / Background Refresh Timer
 
-// [新增] 启动每隔 30 秒执行一次的检查定时器
 - (void)startAutoUpdateTimer {
     if (!self.autoUpdateTimer) {
         self.autoUpdateTimer = [NSTimer timerWithTimeInterval:30.0 target:self selector:@selector(timerTick) userInfo:nil repeats:YES];
@@ -358,14 +348,12 @@
     }
 }
 
-// [新增] 定时器触发的检测逻辑
 - (void)timerTick {
     if (!self.isEPGEnabled || self.isDynamicEPGSource || self.isUpdatingEPG) return;
     
-    // 1. 定时刷新检查 (匹配设定的时间)
     if (self.scheduledUpdateTimeString.length > 0) {
         NSDateFormatter *df = [[NSDateFormatter alloc] init];
-        [df setTimeZone:[NSTimeZone localTimeZone]]; // 定时刷新跟随系统本地时区
+        [df setTimeZone:[NSTimeZone localTimeZone]];
         [df setDateFormat:@"HH:mm"];
         NSString *nowStr = [df stringFromDate:[NSDate date]];
         
@@ -373,17 +361,15 @@
             if (!self.hasTriggeredScheduledUpdateThisMinute) {
                 self.hasTriggeredScheduledUpdateThisMinute = YES;
                 [self performSilentBackgroundUpdate];
-                return; // 触发了定时刷新就不再接着判断过期刷新
+                return;
             }
         } else {
             self.hasTriggeredScheduledUpdateThisMinute = NO;
         }
     }
     
-    // 2. 过期自动刷新检查
     if (self.autoUpdateOnExpire) {
         if ([self needsUpdate]) {
-            // 如果刚刚更新失败过，等待至少 1 小时再自动重试，避免死循环请求
             if (self.lastFailedUpdateTime && [[NSDate date] timeIntervalSinceDate:self.lastFailedUpdateTime] < 3600) {
                 return;
             }
@@ -392,7 +378,6 @@
     }
 }
 
-// [修改] 优化执行静默后台更新逻辑，避免重复弹窗
 - (void)performSilentBackgroundUpdate {
     if (self.isUpdatingEPG) return;
     
@@ -411,7 +396,6 @@
             if (success) {
                 [ToastHelper showToastWithMessage:LocalizedString(@"epg_update_complete")];
             } else {
-                // 确保 errorMsg 不为空，防止崩溃
                 NSString *safeMsg = errorMsg ?: LocalizedString(@"unknown_error");
                 [ToastHelper showToastWithMessage:[NSString stringWithFormat:LocalizedString(@"epg_update_failed_msg"), safeMsg]];
             }
@@ -419,8 +403,17 @@
     }];
 }
 
+// [修复] 彻底解决由于数据源未更新导致的过期自动刷新无限循环判定 Bug
 - (BOOL)needsUpdate {
     if (!self.epgCacheDict || self.epgCacheDict.count == 0) return YES;
+    
+    // [新增] 强制冷却锁：距离上次成功更新不足 4 小时（14400秒）则直接判定不需要更新。
+    // 这可以防止数据源服务器尚未生成新数据时，因为不断判定过期而疯狂请求的问题。
+    NSDate *lastSuccess = [self lastEPGUpdateTime];
+    if (lastSuccess && [[NSDate date] timeIntervalSinceDate:lastSuccess] < 14400) {
+        return NO;
+    }
+    
     NSDate *maxEndTime = [NSDate distantPast];
     for (NSArray *programs in self.epgCacheDict.allValues) {
         for (EPGProgram *p in programs) {
@@ -429,12 +422,10 @@
             }
         }
     }
-    NSCalendar *calendar = [NSCalendar currentCalendar];
-    [calendar setTimeZone:self.epgTimeZone];
-    NSDateComponents *components = [calendar components:(NSYearCalendarUnit | NSMonthCalendarUnit | NSDayCalendarUnit) fromDate:[NSDate date]];
-    components.day += 1;
-    NSDate *tomorrowMidnight = [calendar dateFromComponents:components];
-    return ([maxEndTime compare:tomorrowMidnight] == NSOrderedAscending);
+    
+    // [修复] 真实的过期逻辑：如果所有频道中最晚的节目结束时间，距离现在已经不足 2 小时（7200秒），判定为过期需要刷新
+    NSDate *threshold = [[NSDate date] dateByAddingTimeInterval:7200];
+    return ([maxEndTime compare:threshold] == NSOrderedAscending);
 }
 
 - (void)checkAndAutoUpdateEPG {
@@ -446,9 +437,7 @@
 
 #pragma mark - Actions (XML Download & Merge)
 
-// [修改] 重构核心下载逻辑：增加锁机制防 OOM 崩溃，增加超时机制，增加局部内存释放池
 - (void)fetchAndParseEPGDataWithCompletion:(void(^)(BOOL success, NSString *errorMsg))completion {
-    // 1. 全局锁：如果已经在更新中，直接拦截请求，防止手动点击和自动后台任务并发导致内存爆满崩溃
     if (self.isUpdatingEPG) {
         if (completion) completion(NO, LocalizedString(@"epg_is_updating"));
         return;
@@ -459,7 +448,7 @@
         return;
     }
     
-    self.isUpdatingEPG = YES; // 锁定状态
+    self.isUpdatingEPG = YES;
     NSArray *urls = [self.epgSourceURL componentsSeparatedByString:@","];
     
     dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
@@ -468,7 +457,6 @@
         NSString *lastErrorMsg = nil;
         
         for (NSString *rawUrl in urls) {
-            // 2. 局部内存释放池：防止处理多个巨大的 XML 时内存不断累积
             @autoreleasepool {
                 NSString *urlStr = [rawUrl stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
                 if (urlStr.length == 0) continue;
@@ -476,9 +464,7 @@
                 NSURL *url = [NSURL URLWithString:[urlStr stringByAddingPercentEscapesUsingEncoding:NSUTF8StringEncoding]];
                 if (!url) continue;
                 
-                // 3. 超时机制：彻底抛弃 dataWithContentsOfURL，改用带 30 秒严格超时的同步请求，解决无限卡死的问题
                 NSMutableURLRequest *request = [NSMutableURLRequest requestWithURL:url cachePolicy:NSURLRequestReloadIgnoringLocalCacheData timeoutInterval:30.0];
-                // 增加伪装 User-Agent，防止部分 EPG 服务器屏蔽 iOS 默认请求头
                 [request setValue:@"Mozilla/5.0 (iPhone; CPU iPhone OS 6_1_3 like Mac OS X) AppleWebKit/536.26 (KHTML, like Gecko) Mobile/10B329 iClassicTV" forHTTPHeaderField:@"User-Agent"];
                 
                 NSURLResponse *response = nil;
@@ -487,7 +473,7 @@
                 
                 if (error || !xmlData || xmlData.length == 0) {
                     lastErrorMsg = error ? error.localizedDescription : @"No Data returned";
-                    continue; // 继续尝试下一个 URL
+                    continue;
                 }
                 
                 if ([self isGzippedData:xmlData]) {
@@ -510,7 +496,7 @@
                 } else {
                     lastErrorMsg = @"XML parse resulted in empty data";
                 }
-            } // 结束 @autoreleasepool，在此刻强制释放 xmlData 等庞大对象的内存
+            }
         }
         
         if (atLeastOneSuccess) {
@@ -521,13 +507,13 @@
             [[NSUserDefaults standardUserDefaults] synchronize];
             
             dispatch_async(dispatch_get_main_queue(), ^{
-                self.isUpdatingEPG = NO; // 解锁
+                self.isUpdatingEPG = NO;
                 if (completion) completion(YES, nil);
                 [[NSNotificationCenter defaultCenter] postNotificationName:@"EPGDataDidUpdateNotification" object:nil];
             });
         } else {
             dispatch_async(dispatch_get_main_queue(), ^{
-                self.isUpdatingEPG = NO; // 解锁
+                self.isUpdatingEPG = NO;
                 NSString *finalError = lastErrorMsg ?: LocalizedString(@"epg_all_sources_failed");
                 if (completion) completion(NO, finalError);
             });
@@ -600,7 +586,6 @@
 - (void)clearEPGCache {
     self.epgCacheDict = nil;
     [[NSFileManager defaultManager] removeItemAtPath:[self cacheFilePath] error:nil];
-    // [新增] 清理缓存时，同步清空上次更新时间
     [[NSUserDefaults standardUserDefaults] removeObjectForKey:kEPGLastUpdateTimeKey];
     [[NSUserDefaults standardUserDefaults] synchronize];
 }
@@ -638,7 +623,6 @@
         return;
     }
     
-    // [修改] 动态源也同样加上超时机制和 User-Agent
     NSMutableURLRequest *request = [NSMutableURLRequest requestWithURL:url cachePolicy:NSURLRequestReloadIgnoringLocalCacheData timeoutInterval:15.0];
     [request setValue:@"Mozilla/5.0 (iPhone; CPU iPhone OS 6_1_3 like Mac OS X) AppleWebKit/536.26 (KHTML, like Gecko) Mobile/10B329 iClassicTV" forHTTPHeaderField:@"User-Agent"];
     
