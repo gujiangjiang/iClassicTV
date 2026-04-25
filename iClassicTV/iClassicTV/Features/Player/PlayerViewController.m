@@ -14,8 +14,9 @@
 #import "PlayerEPGView.h"
 #import "EPGManager.h"      // 新增：用于拉取当前和下一个节目
 #import "EPGProgram.h"      // 新增：用于解析时间对象
+#import "EPGManagerViewController.h" // 新增：用于跳转至 EPG 设置页面
 
-@interface PlayerViewController () <PlayerControlViewDelegate>
+@interface PlayerViewController () <PlayerControlViewDelegate, PlayerEPGViewDelegate> // 新增：遵守 PlayerEPGViewDelegate 协议
 
 @property (nonatomic, strong) MPMoviePlayerController *player;
 @property (nonatomic, strong) PlayerControlView *controlView;
@@ -51,6 +52,7 @@
     self.epgView = [[PlayerEPGView alloc] initWithFrame:CGRectZero];
     self.epgView.channelTitle = self.channelTitle;
     self.epgView.tvgName = self.tvgName;
+    self.epgView.delegate = self; // 新增：设置 EPG 操作代理
     [self.view addSubview:self.epgView];
     
     [self.epgView reloadData];
@@ -87,6 +89,13 @@
     dispatch_async(dispatch_get_main_queue(), ^{
         [self.epgView scrollToCurrentProgram];
     });
+}
+
+// 新增：在页面每次即将展现时（包括从设置页返回时），触发一次数据重载和悬浮窗刷新
+- (void)viewWillAppear:(BOOL)animated {
+    [super viewWillAppear:animated];
+    [self.epgView reloadData];
+    [self updateFullscreenEPGOverlay];
 }
 
 - (void)viewWillLayoutSubviews {
@@ -140,6 +149,30 @@
     
     self.player.view.frame = videoFrame;
     [self.controlView updateLayoutForFullscreen:self.isFullscreen videoFrame:videoFrame];
+}
+
+#pragma mark - 新增：PlayerEPGViewDelegate 代理方法实现
+
+// 代理回调：跳转至 EPG 管理页面
+- (void)epgViewDidTapSettings:(PlayerEPGView *)epgView {
+    EPGManagerViewController *epgVC = [[EPGManagerViewController alloc] init];
+    UINavigationController *nav = [[UINavigationController alloc] initWithRootViewController:epgVC];
+    [self presentViewController:nav animated:YES completion:nil];
+}
+
+// 代理回调：手动立即刷新 EPG 数据
+- (void)epgViewDidTapRefresh:(PlayerEPGView *)epgView {
+    [[EPGManager sharedManager] fetchAndParseEPGDataWithCompletion:^(BOOL success, NSString *errorMsg) {
+        dispatch_async(dispatch_get_main_queue(), ^{
+            if (success) {
+                [self.epgView reloadData];
+                [self updateFullscreenEPGOverlay];
+            } else {
+                UIAlertView *alert = [[UIAlertView alloc] initWithTitle:@"刷新失败" message:errorMsg delegate:nil cancelButtonTitle:@"确定" otherButtonTitles:nil];
+                [alert show];
+            }
+        });
+    }];
 }
 
 #pragma mark - 新增：全屏 EPG 悬浮窗数据刷新

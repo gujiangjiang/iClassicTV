@@ -9,6 +9,7 @@
 #import "PlayerEPGView.h"
 #import "EPGManager.h"
 #import "EPGProgram.h"
+#import <QuartzCore/QuartzCore.h> // 新增：用于按钮的边框圆角设置
 
 @interface PlayerEPGView () <UITableViewDelegate, UITableViewDataSource>
 
@@ -19,6 +20,7 @@
 @property (nonatomic, strong) UIView *separatorLine;
 @property (nonatomic, strong) UITableView *tableView;
 @property (nonatomic, strong) UILabel *tipsLabel;
+@property (nonatomic, strong) UIButton *actionButton; // 新增：空状态下的操作按钮
 @property (nonatomic, strong) NSMutableArray *dateButtons;
 
 // 数据源
@@ -86,6 +88,19 @@
         self.tipsLabel.text = @"暂无节目单数据";
         self.tipsLabel.numberOfLines = 0;
         [self addSubview:self.tipsLabel];
+        
+        // 5. 新增：操作按钮（用于跳转设置或立即刷新）
+        self.actionButton = [UIButton buttonWithType:UIButtonTypeCustom];
+        UIColor *themeColor = self.isIOS7 ? [UIColor colorWithRed:0.0 green:0.478 blue:1.0 alpha:1.0] : [UIColor orangeColor];
+        [self.actionButton setTitleColor:themeColor forState:UIControlStateNormal];
+        self.actionButton.titleLabel.font = [UIFont systemFontOfSize:14];
+        self.actionButton.layer.borderColor = themeColor.CGColor;
+        self.actionButton.layer.borderWidth = 1.0;
+        self.actionButton.layer.cornerRadius = 4.0;
+        self.actionButton.layer.masksToBounds = YES;
+        self.actionButton.hidden = YES;
+        [self.actionButton addTarget:self action:@selector(actionButtonTapped:) forControlEvents:UIControlEventTouchUpInside];
+        [self addSubview:self.actionButton];
     }
     return self;
 }
@@ -105,19 +120,97 @@
     // 列表从 40 开始，占据余下的所有高度
     self.tableView.frame = CGRectMake(0, 40, viewWidth, viewHeight - 40);
     
-    // 提示文本居中放置
-    self.tipsLabel.frame = CGRectMake(20, 60, viewWidth - 40, 40);
+    // 提示文本和操作按钮居中放置
+    CGFloat listCenterY = 40 + (viewHeight - 40) / 2.0;
+    self.tipsLabel.frame = CGRectMake(20, listCenterY - 35, viewWidth - 40, 30);
+    self.actionButton.frame = CGRectMake((viewWidth - 100) / 2.0, listCenterY + 5, 100, 32);
+}
+
+#pragma mark - 新增：按钮操作事件
+
+- (void)actionButtonTapped:(UIButton *)sender {
+    if (sender.tag == 1 && [self.delegate respondsToSelector:@selector(epgViewDidTapSettings:)]) {
+        [self.delegate epgViewDidTapSettings:self];
+    } else if (sender.tag == 2 && [self.delegate respondsToSelector:@selector(epgViewDidTapRefresh:)]) {
+        [self.delegate epgViewDidTapRefresh:self];
+    }
 }
 
 #pragma mark - 数据加载与处理
 
 - (void)reloadData {
     NSArray *allPrograms = @[];
-    if ([EPGManager sharedManager].isEPGEnabled) {
+    BOOL isEPGEnabled = [EPGManager sharedManager].isEPGEnabled;
+    
+    if (isEPGEnabled) {
         NSString *epgSearchName = (self.tvgName && self.tvgName.length > 0) ? self.tvgName : self.channelTitle;
         NSArray *fetched = [[EPGManager sharedManager] programsForChannelName:epgSearchName];
         if (fetched) allPrograms = fetched;
     }
+    
+    // 检查是否过期：如果所有节目的结束时间都早于当前时间，则视为已过期
+    BOOL isExpired = YES;
+    NSDate *now = [NSDate date];
+    if (allPrograms.count > 0) {
+        for (EPGProgram *p in allPrograms) {
+            if ([p.endTime compare:now] == NSOrderedDescending) { // 只要有一个节目的结束时间大于当前时间，就不算过期
+                isExpired = NO;
+                break;
+            }
+        }
+    }
+    
+    // 状态 1：未开启电子节目单
+    if (!isEPGEnabled) {
+        self.tipsLabel.text = @"未开启电子节目单";
+        self.tipsLabel.hidden = NO;
+        [self.actionButton setTitle:@"去设置" forState:UIControlStateNormal];
+        self.actionButton.tag = 1;
+        self.actionButton.hidden = NO;
+        self.dateContainerView.hidden = YES;
+        self.tableView.hidden = YES;
+        
+        self.displayPrograms = @[];
+        self.selectedDate = nil;
+        [self.tableView reloadData];
+        return;
+    }
+    
+    // 状态 2：开启了但暂无匹配的节目单数据
+    if (allPrograms.count == 0) {
+        self.tipsLabel.text = @"暂无节目单数据";
+        self.tipsLabel.hidden = NO;
+        self.actionButton.hidden = YES; // 无数据时隐藏按钮
+        self.dateContainerView.hidden = YES;
+        self.tableView.hidden = YES;
+        
+        self.displayPrograms = @[];
+        self.selectedDate = nil;
+        [self.tableView reloadData];
+        return;
+    }
+    
+    // 状态 3：开启了且有节目单，但所有节目均已过期
+    if (isExpired) {
+        self.tipsLabel.text = @"节目单已过期";
+        self.tipsLabel.hidden = NO;
+        [self.actionButton setTitle:@"立即刷新" forState:UIControlStateNormal];
+        self.actionButton.tag = 2;
+        self.actionButton.hidden = NO;
+        self.dateContainerView.hidden = YES;
+        self.tableView.hidden = YES;
+        
+        self.displayPrograms = @[];
+        self.selectedDate = nil;
+        [self.tableView reloadData];
+        return;
+    }
+    
+    // 正常状态：隐藏提示并正常渲染
+    self.tipsLabel.hidden = YES;
+    self.actionButton.hidden = YES;
+    self.dateContainerView.hidden = NO;
+    self.tableView.hidden = NO;
     
     // 1. 将节目按“自然日”进行分组
     NSMutableDictionary *grouped = [NSMutableDictionary dictionary];
