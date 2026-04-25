@@ -332,8 +332,9 @@
     
     EPGProgram *program = self.displayPrograms[indexPath.row];
     NSString *timeString = [self.timeFormatter stringFromDate:program.startTime];
-    cell.textLabel.text = program.title;
-    cell.detailTextLabel.text = timeString;
+    
+    // 优化：修改布局为左侧“时间   节目单”
+    cell.textLabel.text = [NSString stringWithFormat:@"%@   %@", timeString, program.title];
     
     NSDate *now = [NSDate date];
     
@@ -344,18 +345,29 @@
         cell.textLabel.textColor = playingColor;
         cell.detailTextLabel.textColor = playingColor;
         
+        // 优化：右侧显示正在播放状态
+        cell.detailTextLabel.text = @"正在播放";
+        
         // 正在播放的节目名称加粗
         cell.textLabel.font = [UIFont boldSystemFontOfSize:15];
     } else if ([now compare:program.endTime] != NSOrderedAscending) {
         // 已播完的节目，置灰
         cell.textLabel.textColor = [UIColor darkGrayColor];
         cell.detailTextLabel.textColor = [UIColor darkGrayColor];
+        
+        // 优化：右侧显示已播放状态
+        cell.detailTextLabel.text = @"已播放";
+        
         cell.textLabel.font = [UIFont systemFontOfSize:14];
     } else {
         // 尚未播放的节目
         UIColor *normalColor = self.isIOS7 ? [UIColor blackColor] : [UIColor whiteColor];
         cell.textLabel.textColor = normalColor;
         cell.detailTextLabel.textColor = normalColor;
+        
+        // 优化：右侧显示未播放状态
+        cell.detailTextLabel.text = @"未播放";
+        
         cell.textLabel.font = [UIFont systemFontOfSize:14];
     }
     
