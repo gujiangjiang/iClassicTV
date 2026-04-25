@@ -29,13 +29,16 @@
 // 标识该频道是否支持回看，以便开启列表点击交互
 @property (nonatomic, assign) BOOL supportsCatchup;
 
+// 新增：记录当前正在回放的节目对象，用于 UI 状态变更
+@property (nonatomic, strong) EPGProgram *replayingProgram;
+
 // 通知组件刷新数据或切换频道时重置
 - (void)reloadData;
 
-// 主动要求列表滚动至当前正在播放的节目
+// 主动要求列表滚动至当前正在播放（或正在回放）的节目
 - (void)scrollToCurrentProgram;
 
-// 新增：获取当前正在播放和即将播放的节目，供全屏悬浮窗调用
+// 获取当前正在播放和即将播放的节目，供全屏悬浮窗调用
 - (EPGProgram *)currentPlayingProgram;
 - (EPGProgram *)nextPlayingProgram;
 

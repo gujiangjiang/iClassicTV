@@ -113,6 +113,12 @@
     self.actionButton.frame = CGRectMake((viewWidth - 100) / 2.0, listCenterY + 5, 100, 32);
 }
 
+// 新增：监听正在回放节目的变更以刷新列表 UI
+- (void)setReplayingProgram:(EPGProgram *)replayingProgram {
+    _replayingProgram = replayingProgram;
+    [self.tableView reloadData];
+}
+
 - (void)actionButtonTapped:(UIButton *)sender {
     if (sender.tag == 1 && [self.delegate respondsToSelector:@selector(epgViewDidTapSettings:)]) {
         [self.delegate epgViewDidTapSettings:self];
@@ -401,6 +407,27 @@
     NSDate *now = [NSDate date];
     NSDate *todayStart = [self startOfDayForDate:now];
     
+    // 优化：如果有正在回放的节目，优先让列表滚到回放节目处
+    if (self.replayingProgram) {
+        NSDate *replayDayStart = [self startOfDayForDate:self.replayingProgram.startTime];
+        if (![self.selectedDate isEqualToDate:replayDayStart]) return;
+        
+        NSInteger currentIndex = -1;
+        for (NSInteger i = 0; i < self.displayPrograms.count; i++) {
+            EPGProgram *p = self.displayPrograms[i];
+            if ([p.startTime isEqualToDate:self.replayingProgram.startTime]) {
+                currentIndex = i;
+                break;
+            }
+        }
+        if (currentIndex >= 0) {
+            NSIndexPath *indexPath = [NSIndexPath indexPathForRow:currentIndex inSection:0];
+            [self.tableView scrollToRowAtIndexPath:indexPath atScrollPosition:UITableViewScrollPositionMiddle animated:YES];
+        }
+        return;
+    }
+    
+    // 否则正常滚到当前直播节目
     if (![self.selectedDate isEqualToDate:todayStart]) return;
     
     NSInteger currentIndex = -1;
@@ -417,14 +444,11 @@
     }
 }
 
-#pragma mark - 新增：全屏悬浮窗调用的获取接口
-
 - (EPGProgram *)currentPlayingProgram {
     NSDate *now = [NSDate date];
     NSDate *todayStart = [self startOfDayForDate:now];
     NSDate *yesterdayStart = [todayStart dateByAddingTimeInterval:-86400];
     
-    // 优先在今天的节目单里找
     NSArray *programs = self.groupedPrograms[todayStart];
     for (EPGProgram *p in programs) {
         if ([now compare:p.startTime] != NSOrderedAscending && [now compare:p.endTime] == NSOrderedAscending) {
@@ -432,14 +456,12 @@
         }
     }
     
-    // 如果今天没找到，可能是一个跨夜的节目（昨天深夜开始），去昨天的列表里找
     programs = self.groupedPrograms[yesterdayStart];
     for (EPGProgram *p in programs) {
         if ([now compare:p.startTime] != NSOrderedAscending && [now compare:p.endTime] == NSOrderedAscending) {
             return p;
         }
     }
-    
     return nil;
 }
 
@@ -448,7 +470,6 @@
     NSDate *todayStart = [self startOfDayForDate:now];
     NSDate *yesterdayStart = [todayStart dateByAddingTimeInterval:-86400];
     
-    // 先在今天的节目单里找当前节目，顺便找下一个
     NSArray *programs = self.groupedPrograms[todayStart];
     if (programs) {
         for (NSInteger i = 0; i < programs.count; i++) {
@@ -457,12 +478,11 @@
                 if (i + 1 < programs.count) {
                     return programs[i + 1];
                 }
-                break; // 找到了当前节目，但今天是最后一个，退出循环去外面找
+                break;
             }
         }
     }
     
-    // 如果今天没找到，去昨天找找看（跨夜节目）
     programs = self.groupedPrograms[yesterdayStart];
     if (programs) {
         for (NSInteger i = 0; i < programs.count; i++) {
@@ -471,7 +491,6 @@
                 if (i + 1 < programs.count) {
                     return programs[i + 1];
                 } else {
-                    // 如果它是昨天的最后一个节目，那它的下一个必定是今天的第一个
                     NSArray *todayPrograms = self.groupedPrograms[todayStart];
                     return todayPrograms.firstObject;
                 }
@@ -479,14 +498,12 @@
         }
     }
     
-    // 如果都没命中（比如播放还没开始的未来时段），直接返回今天列表中第一个比现在晚的节目
     programs = self.groupedPrograms[todayStart];
     for (EPGProgram *p in programs) {
         if ([p.startTime compare:now] == NSOrderedDescending) {
             return p;
         }
     }
-    
     return nil;
 }
 
@@ -512,12 +529,31 @@
     
     NSDate *now = [NSDate date];
     
-    if ([now compare:program.startTime] != NSOrderedAscending && [now compare:program.endTime] == NSOrderedAscending) {
-        UIColor *playingColor = self.isIOS7 ? [UIColor colorWithRed:0.0 green:0.478 blue:1.0 alpha:1.0] : [UIColor orangeColor];
-        cell.textLabel.textColor = playingColor;
-        cell.detailTextLabel.textColor = playingColor;
-        cell.detailTextLabel.text = @"正在播放";
+    // 核心优化：准确判断回放及直播挂起状态的 UI
+    BOOL isReplayingThis = (self.replayingProgram && [program.startTime isEqualToDate:self.replayingProgram.startTime]);
+    BOOL isCurrentlyLive = ([now compare:program.startTime] != NSOrderedAscending && [now compare:program.endTime] == NSOrderedAscending);
+    
+    if (isReplayingThis) {
+        UIColor *themeColor = self.isIOS7 ? [UIColor colorWithRed:0.0 green:0.478 blue:1.0 alpha:1.0] : [UIColor orangeColor];
+        cell.textLabel.textColor = themeColor;
+        cell.detailTextLabel.textColor = themeColor;
+        cell.detailTextLabel.text = @"正在回放";
         cell.textLabel.font = [UIFont boldSystemFontOfSize:15];
+    } else if (isCurrentlyLive) {
+        if (self.replayingProgram != nil) {
+            // 当前处于回放别的时间段，原本的直播降级显示为“暂停播放”
+            cell.textLabel.textColor = [UIColor darkGrayColor];
+            cell.detailTextLabel.textColor = [UIColor darkGrayColor];
+            cell.detailTextLabel.text = @"暂停播放";
+            cell.textLabel.font = [UIFont systemFontOfSize:14];
+        } else {
+            // 正常正在直播
+            UIColor *themeColor = self.isIOS7 ? [UIColor colorWithRed:0.0 green:0.478 blue:1.0 alpha:1.0] : [UIColor orangeColor];
+            cell.textLabel.textColor = themeColor;
+            cell.detailTextLabel.textColor = themeColor;
+            cell.detailTextLabel.text = @"正在播放";
+            cell.textLabel.font = [UIFont boldSystemFontOfSize:15];
+        }
     } else if ([now compare:program.endTime] != NSOrderedAscending) {
         cell.textLabel.textColor = [UIColor darkGrayColor];
         cell.detailTextLabel.textColor = [UIColor darkGrayColor];
@@ -531,6 +567,7 @@
         cell.textLabel.font = [UIFont systemFontOfSize:14];
     }
     
+    // 如果支持回看，保证历史节目和被暂停的直播节目可以被点击选中
     if (self.supportsCatchup && ([now compare:program.startTime] != NSOrderedAscending)) {
         cell.selectionStyle = UITableViewCellSelectionStyleBlue;
     } else {

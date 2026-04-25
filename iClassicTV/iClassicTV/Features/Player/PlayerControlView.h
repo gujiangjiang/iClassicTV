@@ -22,6 +22,9 @@
 @property (nonatomic, weak) id<PlayerControlViewDelegate> delegate;
 @property (nonatomic, assign, readonly) BOOL isLocked; // 暴露给控制器用于辅助判断顶部导航栏的隐藏逻辑
 
+// 新增：标识当前是否为回放模式，用于控制常驻角标的显示
+@property (nonatomic, assign) BOOL isCatchupMode;
+
 - (void)updateLayoutForFullscreen:(BOOL)isFullscreen videoFrame:(CGRect)videoFrame;
 - (void)updateProgressWithValue:(float)value;
 - (void)updatePlayButtonState:(BOOL)isPlaying;
@@ -30,10 +33,10 @@
 - (void)hideStatusMessage;
 - (void)cancelAutoHideTimer;
 
-// 新增：用于更新全屏模式下的半透明 EPG 悬浮窗内容
+// 用于更新全屏模式下的半透明 EPG 悬浮窗内容
 - (void)updateCurrentProgram:(NSString *)current nextProgram:(NSString *)next;
 
-// [新增] 更新右上角的系统悬浮时间
+// 更新右上角的系统悬浮时间
 - (void)updateSystemTime;
 
 @end

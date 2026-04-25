@@ -31,6 +31,9 @@
 @property (nonatomic, strong) PlayerEPGView *epgView;
 @property (nonatomic, strong) NSDateFormatter *epgTimeFormatter;
 
+// 新增：内部持有一个回放的标识，用于动态管控切流状态与 UI 层级
+@property (nonatomic, strong) EPGProgram *replayingProgram;
+
 @end
 
 @implementation PlayerViewController
@@ -172,6 +175,33 @@
 - (void)epgView:(PlayerEPGView *)epgView didSelectProgram:(EPGProgram *)program {
     if (self.catchupSource.length == 0) return;
     
+    NSDate *now = [NSDate date];
+    
+    // 核心优化：判断点击的是历史节目，还是当前真正的直播节目
+    if ([now compare:program.startTime] != NSOrderedAscending && [now compare:program.endTime] == NSOrderedAscending) {
+        // 用户想回到当前的直播状态
+        self.replayingProgram = nil;
+        self.epgView.replayingProgram = nil;
+        self.controlView.isCatchupMode = NO; // 关闭全屏防遮挡回放角标
+        
+        NSURL *url = [NSURL URLWithString:[self.videoURLString stringByAddingPercentEscapesUsingEncoding:NSUTF8StringEncoding]];
+        [self.player setContentURL:url];
+        [self.player play];
+        
+        [self.controlView showStatusMessage:[NSString stringWithFormat:@"已回到直播: %@", program.title]];
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(3.0 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+            [self.controlView hideStatusMessage];
+        });
+        
+        [self updateFullscreenEPGOverlay];
+        return;
+    }
+    
+    // 确实是历史节目，进入回放时移推流
+    self.replayingProgram = program;
+    self.epgView.replayingProgram = program;
+    self.controlView.isCatchupMode = YES; // 打开全屏防遮挡回放角标
+    
     NSDateFormatter *df = [[NSDateFormatter alloc] init];
     [df setDateFormat:@"yyyyMMddHHmmss"];
     NSString *bTime = [df stringFromDate:program.startTime];
@@ -196,27 +226,38 @@
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(3.0 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
         [self.controlView hideStatusMessage];
     });
+    
+    // 触发刷新全屏双行节目单
+    [self updateFullscreenEPGOverlay];
 }
 
-// 优化：不再使用底层获取 EPG，而是直接向底部的 epgView 索要当前解析好并统一的节目数据
+// 核心优化：全屏状态下支持呈现回看直播互补双行节目单
 - (void)updateFullscreenEPGOverlay {
     if (![EPGManager sharedManager].isEPGEnabled || !self.isFullscreen) {
         return;
     }
     
     EPGProgram *current = [self.epgView currentPlayingProgram];
-    EPGProgram *next = [self.epgView nextPlayingProgram];
     
-    // 如果当前和下一个全都没有（可能网络还没拉取完或者真没数据），传 nil 去隐藏悬浮窗
-    if (!current && !next) {
-        [self.controlView updateCurrentProgram:nil nextProgram:nil];
-        return;
+    if (self.replayingProgram) {
+        // 第一行显示回放的时间标题，第二行显示当前现实中正在直播的时间标题
+        NSString *line1 = [NSString stringWithFormat:@"%@ 正在回放：%@", [self.epgTimeFormatter stringFromDate:self.replayingProgram.startTime], self.replayingProgram.title];
+        NSString *line2 = current ? [NSString stringWithFormat:@"%@ 正在直播：%@", [self.epgTimeFormatter stringFromDate:current.startTime], current.title] : @"正在直播：暂无节目数据";
+        [self.controlView updateCurrentProgram:line1 nextProgram:line2];
+    } else {
+        // 传统直播模式下的双行节目单展示
+        EPGProgram *next = [self.epgView nextPlayingProgram];
+        
+        if (!current && !next) {
+            [self.controlView updateCurrentProgram:nil nextProgram:nil];
+            return;
+        }
+        
+        NSString *currentStr = current ? [NSString stringWithFormat:@"%@ 正在播放：%@", [self.epgTimeFormatter stringFromDate:current.startTime], current.title] : @"正在播放：暂无节目数据";
+        NSString *nextStr = next ? [NSString stringWithFormat:@"%@ 即将播放：%@", [self.epgTimeFormatter stringFromDate:next.startTime], next.title] : @"即将播放：暂无节目数据";
+        
+        [self.controlView updateCurrentProgram:currentStr nextProgram:nextStr];
     }
-    
-    NSString *currentStr = current ? [NSString stringWithFormat:@"%@ 正在播放：%@", [self.epgTimeFormatter stringFromDate:current.startTime], current.title] : @"正在播放：暂无节目数据";
-    NSString *nextStr = next ? [NSString stringWithFormat:@"%@ 即将播放：%@", [self.epgTimeFormatter stringFromDate:next.startTime], next.title] : @"即将播放：暂无节目数据";
-    
-    [self.controlView updateCurrentProgram:currentStr nextProgram:nextStr];
 }
 
 #pragma mark - PlayerControlViewDelegate
