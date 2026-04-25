@@ -50,7 +50,6 @@
     self.epgView.tvgName = self.tvgName;
     self.epgView.delegate = self;
     
-    // 优化：将是否支持时移回看的标识传递给 EPG UI 组件以开启交互
     self.epgView.supportsCatchup = (self.catchupSource && self.catchupSource.length > 0);
     [self.view addSubview:self.epgView];
     
@@ -170,22 +169,18 @@
     }];
 }
 
-// 优化：在此处监听节目点击事件，计算替换时间模板并重新塞给播放器实现切流回放
 - (void)epgView:(PlayerEPGView *)epgView didSelectProgram:(EPGProgram *)program {
     if (self.catchupSource.length == 0) return;
     
-    // 按照最通用的 yyyyMMddHHmmss 将节目的起止时间进行格式化
     NSDateFormatter *df = [[NSDateFormatter alloc] init];
     [df setDateFormat:@"yyyyMMddHHmmss"];
     NSString *bTime = [df stringFromDate:program.startTime];
     NSString *eTime = [df stringFromDate:program.endTime];
     
-    // 执行正则规则变量的查找替换
     NSString *catchupParams = self.catchupSource;
     catchupParams = [catchupParams stringByReplacingOccurrencesOfString:@"${(b)yyyyMMddHHmmss}" withString:bTime];
     catchupParams = [catchupParams stringByReplacingOccurrencesOfString:@"${(e)yyyyMMddHHmmss}" withString:eTime];
     
-    // 合并拼装回看 URL（兼容模板自带全链接和以参数形式拼接原始推流地址的情况）
     NSString *finalURLStr = self.videoURLString;
     if ([catchupParams hasPrefix:@"http://"] || [catchupParams hasPrefix:@"https://"]) {
         finalURLStr = catchupParams;
@@ -193,44 +188,29 @@
         finalURLStr = [finalURLStr stringByAppendingString:catchupParams];
     }
     
-    // 强制系统播放器释放当前流并请求新的切片地址
     NSURL *url = [NSURL URLWithString:[finalURLStr stringByAddingPercentEscapesUsingEncoding:NSUTF8StringEncoding]];
     [self.player setContentURL:url];
     [self.player play];
     
-    // 借用底部的提示黑条给用户展示明确的进入回放状态感知
     [self.controlView showStatusMessage:[NSString stringWithFormat:@"正在回看: %@", program.title]];
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(3.0 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
         [self.controlView hideStatusMessage];
     });
 }
 
+// 优化：不再使用底层获取 EPG，而是直接向底部的 epgView 索要当前解析好并统一的节目数据
 - (void)updateFullscreenEPGOverlay {
     if (![EPGManager sharedManager].isEPGEnabled || !self.isFullscreen) {
         return;
     }
     
-    NSString *epgSearchName = (self.tvgName && self.tvgName.length > 0) ? self.tvgName : self.channelTitle;
-    NSArray *programs = [[EPGManager sharedManager] programsForChannelName:epgSearchName];
+    EPGProgram *current = [self.epgView currentPlayingProgram];
+    EPGProgram *next = [self.epgView nextPlayingProgram];
     
-    if (programs.count == 0) {
+    // 如果当前和下一个全都没有（可能网络还没拉取完或者真没数据），传 nil 去隐藏悬浮窗
+    if (!current && !next) {
         [self.controlView updateCurrentProgram:nil nextProgram:nil];
         return;
-    }
-    
-    NSDate *now = [NSDate date];
-    EPGProgram *current = nil;
-    EPGProgram *next = nil;
-    
-    for (NSInteger i = 0; i < programs.count; i++) {
-        EPGProgram *p = programs[i];
-        if ([now compare:p.startTime] != NSOrderedAscending && [now compare:p.endTime] == NSOrderedAscending) {
-            current = p;
-            if (i + 1 < programs.count) {
-                next = programs[i + 1];
-            }
-            break;
-        }
     }
     
     NSString *currentStr = current ? [NSString stringWithFormat:@"%@ 正在播放：%@", [self.epgTimeFormatter stringFromDate:current.startTime], current.title] : @"正在播放：暂无节目数据";

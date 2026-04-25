@@ -14,7 +14,7 @@
 @optional
 - (void)epgViewDidTapSettings:(PlayerEPGView *)epgView;
 - (void)epgViewDidTapRefresh:(PlayerEPGView *)epgView;
-// 新增：用户在列表中点击某个节目时触发（用于回放）
+// 用户在列表中点击某个节目时触发（用于回放）
 - (void)epgView:(PlayerEPGView *)epgView didSelectProgram:(EPGProgram *)program;
 @end
 
@@ -26,7 +26,7 @@
 @property (nonatomic, copy) NSString *channelTitle;
 @property (nonatomic, copy) NSString *tvgName;
 
-// 新增：标识该频道是否支持回看，以便开启列表点击交互
+// 标识该频道是否支持回看，以便开启列表点击交互
 @property (nonatomic, assign) BOOL supportsCatchup;
 
 // 通知组件刷新数据或切换频道时重置
@@ -34,5 +34,9 @@
 
 // 主动要求列表滚动至当前正在播放的节目
 - (void)scrollToCurrentProgram;
+
+// 新增：获取当前正在播放和即将播放的节目，供全屏悬浮窗调用
+- (EPGProgram *)currentPlayingProgram;
+- (EPGProgram *)nextPlayingProgram;
 
 @end
