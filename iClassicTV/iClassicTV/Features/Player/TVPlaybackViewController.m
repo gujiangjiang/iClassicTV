@@ -31,7 +31,6 @@
 @property (nonatomic, strong) PlayerEPGView *epgView;
 @property (nonatomic, strong) NSDateFormatter *epgTimeFormatter;
 
-// 内部持有一个回放的标识，用于动态管控切流状态与 UI 层级
 @property (nonatomic, strong) EPGProgram *replayingProgram;
 
 @end
@@ -163,7 +162,7 @@
                 [self.epgView reloadData];
                 [self updateFullscreenEPGOverlay];
             } else {
-                UIAlertView *alert = [[UIAlertView alloc] initWithTitle:@"刷新失败" message:errorMsg delegate:nil cancelButtonTitle:@"确定" otherButtonTitles:nil];
+                UIAlertView *alert = [[UIAlertView alloc] initWithTitle:LocalizedString(@"refresh_failed_title") message:errorMsg delegate:nil cancelButtonTitle:LocalizedString(@"confirm") otherButtonTitles:nil];
                 [alert show];
             }
         });
@@ -184,7 +183,7 @@
         [self.player setContentURL:url];
         [self.player play];
         
-        [self.overlayView showStatusMessage:[NSString stringWithFormat:@"已回到直播: %@", program.title]];
+        [self.overlayView showStatusMessage:[NSString stringWithFormat:LocalizedString(@"returned_to_live_format"), program.title]];
         dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(3.0 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
             [self.overlayView hideStatusMessage];
         });
@@ -217,14 +216,12 @@
     [self.player setContentURL:url];
     [self.player play];
     
-    // 补全提示文字：拼出完整的 日期 时间 格式
     NSDateFormatter *displayDf = [[NSDateFormatter alloc] init];
     [displayDf setDateFormat:@"MM-dd HH:mm"];
     NSString *displayTime = [displayDf stringFromDate:program.startTime];
     
-    [self.overlayView showStatusMessage:[NSString stringWithFormat:@"正在回放: %@ %@", displayTime, program.title]];
+    [self.overlayView showStatusMessage:[NSString stringWithFormat:LocalizedString(@"replaying_time_format"), displayTime, program.title]];
     
-    // 设置三秒后自动隐藏（如果底层播放器立刻缓冲完毕，也会自动接管并隐藏提示，完全符合您的期待逻辑）
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(3.0 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
         [self.overlayView hideStatusMessage];
     });
@@ -240,8 +237,8 @@
     EPGProgram *current = [self.epgView currentPlayingProgram];
     
     if (self.replayingProgram) {
-        NSString *line1 = [NSString stringWithFormat:@"%@ 正在回放：%@", [self.epgTimeFormatter stringFromDate:self.replayingProgram.startTime], self.replayingProgram.title];
-        NSString *line2 = current ? [NSString stringWithFormat:@"%@ 正在直播：%@", [self.epgTimeFormatter stringFromDate:current.startTime], current.title] : @"正在直播：暂无节目数据";
+        NSString *line1 = [NSString stringWithFormat:LocalizedString(@"replaying_colon_format"), [self.epgTimeFormatter stringFromDate:self.replayingProgram.startTime], self.replayingProgram.title];
+        NSString *line2 = current ? [NSString stringWithFormat:LocalizedString(@"live_colon_format"), [self.epgTimeFormatter stringFromDate:current.startTime], current.title] : LocalizedString(@"live_no_data");
         [self.overlayView.widgetsView updateCurrentProgram:line1 nextProgram:line2];
     } else {
         EPGProgram *next = [self.epgView nextPlayingProgram];
@@ -250,8 +247,8 @@
             return;
         }
         
-        NSString *currentStr = current ? [NSString stringWithFormat:@"%@ 正在播放：%@", [self.epgTimeFormatter stringFromDate:current.startTime], current.title] : @"正在播放：暂无节目数据";
-        NSString *nextStr = next ? [NSString stringWithFormat:@"%@ 即将播放：%@", [self.epgTimeFormatter stringFromDate:next.startTime], next.title] : @"即将播放：暂无节目数据";
+        NSString *currentStr = current ? [NSString stringWithFormat:LocalizedString(@"playing_colon_format"), [self.epgTimeFormatter stringFromDate:current.startTime], current.title] : LocalizedString(@"playing_no_data");
+        NSString *nextStr = next ? [NSString stringWithFormat:LocalizedString(@"next_colon_format"), [self.epgTimeFormatter stringFromDate:next.startTime], next.title] : LocalizedString(@"next_no_data");
         [self.overlayView.widgetsView updateCurrentProgram:currentStr nextProgram:nextStr];
     }
 }

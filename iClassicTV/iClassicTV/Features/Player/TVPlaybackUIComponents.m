@@ -158,7 +158,7 @@
     [self addSubview:self.timeLabel];
     
     self.catchupBadge = [[UILabel alloc] initWithFrame:CGRectZero];
-    self.catchupBadge.text = @"回放";
+    self.catchupBadge.text = LocalizedString(@"catchup_badge");
     self.catchupBadge.textColor = [UIColor whiteColor];
     self.catchupBadge.backgroundColor = [UIColor colorWithRed:0.9 green:0.2 blue:0.2 alpha:0.9];
     self.catchupBadge.font = [UIFont boldSystemFontOfSize:12];
@@ -173,7 +173,6 @@
     self.statusLabel.center = CGPointMake(size.width / 2.0, size.height / 2.0);
     
     if (isFullscreen) {
-        // 优化：缩小双行节目单的最大宽度，并加大边距以防与左侧回放标识重叠
         CGFloat overlayWidth = MIN(340, size.width - 140);
         self.epgOverlayView.frame = CGRectMake((size.width - overlayWidth) / 2, size.height - 50 - 65, overlayWidth, 50);
         self.currentProgramLabel.frame = CGRectMake(10, 5, overlayWidth - 20, 20);

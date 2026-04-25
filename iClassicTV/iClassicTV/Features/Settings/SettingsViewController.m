@@ -15,7 +15,7 @@
 #import "DataManagementViewController.h"
 #import "LanguageManager.h"
 #import "EPGManagerViewController.h"
-#import "PlayerSettingsViewController.h" // [新增] 引入独立的播放器设置页面
+#import "PlayerSettingsViewController.h"
 
 @interface SettingsViewController () <UIActionSheetDelegate>
 @property (nonatomic, strong) NSArray *sections;
@@ -51,14 +51,14 @@
 - (void)setupLocalizedTexts {
     self.title = LocalizedString(@"settings");
     
-    // 同样的，确保从设置页面进入的子页面，其顶部的返回按钮也是多语言的
+    // 确保从设置页面进入的子页面，其顶部的返回按钮也是多语言的
     UIBarButtonItem *backItem = [[UIBarButtonItem alloc] initWithTitle:LocalizedString(@"back") style:UIBarButtonItemStyleBordered target:nil action:nil];
     self.navigationItem.backBarButtonItem = backItem;
     
-    // [优化] 将原本独立的 全屏逻辑和播放器选项 合并为 “播放器设置”
+    // 修复：使用 LocalizedString 替换硬编码的 EPG 和 播放器设置
     self.sections = @[
-                      @{@"title": LocalizedString(@"source_settings"), @"rows": @[LocalizedString(@"my_sources_manage"), @"EPG 节目单管理"]},
-                      @{@"title": LocalizedString(@"software_settings"), @"rows": @[LocalizedString(@"language_settings"), @"播放器设置", LocalizedString(@"ua_settings")]},
+                      @{@"title": LocalizedString(@"source_settings"), @"rows": @[LocalizedString(@"my_sources_manage"), LocalizedString(@"epg_manager_title")]},
+                      @{@"title": LocalizedString(@"software_settings"), @"rows": @[LocalizedString(@"language_settings"), LocalizedString(@"player_settings_title"), LocalizedString(@"ua_settings")]},
                       @{@"title": LocalizedString(@"data_and_security"), @"rows": @[LocalizedString(@"data_management_and_backup")]},
                       @{@"title": LocalizedString(@"about"), @"rows": @[LocalizedString(@"about_iclassictv")]}
                       ];
@@ -94,7 +94,6 @@
                 cell.detailTextLabel.text = [[LanguageManager sharedManager] currentLanguageDisplayName];
             }
         }
-        // index 1 是“播放器设置”，不再需要显示 detailText
     }
     
     return cell;
@@ -121,7 +120,6 @@
             sheet.tag = 201;
             [sheet showInView:self.view];
         } else if (indexPath.row == 1) {
-            // [新增] 点击进入独立的播放器设置页面
             PlayerSettingsViewController *playerVC = [[PlayerSettingsViewController alloc] init];
             [self.navigationController pushViewController:playerVC animated:YES];
         } else if (indexPath.row == 2) {
@@ -139,7 +137,6 @@
 - (void)actionSheet:(UIActionSheet *)actionSheet clickedButtonAtIndex:(NSInteger)buttonIndex {
     if (buttonIndex == actionSheet.cancelButtonIndex) return;
     
-    // [优化] 只保留语言设置的 actionSheet，播放器相关的 actionSheet 已迁移
     if (actionSheet.tag == 201) {
         if (buttonIndex == 0) {
             [[LanguageManager sharedManager] changeLanguageTo:@"system"];

@@ -72,10 +72,9 @@
     NSString *urlStr = source[@"url"];
     NSString *detailText = (urlStr && urlStr.length > 0) ? urlStr : LocalizedString(@"local_external_source");
     
-    // 优化：将是否支持回放的提示收敛在源列表中，检测该源内容是否包含 catchup-source
     NSString *content = source[@"content"];
     if (content && [content rangeOfString:@"catchup-source" options:NSCaseInsensitiveSearch].location != NSNotFound) {
-        cell.detailTextLabel.text = [NSString stringWithFormat:@"[支持回放] %@", detailText];
+        cell.detailTextLabel.text = [NSString stringWithFormat:@"%@ %@", LocalizedString(@"supports_catchup"), detailText];
     } else {
         cell.detailTextLabel.text = detailText;
     }

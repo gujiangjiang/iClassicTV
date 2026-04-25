@@ -9,6 +9,7 @@
 #import "EPGManager.h"
 #import "EPGParser.h"
 #import "ToastHelper.h"
+#import "LanguageManager.h"
 #import <zlib.h>
 
 #define kEPGEnabledKey @"ios6_iptv_epg_enabled"
@@ -108,10 +109,9 @@
     [self addEPGSourceWithName:name url:url type:type linkedM3UId:nil];
 }
 
-// 核心优化：处理带绑定关系的 M3U 自带源，更新或插入
 - (void)addEPGSourceWithName:(NSString *)name url:(NSString *)url type:(NSString *)type linkedM3UId:(NSString *)linkedM3UId {
     NSMutableDictionary *newSource = [@{
-                                        @"name": name ?: @"未知EPG",
+                                        @"name": name ?: LocalizedString(@"unnamed_source"),
                                         @"url": url ?: @"",
                                         @"type": type ?: @"xml",
                                         @"isActive": @(NO)
@@ -119,7 +119,6 @@
     
     if (linkedM3UId) {
         newSource[@"linkedM3UId"] = linkedM3UId;
-        // 查找是否已经存在该绑定的 M3U 源，若存在则更新 URL 和名称即可
         for (NSInteger i = 0; i < self.internalSources.count; i++) {
             if ([self.internalSources[i][@"linkedM3UId"] isEqualToString:linkedM3UId]) {
                 BOOL wasActive = [self.internalSources[i][@"isActive"] boolValue];
@@ -131,7 +130,6 @@
         }
     }
     
-    // 如果是第一次添加，或者是全新插入，若是列表为空则自动激活
     BOOL isFirst = (self.internalSources.count == 0);
     newSource[@"isActive"] = @(isFirst);
     [self.internalSources addObject:newSource];
@@ -151,7 +149,6 @@
     }
 }
 
-// 新增：供 AppDataManager 调用的通过绑定 ID 删除的方法
 - (void)removeEPGSourceByLinkedM3UId:(NSString *)m3uId {
     if (!m3uId) return;
     NSInteger targetIndex = -1;
@@ -166,7 +163,6 @@
     }
 }
 
-// 新增：M3U 源重命名时，同步修改自带 EPG 的名称
 - (void)updateLinkedEPGSourceName:(NSString *)name forM3UId:(NSString *)m3uId {
     if (!m3uId || !name) return;
     for (NSInteger i = 0; i < self.internalSources.count; i++) {
@@ -180,7 +176,6 @@
     }
 }
 
-// 新增：清空所有带绑定的自带 EPG 源
 - (void)removeAllLinkedEPGSources {
     NSMutableIndexSet *indexesToRemove = [NSMutableIndexSet indexSet];
     BOOL removedActive = NO;
@@ -286,12 +281,12 @@
 - (void)checkAndAutoUpdateEPG {
     if (!self.isEPGEnabled || !self.autoUpdateOnLaunch || self.isDynamicEPGSource) return;
     if ([self needsUpdate]) {
-        [ToastHelper showToastWithMessage:@"EPG 数据静默更新中..."];
+        [ToastHelper showToastWithMessage:LocalizedString(@"epg_updating_silently")];
         [self fetchAndParseEPGDataWithCompletion:^(BOOL success, NSString *errorMsg) {
             if (success) {
-                [ToastHelper showToastWithMessage:@"EPG 数据更新完成"];
+                [ToastHelper showToastWithMessage:LocalizedString(@"epg_update_complete")];
             } else {
-                [ToastHelper showToastWithMessage:[NSString stringWithFormat:@"EPG 更新失败: %@", errorMsg]];
+                [ToastHelper showToastWithMessage:[NSString stringWithFormat:LocalizedString(@"epg_update_failed_msg"), errorMsg]];
             }
         }];
     }
@@ -305,7 +300,6 @@
         return;
     }
     
-    // 核心优化：将 URL 按逗号分隔，实现多 URL 的依次拉取和合并数据（完美解决主次源的需求）
     NSArray *urls = [self.epgSourceURL componentsSeparatedByString:@","];
     
     dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
@@ -332,8 +326,6 @@
             if (parsedDict && parsedDict.count > 0) {
                 atLeastOneSuccess = YES;
                 
-                // 执行数据合并，主源优先！
-                // (只要主源(排在前面的链接)成功解析了该频道的节目，后续源该频道的节目就会被跳过不被覆盖)
                 for (NSString *channelKey in parsedDict) {
                     if (!mergedDict[channelKey]) {
                         mergedDict[channelKey] = parsedDict[channelKey];
@@ -350,7 +342,7 @@
             });
         } else {
             dispatch_async(dispatch_get_main_queue(), ^{
-                if (completion) completion(NO, @"所有 EPG 源链接拉取或解析均失败");
+                if (completion) completion(NO, LocalizedString(@"epg_all_sources_failed"));
             });
         }
     });

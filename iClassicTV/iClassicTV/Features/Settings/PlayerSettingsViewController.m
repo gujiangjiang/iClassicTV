@@ -18,7 +18,7 @@
 - (instancetype)init {
     self = [super initWithStyle:UITableViewStyleGrouped];
     if (self) {
-        self.title = @"播放器设置";
+        self.title = LocalizedString(@"player_settings_title");
     }
     return self;
 }
@@ -36,21 +36,20 @@
 - (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section {
     if (section == 0) return 1;
     if (section == 1) return 1;
-    if (section == 2) return 3; // [修改] 高级设置增加到 3 行（新增回放标识开关）
+    if (section == 2) return 3;
     return 0;
 }
 
 - (NSString *)tableView:(UITableView *)tableView titleForHeaderInSection:(NSInteger)section {
-    if (section == 0) return @"播放器选择";
+    if (section == 0) return LocalizedString(@"player_selection");
     if (section == 1) return LocalizedString(@"default_fullscreen_logic");
-    if (section == 2) return @"高级功能 (仅限自定义播放器)";
+    if (section == 2) return LocalizedString(@"advanced_features_custom_only");
     return nil;
 }
 
 - (NSString *)tableView:(UITableView *)tableView titleForFooterInSection:(NSInteger)section {
     if (section == 2) {
-        // [修改] 更新底部提示文案包含回放标识说明
-        return @"全屏状态下可附带显示节目单列表、右上角的悬浮时间以及左下角的回放标识。部分组件会跟随播放进度条同步显示与隐藏。";
+        return LocalizedString(@"fullscreen_widgets_footer");
     }
     return nil;
 }
@@ -67,7 +66,7 @@
         cell.textLabel.textColor = [UIColor blackColor];
         
         if (indexPath.section == 0) {
-            cell.textLabel.text = @"播放器选择";
+            cell.textLabel.text = LocalizedString(@"player_selection");
             cell.detailTextLabel.text = ([PlayerConfigManager preferredPlayerType] == 0) ? LocalizedString(@"custom_player_recommended") : LocalizedString(@"ios_native_player");
         } else if (indexPath.section == 1) {
             cell.textLabel.text = LocalizedString(@"default_fullscreen_logic");
@@ -89,16 +88,15 @@
         
         UISwitch *switchView = [[UISwitch alloc] initWithFrame:CGRectZero];
         if (indexPath.row == 0) {
-            cell.textLabel.text = @"全屏状态显示节目单";
+            cell.textLabel.text = LocalizedString(@"show_epg_in_fullscreen");
             [switchView setOn:[PlayerConfigManager showEPGInFullscreen] animated:NO];
             [switchView addTarget:self action:@selector(epgSwitchChanged:) forControlEvents:UIControlEventValueChanged];
         } else if (indexPath.row == 1) {
-            cell.textLabel.text = @"全屏状态显示悬浮时间";
+            cell.textLabel.text = LocalizedString(@"show_time_in_fullscreen");
             [switchView setOn:[PlayerConfigManager showTimeInFullscreen] animated:NO];
             [switchView addTarget:self action:@selector(timeSwitchChanged:) forControlEvents:UIControlEventValueChanged];
         } else if (indexPath.row == 2) {
-            // [新增] 回放标识开关逻辑
-            cell.textLabel.text = @"全屏状态显示回放标识";
+            cell.textLabel.text = LocalizedString(@"show_catchup_badge_in_fullscreen");
             [switchView setOn:[PlayerConfigManager showCatchupBadgeInFullscreen] animated:NO];
             [switchView addTarget:self action:@selector(catchupBadgeSwitchChanged:) forControlEvents:UIControlEventValueChanged];
         }
@@ -114,7 +112,7 @@
     [tableView deselectRowAtIndexPath:indexPath animated:YES];
     
     if (indexPath.section == 0) {
-        UIActionSheet *sheet = [[UIActionSheet alloc] initWithTitle:@"播放器选择"
+        UIActionSheet *sheet = [[UIActionSheet alloc] initWithTitle:LocalizedString(@"player_selection")
                                                            delegate:self
                                                   cancelButtonTitle:LocalizedString(@"cancel")
                                              destructiveButtonTitle:nil
@@ -158,7 +156,6 @@
     [PlayerConfigManager setShowTimeInFullscreen:sender.isOn];
 }
 
-// [新增] 回放标识开关交互动作
 - (void)catchupBadgeSwitchChanged:(UISwitch *)sender {
     [PlayerConfigManager setShowCatchupBadgeInFullscreen:sender.isOn];
 }

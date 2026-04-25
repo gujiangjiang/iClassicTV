@@ -9,6 +9,7 @@
 #import "PlayerEPGView.h"
 #import "EPGManager.h"
 #import "EPGProgram.h"
+#import "LanguageManager.h"
 #import <QuartzCore/QuartzCore.h>
 
 @interface PlayerEPGView () <UITableViewDelegate, UITableViewDataSource>
@@ -78,7 +79,7 @@
         self.tipsLabel.textAlignment = NSTextAlignmentCenter;
         self.tipsLabel.textColor = [UIColor grayColor];
         self.tipsLabel.font = [UIFont systemFontOfSize:14];
-        self.tipsLabel.text = @"暂无节目单数据";
+        self.tipsLabel.text = LocalizedString(@"no_epg_data");
         self.tipsLabel.numberOfLines = 0;
         [self addSubview:self.tipsLabel];
         
@@ -113,7 +114,6 @@
     self.actionButton.frame = CGRectMake((viewWidth - 100) / 2.0, listCenterY + 5, 100, 32);
 }
 
-// 新增：监听正在回放节目的变更以刷新列表 UI
 - (void)setReplayingProgram:(EPGProgram *)replayingProgram {
     _replayingProgram = replayingProgram;
     [self.tableView reloadData];
@@ -140,9 +140,9 @@
     }
     
     if (!isEPGEnabled) {
-        self.tipsLabel.text = @"未开启电子节目单";
+        self.tipsLabel.text = LocalizedString(@"epg_not_enabled");
         self.tipsLabel.hidden = NO;
-        [self.actionButton setTitle:@"去设置" forState:UIControlStateNormal];
+        [self.actionButton setTitle:LocalizedString(@"go_to_settings") forState:UIControlStateNormal];
         self.actionButton.tag = 1;
         self.actionButton.hidden = NO;
         self.dateContainerView.hidden = YES;
@@ -193,7 +193,7 @@
     }
     
     if (allPrograms.count == 0) {
-        self.tipsLabel.text = @"暂无节目单数据";
+        self.tipsLabel.text = LocalizedString(@"no_epg_data");
         self.tipsLabel.hidden = NO;
         self.actionButton.hidden = YES;
         self.dateContainerView.hidden = YES;
@@ -205,9 +205,9 @@
     }
     
     if (isExpired) {
-        self.tipsLabel.text = @"节目单已过期";
+        self.tipsLabel.text = LocalizedString(@"epg_expired");
         self.tipsLabel.hidden = NO;
-        [self.actionButton setTitle:@"立即刷新" forState:UIControlStateNormal];
+        [self.actionButton setTitle:LocalizedString(@"refresh_now") forState:UIControlStateNormal];
         self.actionButton.tag = 2;
         self.actionButton.hidden = NO;
         self.dateContainerView.hidden = YES;
@@ -271,13 +271,13 @@
     if (self.groupedPrograms[date]) {
         self.displayPrograms = self.groupedPrograms[date];
         self.tipsLabel.hidden = self.displayPrograms.count > 0 ? YES : NO;
-        self.tipsLabel.text = self.displayPrograms.count > 0 ? @"" : @"暂无节目单数据";
+        self.tipsLabel.text = self.displayPrograms.count > 0 ? @"" : LocalizedString(@"no_epg_data");
         [self.tableView reloadData];
         [self scrollToCurrentProgram];
     } else {
         self.displayPrograms = @[];
         [self.tableView reloadData];
-        self.tipsLabel.text = @"加载中...";
+        self.tipsLabel.text = LocalizedString(@"loading");
         self.tipsLabel.hidden = NO;
         
         __weak typeof(self) weakSelf = self;
@@ -289,7 +289,7 @@
                 weakSelf.displayPrograms = mut[date];
                 
                 if (weakSelf.displayPrograms.count == 0) {
-                    weakSelf.tipsLabel.text = @"暂无节目单数据";
+                    weakSelf.tipsLabel.text = LocalizedString(@"no_epg_data");
                     weakSelf.tipsLabel.hidden = NO;
                 } else {
                     weakSelf.tipsLabel.hidden = YES;
@@ -312,10 +312,10 @@
     NSTimeInterval diff = [date timeIntervalSinceDate:todayStart];
     int days = round(diff / 86400.0);
     
-    if (days == 0) return @"今天";
-    if (days == 1) return @"明天";
-    if (days == 2) return @"后天";
-    if (days == -1) return @"昨天";
+    if (days == 0) return LocalizedString(@"today");
+    if (days == 1) return LocalizedString(@"tomorrow");
+    if (days == 2) return LocalizedString(@"day_after_tomorrow");
+    if (days == -1) return LocalizedString(@"yesterday");
     
     NSDateFormatter *df = [[NSDateFormatter alloc] init];
     [df setDateFormat:@"MM-dd"];
@@ -407,7 +407,6 @@
     NSDate *now = [NSDate date];
     NSDate *todayStart = [self startOfDayForDate:now];
     
-    // 优化：如果有正在回放的节目，优先让列表滚到回放节目处
     if (self.replayingProgram) {
         NSDate *replayDayStart = [self startOfDayForDate:self.replayingProgram.startTime];
         if (![self.selectedDate isEqualToDate:replayDayStart]) return;
@@ -427,7 +426,6 @@
         return;
     }
     
-    // 否则正常滚到当前直播节目
     if (![self.selectedDate isEqualToDate:todayStart]) return;
     
     NSInteger currentIndex = -1;
@@ -529,7 +527,6 @@
     
     NSDate *now = [NSDate date];
     
-    // 核心优化：准确判断回放及直播挂起状态的 UI
     BOOL isReplayingThis = (self.replayingProgram && [program.startTime isEqualToDate:self.replayingProgram.startTime]);
     BOOL isCurrentlyLive = ([now compare:program.startTime] != NSOrderedAscending && [now compare:program.endTime] == NSOrderedAscending);
     
@@ -537,37 +534,34 @@
         UIColor *themeColor = self.isIOS7 ? [UIColor colorWithRed:0.0 green:0.478 blue:1.0 alpha:1.0] : [UIColor orangeColor];
         cell.textLabel.textColor = themeColor;
         cell.detailTextLabel.textColor = themeColor;
-        cell.detailTextLabel.text = @"正在回放";
+        cell.detailTextLabel.text = LocalizedString(@"now_replaying");
         cell.textLabel.font = [UIFont boldSystemFontOfSize:15];
     } else if (isCurrentlyLive) {
         if (self.replayingProgram != nil) {
-            // 当前处于回放别的时间段，原本的直播降级显示为“暂停播放”
             cell.textLabel.textColor = [UIColor darkGrayColor];
             cell.detailTextLabel.textColor = [UIColor darkGrayColor];
-            cell.detailTextLabel.text = @"暂停播放";
+            cell.detailTextLabel.text = LocalizedString(@"playback_paused");
             cell.textLabel.font = [UIFont systemFontOfSize:14];
         } else {
-            // 正常正在直播
             UIColor *themeColor = self.isIOS7 ? [UIColor colorWithRed:0.0 green:0.478 blue:1.0 alpha:1.0] : [UIColor orangeColor];
             cell.textLabel.textColor = themeColor;
             cell.detailTextLabel.textColor = themeColor;
-            cell.detailTextLabel.text = @"正在播放";
+            cell.detailTextLabel.text = LocalizedString(@"now_playing");
             cell.textLabel.font = [UIFont boldSystemFontOfSize:15];
         }
     } else if ([now compare:program.endTime] != NSOrderedAscending) {
         cell.textLabel.textColor = [UIColor darkGrayColor];
         cell.detailTextLabel.textColor = [UIColor darkGrayColor];
-        cell.detailTextLabel.text = @"已播放";
+        cell.detailTextLabel.text = LocalizedString(@"already_played");
         cell.textLabel.font = [UIFont systemFontOfSize:14];
     } else {
         UIColor *normalColor = self.isIOS7 ? [UIColor blackColor] : [UIColor whiteColor];
         cell.textLabel.textColor = normalColor;
         cell.detailTextLabel.textColor = normalColor;
-        cell.detailTextLabel.text = @"未播放";
+        cell.detailTextLabel.text = LocalizedString(@"not_played");
         cell.textLabel.font = [UIFont systemFontOfSize:14];
     }
     
-    // 如果支持回看，保证历史节目和被暂停的直播节目可以被点击选中
     if (self.supportsCatchup && ([now compare:program.startTime] != NSOrderedAscending)) {
         cell.selectionStyle = UITableViewCellSelectionStyleBlue;
     } else {

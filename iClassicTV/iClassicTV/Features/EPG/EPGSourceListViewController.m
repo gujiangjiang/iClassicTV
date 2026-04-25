@@ -9,24 +9,24 @@
 #import "EPGSourceListViewController.h"
 #import "EPGManager.h"
 #import "AlertHelper.h"
-#import "ToastHelper.h" // 新增：用来阻断长按弹出提示
+#import "ToastHelper.h"
+#import "LanguageManager.h" // 引入多语言
 
+// 修复：在这里补上 <UIActionSheetDelegate> 协议声明
 @interface EPGSourceListViewController () <UIActionSheetDelegate>
-
 @property (nonatomic, assign) NSInteger editingIndex;
-
 @end
 
 @implementation EPGSourceListViewController
 
 - (void)viewDidLoad {
     [super viewDidLoad];
-    self.title = @"EPG 接口列表";
+    // 应用多语言
+    self.title = LocalizedString(@"epg_source_list_title");
     
     UIBarButtonItem *addItem = [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemAdd target:self action:@selector(addButtonTapped)];
     self.navigationItem.rightBarButtonItem = addItem;
     
-    // 添加长按手势用于重命名/编辑
     UILongPressGestureRecognizer *longPress = [[UILongPressGestureRecognizer alloc] initWithTarget:self action:@selector(handleLongPress:)];
     [self.tableView addGestureRecognizer:longPress];
 }
@@ -39,7 +39,7 @@
 #pragma mark - Actions
 
 - (void)addButtonTapped {
-    UIActionSheet *sheet = [[UIActionSheet alloc] initWithTitle:@"选择接口类型" delegate:self cancelButtonTitle:@"取消" destructiveButtonTitle:nil otherButtonTitles:@"XML 压缩包 (全局下载)", @"DIYP 接口 (按需动态)", @"EPGInfo 接口 (按需动态)", nil];
+    UIActionSheet *sheet = [[UIActionSheet alloc] initWithTitle:LocalizedString(@"select_epg_type") delegate:self cancelButtonTitle:LocalizedString(@"cancel") destructiveButtonTitle:nil otherButtonTitles:LocalizedString(@"epg_type_xml"), LocalizedString(@"epg_type_diyp"), LocalizedString(@"epg_type_epginfo"), nil];
     sheet.tag = 100;
     [sheet showInView:self.view];
 }
@@ -53,20 +53,17 @@
             NSArray *sources = [EPGManager sharedManager].epgSources;
             NSDictionary *source = sources[indexPath.row];
             
-            // 优化：判断如果是自带源，直接阻断弹窗，给予提示
             if (source[@"linkedM3UId"]) {
-                [ToastHelper showToastWithMessage:@"M3U自带源不可单独编辑，随直播源自动同步更改。"];
+                [ToastHelper showToastWithMessage:LocalizedString(@"m3u_builtin_cannot_edit")];
                 return;
             }
             
-            UIActionSheet *sheet = [[UIActionSheet alloc] initWithTitle:@"修改接口类型" delegate:self cancelButtonTitle:@"取消" destructiveButtonTitle:nil otherButtonTitles:@"XML 压缩包 (全局下载)", @"DIYP 接口 (按需动态)", @"EPGInfo 接口 (按需动态)", nil];
+            UIActionSheet *sheet = [[UIActionSheet alloc] initWithTitle:LocalizedString(@"modify_epg_type") delegate:self cancelButtonTitle:LocalizedString(@"cancel") destructiveButtonTitle:nil otherButtonTitles:LocalizedString(@"epg_type_xml"), LocalizedString(@"epg_type_diyp"), LocalizedString(@"epg_type_epginfo"), nil];
             sheet.tag = 101;
             [sheet showInView:self.view];
         }
     }
 }
-
-#pragma mark - UIActionSheet Delegate
 
 - (void)actionSheet:(UIActionSheet *)actionSheet clickedButtonAtIndex:(NSInteger)buttonIndex {
     if (buttonIndex == actionSheet.cancelButtonIndex) return;
@@ -81,28 +78,27 @@
     __weak typeof(self) weakSelf = self;
     
     dispatch_async(dispatch_get_main_queue(), ^{
-        [AlertHelper showDoubleInputAlertWithTitle:isEditing ? @"修改 EPG" : @"添加 EPG"
-                                           message:@"请输入 EPG 接口名称和链接"
-                                   namePlaceholder:@"名称 (留空默认为当前时间)"
-                                contentPlaceholder:@"http://..."
+        [AlertHelper showDoubleInputAlertWithTitle:isEditing ? LocalizedString(@"edit_epg") : LocalizedString(@"add_epg")
+                                           message:LocalizedString(@"enter_epg_info")
+                                   namePlaceholder:LocalizedString(@"epg_name_placeholder")
+                                contentPlaceholder:LocalizedString(@"http_placeholder")
                                           nameText:source[@"name"]
                                        contentText:source[@"url"]
                                       keyboardType:UIKeyboardTypeURL
-                                      confirmTitle:@"保存"
-                                       cancelTitle:@"取消"
+                                      confirmTitle:LocalizedString(@"save")
+                                       cancelTitle:LocalizedString(@"cancel")
                                       confirmBlock:^(NSString *name, NSString *content) {
                                           [weakSelf handleSaveEPGWithName:name url:content type:type isEditing:isEditing];
                                       } cancelBlock:nil];
     });
 }
 
-// 统一的 EPG 保存/更新处理逻辑
 - (void)handleSaveEPGWithName:(NSString *)name url:(NSString *)url type:(NSString *)type isEditing:(BOOL)isEditing {
     NSString *nameText = [name stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
     NSString *urlText = [url stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
     
     if (urlText.length == 0) {
-        UIAlertView *errorAlert = [[UIAlertView alloc] initWithTitle:@"提示" message:@"接口链接不能为空" delegate:nil cancelButtonTitle:@"确定" otherButtonTitles:nil];
+        UIAlertView *errorAlert = [[UIAlertView alloc] initWithTitle:LocalizedString(@"tips") message:LocalizedString(@"url_cannot_be_empty") delegate:nil cancelButtonTitle:LocalizedString(@"confirm") otherButtonTitles:nil];
         [errorAlert show];
         return;
     }
@@ -133,7 +129,7 @@
 }
 
 - (NSString *)tableView:(UITableView *)tableView titleForFooterInSection:(NSInteger)section {
-    return @"提示：点击选中并启用 EPG，非自带源长按可修改名称和链接，左滑可单独删除。";
+    return LocalizedString(@"epg_source_list_footer");
 }
 
 - (UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath {
@@ -153,19 +149,17 @@
     if ([type isEqualToString:@"diyp"]) typeDesc = @"DIYP";
     else if ([type isEqualToString:@"epginfo"]) typeDesc = @"EPGInfo";
     
-    // 优化：自带源高亮备注且加上专属标签
     if (source[@"linkedM3UId"]) {
-        cell.detailTextLabel.text = [NSString stringWithFormat:@"[M3U自带源] [%@] %@", typeDesc, source[@"url"]];
+        cell.detailTextLabel.text = [NSString stringWithFormat:@"%@ [%@] %@", LocalizedString(@"m3u_builtin_source"), typeDesc, source[@"url"]];
         cell.detailTextLabel.textColor = [UIColor darkGrayColor];
     } else {
         cell.detailTextLabel.text = [NSString stringWithFormat:@"[%@] %@", typeDesc, source[@"url"]];
         cell.detailTextLabel.textColor = [UIColor grayColor];
     }
     
-    // 高亮当前选中的源
     if ([source[@"isActive"] boolValue]) {
         cell.accessoryType = UITableViewCellAccessoryCheckmark;
-        cell.textLabel.textColor = [UIColor colorWithRed:0.0 green:0.478 blue:1.0 alpha:1.0]; // iOS系统蓝
+        cell.textLabel.textColor = [UIColor colorWithRed:0.0 green:0.478 blue:1.0 alpha:1.0];
     } else {
         cell.accessoryType = UITableViewCellAccessoryNone;
         cell.textLabel.textColor = [UIColor blackColor];
@@ -183,7 +177,6 @@
 }
 
 - (BOOL)tableView:(UITableView *)tableView canEditRowAtIndexPath:(NSIndexPath *)indexPath {
-    // 优化：自带源禁止侧滑删除
     NSDictionary *source = [EPGManager sharedManager].epgSources[indexPath.row];
     if (source[@"linkedM3UId"]) {
         return NO;
