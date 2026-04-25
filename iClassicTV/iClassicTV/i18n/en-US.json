@@ -141,6 +141,7 @@
     "epg_seconds_format": "%ld Sec",
     "epg_ui_and_timezone_settings": "EPG UI & Time Zone Settings",
     "epg_ui_and_timezone_footer": "Defaults to device time zone.\nAuto scroll will force the EPG list back to the currently playing program after a period of inactivity to prevent getting lost.",
+    "epg_is_updating": "EPG is updating in background, please wait",
     "epg_updating_silently": "Updating EPG silently in background...",
     "epg_update_complete": "EPG data updated successfully",
     "epg_update_failed_msg": "EPG update failed: %@",

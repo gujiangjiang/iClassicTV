@@ -392,17 +392,15 @@
     }
 }
 
-// [新增] 执行静默后台更新
+// [修改] 优化执行静默后台更新逻辑，避免重复弹窗
 - (void)performSilentBackgroundUpdate {
     if (self.isUpdatingEPG) return;
-    self.isUpdatingEPG = YES;
     
     dispatch_async(dispatch_get_main_queue(), ^{
         [ToastHelper showToastWithMessage:LocalizedString(@"epg_updating_silently")];
     });
     
     [self fetchAndParseEPGDataWithCompletion:^(BOOL success, NSString *errorMsg) {
-        self.isUpdatingEPG = NO;
         if (!success) {
             self.lastFailedUpdateTime = [NSDate date];
         } else {
@@ -413,7 +411,9 @@
             if (success) {
                 [ToastHelper showToastWithMessage:LocalizedString(@"epg_update_complete")];
             } else {
-                [ToastHelper showToastWithMessage:[NSString stringWithFormat:LocalizedString(@"epg_update_failed_msg"), errorMsg]];
+                // 确保 errorMsg 不为空，防止崩溃
+                NSString *safeMsg = errorMsg ?: LocalizedString(@"unknown_error");
+                [ToastHelper showToastWithMessage:[NSString stringWithFormat:LocalizedString(@"epg_update_failed_msg"), safeMsg]];
             }
         });
     }];
@@ -440,69 +440,96 @@
 - (void)checkAndAutoUpdateEPG {
     if (!self.isEPGEnabled || !self.autoUpdateOnLaunch || self.isDynamicEPGSource) return;
     if ([self needsUpdate]) {
-        // [修改] 统一调用优化后的静默更新方法
         [self performSilentBackgroundUpdate];
     }
 }
 
 #pragma mark - Actions (XML Download & Merge)
 
+// [修改] 重构核心下载逻辑：增加锁机制防 OOM 崩溃，增加超时机制，增加局部内存释放池
 - (void)fetchAndParseEPGDataWithCompletion:(void(^)(BOOL success, NSString *errorMsg))completion {
+    // 1. 全局锁：如果已经在更新中，直接拦截请求，防止手动点击和自动后台任务并发导致内存爆满崩溃
+    if (self.isUpdatingEPG) {
+        if (completion) completion(NO, LocalizedString(@"epg_is_updating"));
+        return;
+    }
+    
     if (self.epgSourceURL.length == 0) {
         if (completion) completion(NO, @"URL_EMPTY");
         return;
     }
     
+    self.isUpdatingEPG = YES; // 锁定状态
     NSArray *urls = [self.epgSourceURL componentsSeparatedByString:@","];
     
     dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
         NSMutableDictionary *mergedDict = [NSMutableDictionary dictionary];
         BOOL atLeastOneSuccess = NO;
+        NSString *lastErrorMsg = nil;
         
         for (NSString *rawUrl in urls) {
-            NSString *urlStr = [rawUrl stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
-            if (urlStr.length == 0) continue;
-            
-            NSURL *url = [NSURL URLWithString:[urlStr stringByAddingPercentEscapesUsingEncoding:NSUTF8StringEncoding]];
-            if (!url) continue;
-            
-            NSData *xmlData = [NSData dataWithContentsOfURL:url options:0 error:nil];
-            if (!xmlData || xmlData.length == 0) continue;
-            
-            if ([self isGzippedData:xmlData]) {
-                xmlData = [self gunzippedData:xmlData];
-            }
-            
-            if (!xmlData || xmlData.length == 0) continue;
-            
-            NSDictionary *parsedDict = [EPGParser parseEPGXMLData:xmlData];
-            if (parsedDict && parsedDict.count > 0) {
-                atLeastOneSuccess = YES;
+            // 2. 局部内存释放池：防止处理多个巨大的 XML 时内存不断累积
+            @autoreleasepool {
+                NSString *urlStr = [rawUrl stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
+                if (urlStr.length == 0) continue;
                 
-                for (NSString *channelKey in parsedDict) {
-                    if (!mergedDict[channelKey]) {
-                        mergedDict[channelKey] = parsedDict[channelKey];
-                    }
+                NSURL *url = [NSURL URLWithString:[urlStr stringByAddingPercentEscapesUsingEncoding:NSUTF8StringEncoding]];
+                if (!url) continue;
+                
+                // 3. 超时机制：彻底抛弃 dataWithContentsOfURL，改用带 30 秒严格超时的同步请求，解决无限卡死的问题
+                NSMutableURLRequest *request = [NSMutableURLRequest requestWithURL:url cachePolicy:NSURLRequestReloadIgnoringLocalCacheData timeoutInterval:30.0];
+                // 增加伪装 User-Agent，防止部分 EPG 服务器屏蔽 iOS 默认请求头
+                [request setValue:@"Mozilla/5.0 (iPhone; CPU iPhone OS 6_1_3 like Mac OS X) AppleWebKit/536.26 (KHTML, like Gecko) Mobile/10B329 iClassicTV" forHTTPHeaderField:@"User-Agent"];
+                
+                NSURLResponse *response = nil;
+                NSError *error = nil;
+                NSData *xmlData = [NSURLConnection sendSynchronousRequest:request returningResponse:&response error:&error];
+                
+                if (error || !xmlData || xmlData.length == 0) {
+                    lastErrorMsg = error ? error.localizedDescription : @"No Data returned";
+                    continue; // 继续尝试下一个 URL
                 }
-            }
+                
+                if ([self isGzippedData:xmlData]) {
+                    xmlData = [self gunzippedData:xmlData];
+                }
+                
+                if (!xmlData || xmlData.length == 0) {
+                    lastErrorMsg = @"Gzip decompression failed";
+                    continue;
+                }
+                
+                NSDictionary *parsedDict = [EPGParser parseEPGXMLData:xmlData];
+                if (parsedDict && parsedDict.count > 0) {
+                    atLeastOneSuccess = YES;
+                    for (NSString *channelKey in parsedDict) {
+                        if (!mergedDict[channelKey]) {
+                            mergedDict[channelKey] = parsedDict[channelKey];
+                        }
+                    }
+                } else {
+                    lastErrorMsg = @"XML parse resulted in empty data";
+                }
+            } // 结束 @autoreleasepool，在此刻强制释放 xmlData 等庞大对象的内存
         }
         
         if (atLeastOneSuccess) {
             self.epgCacheDict = mergedDict;
             [self saveCacheToDisk:mergedDict];
             
-            // [新增] 保存更新成功的时间
             [[NSUserDefaults standardUserDefaults] setObject:[NSDate date] forKey:kEPGLastUpdateTimeKey];
             [[NSUserDefaults standardUserDefaults] synchronize];
             
             dispatch_async(dispatch_get_main_queue(), ^{
+                self.isUpdatingEPG = NO; // 解锁
                 if (completion) completion(YES, nil);
-                // [新增] 发出 EPG 数据已更新的全局通知，以便各界面自动重载
                 [[NSNotificationCenter defaultCenter] postNotificationName:@"EPGDataDidUpdateNotification" object:nil];
             });
         } else {
             dispatch_async(dispatch_get_main_queue(), ^{
-                if (completion) completion(NO, LocalizedString(@"epg_all_sources_failed"));
+                self.isUpdatingEPG = NO; // 解锁
+                NSString *finalError = lastErrorMsg ?: LocalizedString(@"epg_all_sources_failed");
+                if (completion) completion(NO, finalError);
             });
         }
     });
@@ -611,9 +638,13 @@
         return;
     }
     
+    // [修改] 动态源也同样加上超时机制和 User-Agent
+    NSMutableURLRequest *request = [NSMutableURLRequest requestWithURL:url cachePolicy:NSURLRequestReloadIgnoringLocalCacheData timeoutInterval:15.0];
+    [request setValue:@"Mozilla/5.0 (iPhone; CPU iPhone OS 6_1_3 like Mac OS X) AppleWebKit/536.26 (KHTML, like Gecko) Mobile/10B329 iClassicTV" forHTTPHeaderField:@"User-Agent"];
+    
     dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
         NSError *error = nil;
-        NSData *data = [NSData dataWithContentsOfURL:url options:NSDataReadingUncached error:&error];
+        NSData *data = [NSURLConnection sendSynchronousRequest:request returningResponse:nil error:&error];
         if (error || !data) {
             dispatch_async(dispatch_get_main_queue(), ^{ if (completion) completion(nil); });
             return;

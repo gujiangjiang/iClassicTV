@@ -141,6 +141,7 @@
     "epg_seconds_format": "%ld秒",
     "epg_ui_and_timezone_settings": "EPG 界面与时区设置",
     "epg_ui_and_timezone_footer": "默认跟随设备所在时区。\n自动回正功能可在您翻看节目单无操作后，强制将列表滚动回正在播放或回放的节目，防止迷失。",
+    "epg_is_updating": "EPG正在后台更新中，请稍后再试",
     "epg_updating_silently": "EPG 数据静默更新中...",
     "epg_update_complete": "EPG 数据更新完成",
     "epg_update_failed_msg": "EPG 更新失败: %@",
