@@ -24,4 +24,15 @@
     return content;
 }
 
+// [新增] 提取的统一 URL 解析逻辑
+- (NSURL *)toSafeURL {
+    if (self.length == 0) return nil;
+    
+    NSURL *url = [NSURL URLWithString:self];
+    if (!url) {
+        url = [NSURL URLWithString:[self stringByAddingPercentEscapesUsingEncoding:NSUTF8StringEncoding]];
+    }
+    return url;
+}
+
 @end

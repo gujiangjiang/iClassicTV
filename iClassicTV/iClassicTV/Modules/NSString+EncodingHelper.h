@@ -15,4 +15,9 @@
 /// @return 解析后的字符串内容，如果全部失败则返回 nil
 + (NSString *)stringWithContentsOfFileWithFallback:(NSString *)path;
 
+/// [新增] 将可能含有中文或特殊字符的字符串安全转换为 NSURL
+/// 先尝试直接解析，失败后自动进行 UTF8 百分号编码再解析
+/// @return 解析成功的 NSURL，若解析失败返回 nil
+- (NSURL *)toSafeURL;
+
 @end
