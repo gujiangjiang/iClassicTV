@@ -118,8 +118,12 @@
         cell.imageView.image = defaultLogo;
         
         if (ch.logo.length > 0) {
+            // [优化] 使用弱引用避免 block 造成循环引用和潜在的内存泄露
+            __weak typeof(self) weakSelf = self;
             dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
                 NSString *cleanURLStr = [ch.logo stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
+                
+                // [优化] 先尝试直接解析，如果包含中文等字符失败后再进行转码，防止被二次转码
                 NSURL *url = [NSURL URLWithString:cleanURLStr];
                 if (!url) url = [NSURL URLWithString:[cleanURLStr stringByAddingPercentEscapesUsingEncoding:NSUTF8StringEncoding]];
                 
@@ -130,10 +134,11 @@
                         UIImage *downloadedImage = [UIImage imageWithData:data];
                         if (downloadedImage) {
                             UIImage *resizedImage = [downloadedImage resizeAndPadToSize:CGSizeMake(40, 40)];
-                            [self.imageCache setObject:resizedImage forKey:logoKey];
+                            [weakSelf.imageCache setObject:resizedImage forKey:logoKey];
                             dispatch_async(dispatch_get_main_queue(), ^{
-                                if (indexPath.row < self.channels.count) {
-                                    Channel *currentChannel = self.channels[indexPath.row];
+                                // [优化] 安全检查 self 是否还存在
+                                if (weakSelf && indexPath.row < weakSelf.channels.count) {
+                                    Channel *currentChannel = weakSelf.channels[indexPath.row];
                                     NSString *currentLogoKey = currentChannel.logo.length > 0 ? currentChannel.logo : currentChannel.name;
                                     if ([currentLogoKey isEqualToString:logoKey]) {
                                         UITableViewCell *updateCell = [tableView cellForRowAtIndexPath:indexPath];
@@ -187,6 +192,10 @@
 - (void)actionSheet:(UIActionSheet *)actionSheet clickedButtonAtIndex:(NSInteger)buttonIndex {
     if (buttonIndex == actionSheet.cancelButtonIndex) return;
     NSInteger sourceIndex = buttonIndex - 1;
+    
+    // [优化] 增加越界保护，防止极端情况下的崩溃
+    if (sourceIndex < 0 || sourceIndex >= self.selectedChannel.urls.count) return;
+    
     [[NSUserDefaults standardUserDefaults] setInteger:sourceIndex forKey:[self.selectedChannel persistenceKey]];
     [[NSUserDefaults standardUserDefaults] synchronize];
     [self.tableView reloadData];
@@ -200,7 +209,12 @@
     NSInteger playerPref = [PlayerConfigManager preferredPlayerType];
     
     if (playerPref == 1) {
-        NSURL *url = [NSURL URLWithString:[urlString stringByAddingPercentEscapesUsingEncoding:NSUTF8StringEncoding]];
+        // [优化] URL 健壮性处理，防止已经被百分号编码过的链接被二次编码导致无法解析
+        NSURL *url = [NSURL URLWithString:urlString];
+        if (!url) {
+            url = [NSURL URLWithString:[urlString stringByAddingPercentEscapesUsingEncoding:NSUTF8StringEncoding]];
+        }
+        
         CustomNativePlayerViewController *playerVC = [[CustomNativePlayerViewController alloc] initWithContentURL:url];
         
         NSInteger orientationPref = [[NSUserDefaults standardUserDefaults] integerForKey:@"PlayerOrientationPref"];
