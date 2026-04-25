@@ -72,7 +72,12 @@
     [[UIApplication sharedApplication] beginReceivingRemoteControlEvents];
     [self becomeFirstResponder];
     
-    NSURL *url = [NSURL URLWithString:[self.videoURLString stringByAddingPercentEscapesUsingEncoding:NSUTF8StringEncoding]];
+    // [优化] 播放源 URL 处理优化：先判断原生能否解析，再使用转码，避免带参或已转码 URL 失败
+    NSURL *url = [NSURL URLWithString:self.videoURLString];
+    if (!url) {
+        url = [NSURL URLWithString:[self.videoURLString stringByAddingPercentEscapesUsingEncoding:NSUTF8StringEncoding]];
+    }
+    
     self.player = [[MPMoviePlayerController alloc] initWithContentURL:url];
     self.player.controlStyle = MPMovieControlStyleNone;
     [self.view addSubview:self.player.view];
@@ -192,7 +197,12 @@
         self.epgView.replayingProgram = nil;
         self.overlayView.widgetsView.isCatchupMode = NO;
         
-        NSURL *url = [NSURL URLWithString:[self.videoURLString stringByAddingPercentEscapesUsingEncoding:NSUTF8StringEncoding]];
+        // [优化] URL 健壮性处理
+        NSURL *url = [NSURL URLWithString:self.videoURLString];
+        if (!url) {
+            url = [NSURL URLWithString:[self.videoURLString stringByAddingPercentEscapesUsingEncoding:NSUTF8StringEncoding]];
+        }
+        
         [self.player setContentURL:url];
         [self.player play];
         
@@ -224,7 +234,12 @@
         finalURLStr = [finalURLStr stringByAppendingString:catchupParams];
     }
     
-    NSURL *url = [NSURL URLWithString:[finalURLStr stringByAddingPercentEscapesUsingEncoding:NSUTF8StringEncoding]];
+    // [优化] URL 健壮性处理
+    NSURL *url = [NSURL URLWithString:finalURLStr];
+    if (!url) {
+        url = [NSURL URLWithString:[finalURLStr stringByAddingPercentEscapesUsingEncoding:NSUTF8StringEncoding]];
+    }
+    
     [self.player setContentURL:url];
     [self.player play];
     
