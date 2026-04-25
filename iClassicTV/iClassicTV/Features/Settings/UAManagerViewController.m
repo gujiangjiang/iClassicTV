@@ -10,8 +10,9 @@
 #import "UserAgentManager.h"
 #import "AlertHelper.h"
 #import "LanguageManager.h"
+#import "ToastHelper.h"
 
-@interface UAManagerViewController () <UIAlertViewDelegate>
+@interface UAManagerViewController ()
 
 @end
 
@@ -19,7 +20,6 @@
 
 - (void)viewDidLoad {
     [super viewDidLoad];
-    // 优化：使用了合并后的 ua_settings 键
     self.title = LocalizedString(@"ua_settings");
     
     UIBarButtonItem *addBtn = [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemAdd target:self action:@selector(addUATapped)];
@@ -27,41 +27,38 @@
 }
 
 - (void)addUATapped {
-    UIAlertView *alert = [[UIAlertView alloc] initWithTitle:LocalizedString(@"add_custom_ua")
-                                                    message:nil
-                                                   delegate:self
-                                          cancelButtonTitle:LocalizedString(@"cancel")
-                                          otherButtonTitles:LocalizedString(@"save"), nil];
-    alert.alertViewStyle = UIAlertViewStyleLoginAndPasswordInput;
-    alert.tag = 100;
-    
-    UITextField *nameField = [alert textFieldAtIndex:0];
-    nameField.placeholder = LocalizedString(@"ua_name_placeholder");
-    
-    UITextField *uaField = [alert textFieldAtIndex:1];
-    uaField.placeholder = LocalizedString(@"ua_string_placeholder");
-    uaField.secureTextEntry = NO;
-    
-    [alert show];
-}
-
-#pragma mark - UIAlertViewDelegate
-
-- (void)alertView:(UIAlertView *)alertView clickedButtonAtIndex:(NSInteger)buttonIndex {
-    if (alertView.tag == 100) {
-        if (buttonIndex == 1) {
-            UITextField *nameField = [alertView textFieldAtIndex:0];
-            UITextField *uaField = [alertView textFieldAtIndex:1];
-            
-            NSString *name = [nameField.text stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
-            NSString *ua = [uaField.text stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
-            
-            if (name.length > 0 && ua.length > 0) {
-                [[UserAgentManager sharedManager] addUAWithName:name uaString:ua];
-                [self.tableView reloadData];
-            }
-        }
-    }
+    // 优化：调用封装好的统一双输入框弹窗
+    __weak typeof(self) weakSelf = self;
+    [AlertHelper showDoubleInputAlertWithTitle:LocalizedString(@"add_custom_ua")
+                                       message:nil
+                               namePlaceholder:LocalizedString(@"ua_name_placeholder")
+                            contentPlaceholder:LocalizedString(@"ua_string_placeholder")
+                                      nameText:nil
+                                   contentText:nil
+                                  keyboardType:UIKeyboardTypeDefault
+                                  confirmTitle:LocalizedString(@"save")
+                                   cancelTitle:LocalizedString(@"cancel")
+                                  confirmBlock:^(NSString *name, NSString *content) {
+                                      
+                                      NSString *trimmedName = [name stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
+                                      NSString *trimmedUA = [content stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
+                                      
+                                      // 优化：根据需求，UA 备注名称强制必填，不允许为空
+                                      if (trimmedName.length == 0) {
+                                          UIAlertView *errorAlert = [[UIAlertView alloc] initWithTitle:LocalizedString(@"tips") message:@"备注名不能为空，请重新添加！" delegate:nil cancelButtonTitle:LocalizedString(@"confirm") otherButtonTitles:nil];
+                                          [errorAlert show];
+                                          return;
+                                      }
+                                      
+                                      if (trimmedUA.length == 0) {
+                                          // 此处保持之前的行为逻辑：如果UA内容为空，阻止存入
+                                          return;
+                                      }
+                                      
+                                      [[UserAgentManager sharedManager] addUAWithName:trimmedName uaString:trimmedUA];
+                                      [weakSelf.tableView reloadData];
+                                      
+                                  } cancelBlock:nil];
 }
 
 #pragma mark - Table view data source
@@ -133,7 +130,7 @@
     }
 }
 
-// 新增：为左滑删除按钮提供多语言支持
+// 为左滑删除按钮提供多语言支持
 - (NSString *)tableView:(UITableView *)tableView titleForDeleteConfirmationButtonForRowAtIndexPath:(NSIndexPath *)indexPath {
     return LocalizedString(@"delete");
 }

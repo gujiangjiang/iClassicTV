@@ -97,7 +97,7 @@
     }
 }
 
-// 新增：为左滑删除按钮提供多语言支持
+// 为左滑删除按钮提供多语言支持
 - (NSString *)tableView:(UITableView *)tableView titleForDeleteConfirmationButtonForRowAtIndexPath:(NSIndexPath *)indexPath {
     return LocalizedString(@"delete");
 }
@@ -128,11 +128,57 @@
     
     if (actionSheet.tag == 101) {
         if (buttonIndex == 0) {
-            UIAlertView *alert = [[UIAlertView alloc] initWithTitle:LocalizedString(@"network_source") message:LocalizedString(@"enter_m3u_url") delegate:self cancelButtonTitle:LocalizedString(@"cancel") otherButtonTitles:LocalizedString(@"download"), nil];
-            alert.alertViewStyle = UIAlertViewStylePlainTextInput;
-            [alert textFieldAtIndex:0].keyboardType = UIKeyboardTypeURL;
-            alert.tag = 201;
-            [alert show];
+            // 优化：调用统一提取的双输入框弹窗，一次性获取名称和链接
+            __weak typeof(self) weakSelf = self;
+            [AlertHelper showDoubleInputAlertWithTitle:LocalizedString(@"add_network_source")
+                                               message:nil
+                                       namePlaceholder:LocalizedString(@"name_the_source")
+                                    contentPlaceholder:LocalizedString(@"enter_m3u_url")
+                                              nameText:nil
+                                           contentText:nil
+                                          keyboardType:UIKeyboardTypeURL
+                                          confirmTitle:LocalizedString(@"download")
+                                           cancelTitle:LocalizedString(@"cancel")
+                                          confirmBlock:^(NSString *name, NSString *content) {
+                                              
+                                              NSString *urlStr = [content stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
+                                              NSString *nameStr = [name stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
+                                              
+                                              // 如果备注留空，默认为当前时间
+                                              if (nameStr.length == 0) {
+                                                  NSDateFormatter *df = [[NSDateFormatter alloc] init];
+                                                  [df setDateFormat:@"yyyy-MM-dd HH:mm:ss"];
+                                                  nameStr = [df stringFromDate:[NSDate date]];
+                                              }
+                                              
+                                              NSURL *url = [NSURL URLWithString:urlStr];
+                                              if (!url || urlStr.length == 0) {
+                                                  [ToastHelper showToastWithMessage:LocalizedString(@"invalid_url")];
+                                                  return;
+                                              }
+                                              
+                                              UIAlertView *hud = [[UIAlertView alloc] initWithTitle:LocalizedString(@"downloading") message:LocalizedString(@"please_wait") delegate:nil cancelButtonTitle:nil otherButtonTitles:nil];
+                                              [hud show];
+                                              
+                                              dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
+                                                  NSString *m3uData = [[NetworkManager sharedManager] downloadStringSyncFromURL:url];
+                                                  
+                                                  dispatch_async(dispatch_get_main_queue(), ^{
+                                                      [hud dismissWithClickedButtonIndex:0 animated:YES];
+                                                      if (m3uData) {
+                                                          [[AppDataManager sharedManager] addSourceWithName:nameStr content:m3uData url:urlStr];
+                                                          [ToastHelper showToastWithMessage:LocalizedString(@"source_saved")];
+                                                          
+                                                          weakSelf.sources = [[AppDataManager sharedManager] getAllSources];
+                                                          [weakSelf.tableView reloadData];
+                                                      } else {
+                                                          [ToastHelper showToastWithMessage:LocalizedString(@"download_failed")];
+                                                      }
+                                                  });
+                                              });
+                                              
+                                          } cancelBlock:nil];
+            
         } else if (buttonIndex == 1) {
             TextImportModalViewController *textVC = [[TextImportModalViewController alloc] init];
             textVC.completionHandler = ^(NSString *text) {
@@ -183,7 +229,6 @@
             self.tempURLString = @"";
             [self showNamingAlertWithTag:204 presetName:[fileName stringByDeletingPathExtension]];
         } else {
-            // 优化：统一使用了合并后的 file_read_error
             [ToastHelper showToastWithMessage:LocalizedString(@"file_read_error")];
         }
         return;
@@ -233,34 +278,15 @@
             self.sources = [[AppDataManager sharedManager] getAllSources];
             [self.tableView reloadData];
         }
-    } else if (alertView.tag == 201) {
-        NSString *urlStr = [alertView textFieldAtIndex:0].text;
-        NSURL *url = [NSURL URLWithString:urlStr];
-        if (!url) {
-            [ToastHelper showToastWithMessage:LocalizedString(@"invalid_url")];
-            return;
-        }
-        
-        UIAlertView *hud = [[UIAlertView alloc] initWithTitle:LocalizedString(@"downloading") message:LocalizedString(@"please_wait") delegate:nil cancelButtonTitle:nil otherButtonTitles:nil];
-        [hud show];
-        
-        dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
-            NSString *m3uData = [[NetworkManager sharedManager] downloadStringSyncFromURL:url];
-            
-            dispatch_async(dispatch_get_main_queue(), ^{
-                [hud dismissWithClickedButtonIndex:0 animated:YES];
-                if (m3uData) {
-                    self.tempM3UData = m3uData;
-                    self.tempURLString = urlStr;
-                    [self showNamingAlertWithTag:203 presetName:nil];
-                } else {
-                    [ToastHelper showToastWithMessage:LocalizedString(@"download_failed")];
-                }
-            });
-        });
-    } else if (alertView.tag == 203 || alertView.tag == 204) {
+        // 优化：去除了 tag == 201 和 203 的原独立弹窗逻辑，统一改在了上方的 Block 中处理
+    } else if (alertView.tag == 204) {
         NSString *name = [alertView textFieldAtIndex:0].text;
-        if (name.length == 0) name = LocalizedString(@"unnamed_source");
+        if (name.length == 0) {
+            // 优化：统一无名字时的当前时间兜底逻辑
+            NSDateFormatter *df = [[NSDateFormatter alloc] init];
+            [df setDateFormat:@"yyyy-MM-dd HH:mm:ss"];
+            name = [df stringFromDate:[NSDate date]];
+        }
         
         [[AppDataManager sharedManager] addSourceWithName:name content:self.tempM3UData url:self.tempURLString];
         [ToastHelper showToastWithMessage:LocalizedString(@"source_saved")];
@@ -303,7 +329,6 @@
                 self.sources = [[AppDataManager sharedManager] getAllSources];
                 [ToastHelper showToastWithMessage:LocalizedString(@"refresh_success")];
             } else {
-                // 优化：将与 HUD 动画可能发生冲突的原生 UIAlertView 改为更平滑的 Toast 提示
                 [ToastHelper showToastWithMessage:LocalizedString(@"refresh_failed")];
             }
         });

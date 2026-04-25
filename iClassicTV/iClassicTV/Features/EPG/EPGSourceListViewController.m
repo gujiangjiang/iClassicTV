@@ -8,8 +8,9 @@
 
 #import "EPGSourceListViewController.h"
 #import "EPGManager.h"
+#import "AlertHelper.h" // 新增：引入提取好的弹窗模块
 
-@interface EPGSourceListViewController () <UIAlertViewDelegate>
+@interface EPGSourceListViewController ()
 
 @property (nonatomic, assign) NSInteger editingIndex;
 
@@ -37,21 +38,20 @@
 #pragma mark - Actions
 
 - (void)addButtonTapped {
-    // 优化：使用 LoginAndPasswordInput 样式来实现两个输入框同屏显示
-    UIAlertView *alert = [[UIAlertView alloc] initWithTitle:@"添加 EPG" message:@"请输入 EPG 接口名称和链接" delegate:self cancelButtonTitle:@"取消" otherButtonTitles:@"保存", nil];
-    alert.alertViewStyle = UIAlertViewStyleLoginAndPasswordInput;
-    
-    UITextField *nameField = [alert textFieldAtIndex:0];
-    nameField.placeholder = @"名称 (例如：默认EPG源)";
-    
-    UITextField *urlField = [alert textFieldAtIndex:1];
-    // 关键优化：取消密码输入框的圆点遮挡，使其变成普通的明文输入框
-    urlField.secureTextEntry = NO;
-    urlField.placeholder = @"http://...";
-    urlField.keyboardType = UIKeyboardTypeURL;
-    
-    alert.tag = 100;
-    [alert show];
+    // 优化：调用封装好的公共双输入框模块，摆脱冗余的 Delegate 实现
+    __weak typeof(self) weakSelf = self;
+    [AlertHelper showDoubleInputAlertWithTitle:@"添加 EPG"
+                                       message:@"请输入 EPG 接口名称和链接"
+                               namePlaceholder:@"名称 (留空默认为当前时间)"
+                            contentPlaceholder:@"http://..."
+                                      nameText:nil
+                                   contentText:nil
+                                  keyboardType:UIKeyboardTypeURL
+                                  confirmTitle:@"保存"
+                                   cancelTitle:@"取消"
+                                  confirmBlock:^(NSString *name, NSString *content) {
+                                      [weakSelf handleSaveEPGWithName:name url:content isEditing:NO];
+                                  } cancelBlock:nil];
 }
 
 - (void)handleLongPress:(UILongPressGestureRecognizer *)gesture {
@@ -63,62 +63,49 @@
             NSArray *sources = [EPGManager sharedManager].epgSources;
             NSDictionary *source = sources[indexPath.row];
             
-            UIAlertView *alert = [[UIAlertView alloc] initWithTitle:@"修改 EPG" message:@"请输入新的名称和链接" delegate:self cancelButtonTitle:@"取消" otherButtonTitles:@"保存", nil];
-            alert.alertViewStyle = UIAlertViewStyleLoginAndPasswordInput;
-            
-            UITextField *nameField = [alert textFieldAtIndex:0];
-            nameField.text = source[@"name"];
-            nameField.placeholder = @"名称";
-            
-            UITextField *urlField = [alert textFieldAtIndex:1];
-            // 关键优化：取消密码输入框的圆点遮挡，使其变成普通的明文输入框
-            urlField.secureTextEntry = NO;
-            urlField.text = source[@"url"];
-            urlField.placeholder = @"http://...";
-            urlField.keyboardType = UIKeyboardTypeURL;
-            
-            alert.tag = 200;
-            [alert show];
+            // 优化：复用统一模块
+            __weak typeof(self) weakSelf = self;
+            [AlertHelper showDoubleInputAlertWithTitle:@"修改 EPG"
+                                               message:@"请输入新的名称和链接"
+                                       namePlaceholder:@"名称 (留空默认为当前时间)"
+                                    contentPlaceholder:@"http://..."
+                                              nameText:source[@"name"]
+                                           contentText:source[@"url"]
+                                          keyboardType:UIKeyboardTypeURL
+                                          confirmTitle:@"保存"
+                                           cancelTitle:@"取消"
+                                          confirmBlock:^(NSString *name, NSString *content) {
+                                              [weakSelf handleSaveEPGWithName:name url:content isEditing:YES];
+                                          } cancelBlock:nil];
         }
     }
 }
 
-#pragma mark - UIAlertViewDelegate
-
-- (void)alertView:(UIAlertView *)alertView clickedButtonAtIndex:(NSInteger)buttonIndex {
-    if (buttonIndex == 0) return; // 取消
+// 统一的 EPG 保存/更新处理逻辑
+- (void)handleSaveEPGWithName:(NSString *)name url:(NSString *)url isEditing:(BOOL)isEditing {
+    NSString *nameText = [name stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
+    NSString *urlText = [url stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
     
-    // 一次性获取两个输入框的内容
-    UITextField *nameField = [alertView textFieldAtIndex:0];
-    UITextField *urlField = [alertView textFieldAtIndex:1];
+    if (urlText.length == 0) {
+        UIAlertView *errorAlert = [[UIAlertView alloc] initWithTitle:@"提示" message:@"接口链接不能为空" delegate:nil cancelButtonTitle:@"确定" otherButtonTitles:nil];
+        [errorAlert show];
+        return;
+    }
     
-    NSString *nameText = [nameField.text stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
-    NSString *urlText = [urlField.text stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
-    
-    // 提供默认名称
+    // 优化：若名称留空，按要求默认设置为当前时间
     if (nameText.length == 0) {
-        nameText = @"自定义 EPG";
+        NSDateFormatter *df = [[NSDateFormatter alloc] init];
+        [df setDateFormat:@"yyyy-MM-dd HH:mm:ss"];
+        nameText = [df stringFromDate:[NSDate date]];
     }
     
-    if (alertView.tag == 100) {
-        // 添加
-        if (urlText.length > 0) {
-            [[EPGManager sharedManager] addEPGSourceWithName:nameText url:urlText];
-            [self.tableView reloadData];
-        } else {
-            UIAlertView *errorAlert = [[UIAlertView alloc] initWithTitle:@"提示" message:@"接口链接不能为空" delegate:nil cancelButtonTitle:@"确定" otherButtonTitles:nil];
-            [errorAlert show];
-        }
-    } else if (alertView.tag == 200) {
-        // 编辑
-        if (urlText.length > 0) {
-            [[EPGManager sharedManager] renameEPGSourceAtIndex:self.editingIndex withName:nameText url:urlText];
-            [self.tableView reloadData];
-        } else {
-            UIAlertView *errorAlert = [[UIAlertView alloc] initWithTitle:@"提示" message:@"接口链接不能为空" delegate:nil cancelButtonTitle:@"确定" otherButtonTitles:nil];
-            [errorAlert show];
-        }
+    if (isEditing) {
+        [[EPGManager sharedManager] renameEPGSourceAtIndex:self.editingIndex withName:nameText url:urlText];
+    } else {
+        [[EPGManager sharedManager] addEPGSourceWithName:nameText url:urlText];
     }
+    
+    [self.tableView reloadData];
 }
 
 #pragma mark - Table view data source
