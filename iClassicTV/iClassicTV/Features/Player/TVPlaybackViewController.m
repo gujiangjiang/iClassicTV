@@ -113,14 +113,30 @@
     [self.epgView reloadData];
     [self updateFullscreenEPGOverlay];
     
-    // [修复] 确保进入页面时系统导航栏处于正常显示状态
-    [self.navigationController setNavigationBarHidden:NO animated:animated];
+    // [修复] 页面将要出现时，立刻根据当前设备方向初始化导航栏的样式和显示状态
+    UIInterfaceOrientation orientation = [UIApplication sharedApplication].statusBarOrientation;
+    BOOL isLandscape = UIInterfaceOrientationIsLandscape(orientation);
+    
+    if (isLandscape) {
+        self.navigationController.navigationBar.barStyle = UIBarStyleBlack;
+        self.navigationController.navigationBar.translucent = YES;
+        [self.navigationController setNavigationBarHidden:self.isControlsHidden animated:animated];
+    } else {
+        BOOL isIOS7 = [[[UIDevice currentDevice] systemVersion] floatValue] >= 7.0;
+        self.navigationController.navigationBar.barStyle = isIOS7 ? UIBarStyleDefault : UIBarStyleBlack;
+        self.navigationController.navigationBar.translucent = isIOS7 ? YES : NO;
+        [self.navigationController setNavigationBarHidden:NO animated:animated];
+    }
 }
 
 - (void)viewWillDisappear:(BOOL)animated {
     [super viewWillDisappear:animated];
-    // [修复] 确保离开页面时恢复导航栏的显示，防止全屏状态下返回导致上一级页面导航栏也消失
+    
+    // [修复] 离开播放器时，务必恢复系统默认导航栏状态和样式，防止返回列表页时导航栏丢失或意外透明
     [self.navigationController setNavigationBarHidden:NO animated:animated];
+    BOOL isIOS7 = [[[UIDevice currentDevice] systemVersion] floatValue] >= 7.0;
+    self.navigationController.navigationBar.barStyle = isIOS7 ? UIBarStyleDefault : UIBarStyleBlack;
+    self.navigationController.navigationBar.translucent = isIOS7 ? YES : NO;
 }
 
 - (void)viewWillLayoutSubviews {
@@ -432,6 +448,23 @@
     
     if (isLandscape) {
         [self updateFullscreenEPGOverlay];
+        // [修复] 全屏时，将导航栏变为黑色半透明，彻底融入播放器视觉效果，达成视觉一致性
+        self.navigationController.navigationBar.barStyle = UIBarStyleBlack;
+        self.navigationController.navigationBar.translucent = YES;
+    } else {
+        // [修复] 竖屏时，立刻恢复为常规页面的样式，防止因为透明导致内容顶至刘海或状态栏区域
+        BOOL isIOS7 = [[[UIDevice currentDevice] systemVersion] floatValue] >= 7.0;
+        self.navigationController.navigationBar.barStyle = isIOS7 ? UIBarStyleDefault : UIBarStyleBlack;
+        self.navigationController.navigationBar.translucent = isIOS7 ? YES : NO;
+    }
+    
+    // [修复] 核心重点：每次旋转时必须实时同步导航栏的显示/隐藏状态！
+    // 之前全屏模式默认显示标题栏且去不掉，以及退回竖屏标题栏丢失，都是因为没有在这里根据 isFullscreen 实时判定同步。
+    if (self.overlayView.isLocked) {
+        [self.navigationController setNavigationBarHidden:YES animated:YES];
+    } else {
+        BOOL shouldHide = isLandscape ? self.isControlsHidden : NO;
+        [self.navigationController setNavigationBarHidden:shouldHide animated:YES];
     }
     
     [UIView animateWithDuration:duration delay:0.0 options:UIViewAnimationOptionCurveEaseInOut animations:^{
