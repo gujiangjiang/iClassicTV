@@ -15,6 +15,8 @@
 @interface PlayerEPGView () <UITableViewDelegate, UITableViewDataSource, UIScrollViewDelegate>
 
 @property (nonatomic, strong) UIView *dateContainerView;
+// 拟物化增强：用于 iOS 6 的背景渐变层
+@property (nonatomic, strong) CAGradientLayer *dateBarGradientLayer;
 @property (nonatomic, strong) UIScrollView *dateScrollView;
 @property (nonatomic, strong) UIView *indicatorLine;
 @property (nonatomic, strong) UIView *separatorLine;
@@ -58,7 +60,19 @@
         self.dateButtons = [NSMutableArray array];
         
         self.dateContainerView = [[UIView alloc] initWithFrame:CGRectZero];
-        self.dateContainerView.backgroundColor = [UIColor colorWithWhite:0.0 alpha:0.05];
+        if (self.isIOS7) {
+            self.dateContainerView.backgroundColor = [UIColor colorWithWhite:0.0 alpha:0.05];
+        } else {
+            // iOS 6 拟物化背景：银色金属感渐变
+            self.dateBarGradientLayer = [CAGradientLayer layer];
+            self.dateBarGradientLayer.colors = @[
+                                                 (id)[UIColor colorWithWhite:0.95 alpha:1.0].CGColor,
+                                                 (id)[UIColor colorWithWhite:0.80 alpha:1.0].CGColor,
+                                                 (id)[UIColor colorWithWhite:0.75 alpha:1.0].CGColor
+                                                 ];
+            self.dateBarGradientLayer.locations = @[@0.0, @0.5, @1.0];
+            [self.dateContainerView.layer addSublayer:self.dateBarGradientLayer];
+        }
         [self addSubview:self.dateContainerView];
         
         self.dateScrollView = [[UIScrollView alloc] initWithFrame:CGRectZero];
@@ -68,7 +82,17 @@
         [self.dateContainerView addSubview:self.dateScrollView];
         
         self.indicatorLine = [[UIView alloc] initWithFrame:CGRectZero];
-        self.indicatorLine.backgroundColor = self.isIOS7 ? [UIColor colorWithRed:0.0 green:0.478 blue:1.0 alpha:1.0] : [UIColor orangeColor];
+        if (self.isIOS7) {
+            self.indicatorLine.backgroundColor = [UIColor colorWithRed:0.0 green:0.478 blue:1.0 alpha:1.0];
+        } else {
+            self.indicatorLine.backgroundColor = [UIColor orangeColor];
+            // iOS 6 增加一点外发光和圆角，增加拟物感
+            self.indicatorLine.layer.cornerRadius = 1.0;
+            self.indicatorLine.layer.shadowColor = [UIColor orangeColor].CGColor;
+            self.indicatorLine.layer.shadowOffset = CGSizeZero;
+            self.indicatorLine.layer.shadowOpacity = 0.5;
+            self.indicatorLine.layer.shadowRadius = 2.0;
+        }
         [self.dateScrollView addSubview:self.indicatorLine];
         
         self.separatorLine = [[UIView alloc] initWithFrame:CGRectZero];
@@ -131,6 +155,9 @@
     CGFloat viewHeight = self.bounds.size.height;
     
     self.dateContainerView.frame = CGRectMake(0, 0, viewWidth, 40);
+    if (self.dateBarGradientLayer) {
+        self.dateBarGradientLayer.frame = self.dateContainerView.bounds;
+    }
     self.dateScrollView.frame = self.dateContainerView.bounds;
     self.separatorLine.frame = CGRectMake(0, 39, viewWidth, 1);
     
@@ -403,7 +430,8 @@
     CGFloat btnWidth = 65.0;
     CGFloat currentX = 5.0;
     
-    UIColor *normalTextColor = self.isIOS7 ? [UIColor darkGrayColor] : [UIColor lightGrayColor];
+    // 针对性优化：iOS 6 采用深灰文字，iOS 7+ 采用扁平浅灰
+    UIColor *normalTextColor = self.isIOS7 ? [UIColor darkGrayColor] : [UIColor colorWithWhite:0.2 alpha:1.0];
     UIColor *selectedTextColor = self.isIOS7 ? [UIColor colorWithRed:0.0 green:0.478 blue:1.0 alpha:1.0] : [UIColor orangeColor];
     
     for (NSInteger i = 0; i < self.availableDates.count; i++) {
@@ -418,6 +446,13 @@
         [btn setTitle:title forState:UIControlStateNormal];
         [btn setTitleColor:normalTextColor forState:UIControlStateNormal];
         [btn setTitleColor:selectedTextColor forState:UIControlStateSelected];
+        
+        // 针对性优化：iOS 6 增加按钮文字投影，模拟拟物感
+        if (!self.isIOS7) {
+            [btn setTitleShadowColor:[UIColor whiteColor] forState:UIControlStateNormal];
+            btn.titleLabel.shadowOffset = CGSizeMake(0, 1);
+        }
+        
         [btn addTarget:self action:@selector(dateButtonTapped:) forControlEvents:UIControlEventTouchUpInside];
         
         [self.dateScrollView addSubview:btn];
@@ -456,7 +491,10 @@
     UIButton *selectedBtn = self.dateButtons[index];
     selectedBtn.selected = YES;
     selectedBtn.titleLabel.font = [UIFont boldSystemFontOfSize:15];
-    CGRect indicatorFrame = CGRectMake(selectedBtn.frame.origin.x + 10, 37, selectedBtn.bounds.size.width - 20, 2);
+    
+    // 针对性优化：iOS 6 的指示条略细，增加一点精致感
+    CGFloat indicatorHeight = self.isIOS7 ? 2.0 : 3.0;
+    CGRect indicatorFrame = CGRectMake(selectedBtn.frame.origin.x + 10, 40 - indicatorHeight - 1, selectedBtn.bounds.size.width - 20, indicatorHeight);
     
     if (animated) {
         [UIView animateWithDuration:0.25 delay:0.0 options:UIViewAnimationOptionCurveEaseInOut animations:^{
@@ -698,6 +736,15 @@
     
     BOOL isReplayingThis = (self.replayingProgram && [program.startTime isEqualToDate:self.replayingProgram.startTime]);
     BOOL isCurrentlyLive = ([now compare:program.startTime] != NSOrderedAscending && [now compare:program.endTime] == NSOrderedAscending);
+    
+    // 针对性优化：iOS 6 拟物化 Cell 样式适配
+    if (!self.isIOS7) {
+        // iOS 6 增加文字投影，增加层次感
+        cell.textLabel.shadowColor = [UIColor whiteColor];
+        cell.textLabel.shadowOffset = CGSizeMake(0, 1);
+        cell.detailTextLabel.shadowColor = [UIColor whiteColor];
+        cell.detailTextLabel.shadowOffset = CGSizeMake(0, 1);
+    }
     
     if (isReplayingThis) {
         UIColor *themeColor = self.isIOS7 ? [UIColor colorWithRed:0.0 green:0.478 blue:1.0 alpha:1.0] : [UIColor orangeColor];
