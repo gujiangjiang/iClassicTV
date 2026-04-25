@@ -19,6 +19,11 @@
 @property (nonatomic, strong) UIView *indicatorLine;
 @property (nonatomic, strong) UIView *separatorLine;
 @property (nonatomic, strong) UITableView *tableView;
+
+// 优化：新增空状态视图容器及占位图标
+@property (nonatomic, strong) UIView *emptyStateContainer;
+@property (nonatomic, strong) UILabel *emptyIconLabel;
+
 @property (nonatomic, strong) UILabel *tipsLabel;
 @property (nonatomic, strong) UIButton *actionButton;
 @property (nonatomic, strong) NSMutableArray *dateButtons;
@@ -80,26 +85,38 @@
         }
         [self addSubview:self.tableView];
         
+        // 美化：创建空状态容器
+        self.emptyStateContainer = [[UIView alloc] initWithFrame:CGRectZero];
+        self.emptyStateContainer.backgroundColor = [UIColor clearColor];
+        self.emptyStateContainer.hidden = YES;
+        [self addSubview:self.emptyStateContainer];
+        
+        // 美化：添加空状态图标
+        self.emptyIconLabel = [[UILabel alloc] initWithFrame:CGRectZero];
+        self.emptyIconLabel.backgroundColor = [UIColor clearColor];
+        self.emptyIconLabel.textAlignment = NSTextAlignmentCenter;
+        self.emptyIconLabel.font = [UIFont systemFontOfSize:50];
+        [self.emptyStateContainer addSubview:self.emptyIconLabel];
+        
         self.tipsLabel = [[UILabel alloc] initWithFrame:CGRectZero];
         self.tipsLabel.backgroundColor = [UIColor clearColor];
         self.tipsLabel.textAlignment = NSTextAlignmentCenter;
-        self.tipsLabel.textColor = [UIColor grayColor];
-        self.tipsLabel.font = [UIFont systemFontOfSize:14];
-        self.tipsLabel.text = LocalizedString(@"no_epg_data");
+        self.tipsLabel.textColor = [UIColor darkGrayColor]; // 加深提示文字颜色
+        self.tipsLabel.font = [UIFont systemFontOfSize:15]; // 调整提示文字大小
         self.tipsLabel.numberOfLines = 0;
-        [self addSubview:self.tipsLabel];
+        [self.emptyStateContainer addSubview:self.tipsLabel];
         
         self.actionButton = [UIButton buttonWithType:UIButtonTypeCustom];
         UIColor *themeColor = self.isIOS7 ? [UIColor colorWithRed:0.0 green:0.478 blue:1.0 alpha:1.0] : [UIColor orangeColor];
         [self.actionButton setTitleColor:themeColor forState:UIControlStateNormal];
-        self.actionButton.titleLabel.font = [UIFont systemFontOfSize:14];
+        self.actionButton.titleLabel.font = [UIFont boldSystemFontOfSize:14]; // 加粗按钮文字
         self.actionButton.layer.borderColor = themeColor.CGColor;
         self.actionButton.layer.borderWidth = 1.0;
-        self.actionButton.layer.cornerRadius = 4.0;
+        self.actionButton.layer.cornerRadius = 16.0; // 药丸形状圆角美化
         self.actionButton.layer.masksToBounds = YES;
         self.actionButton.hidden = YES;
         [self.actionButton addTarget:self action:@selector(actionButtonTapped:) forControlEvents:UIControlEventTouchUpInside];
-        [self addSubview:self.actionButton];
+        [self.emptyStateContainer addSubview:self.actionButton];
     }
     return self;
 }
@@ -119,9 +136,14 @@
     
     self.tableView.frame = CGRectMake(0, 40, viewWidth, viewHeight - 40);
     
-    CGFloat listCenterY = 40 + (viewHeight - 40) / 2.0;
-    self.tipsLabel.frame = CGRectMake(20, listCenterY - 35, viewWidth - 40, 30);
-    self.actionButton.frame = CGRectMake((viewWidth - 100) / 2.0, listCenterY + 5, 100, 32);
+    // 美化：重新布局空状态容器和内部元素，垂直居中排版
+    self.emptyStateContainer.frame = CGRectMake(0, 40, viewWidth, viewHeight - 40);
+    CGFloat containerWidth = self.emptyStateContainer.bounds.size.width;
+    CGFloat containerHeight = self.emptyStateContainer.bounds.size.height;
+    
+    self.emptyIconLabel.frame = CGRectMake(0, containerHeight / 2.0 - 70, containerWidth, 60);
+    self.tipsLabel.frame = CGRectMake(20, containerHeight / 2.0 - 5, containerWidth - 40, 40);
+    self.actionButton.frame = CGRectMake((containerWidth - 120) / 2.0, containerHeight / 2.0 + 45, 120, 32);
 }
 
 - (void)setReplayingProgram:(EPGProgram *)replayingProgram {
@@ -154,8 +176,9 @@
     }
     
     if (!isEPGEnabled) {
+        self.emptyStateContainer.hidden = NO;
+        self.emptyIconLabel.text = @"📺"; // 未开启图标
         self.tipsLabel.text = LocalizedString(@"epg_not_enabled");
-        self.tipsLabel.hidden = NO;
         [self.actionButton setTitle:LocalizedString(@"go_to_settings") forState:UIControlStateNormal];
         self.actionButton.tag = 1;
         self.actionButton.hidden = NO;
@@ -168,8 +191,7 @@
     }
     
     if ([[EPGManager sharedManager] isDynamicEPGSource]) {
-        self.tipsLabel.hidden = YES;
-        self.actionButton.hidden = YES;
+        self.emptyStateContainer.hidden = YES;
         self.dateContainerView.hidden = NO;
         self.tableView.hidden = NO;
         
@@ -207,8 +229,9 @@
     }
     
     if (allPrograms.count == 0) {
+        self.emptyStateContainer.hidden = NO;
+        self.emptyIconLabel.text = @"📭"; // 空数据图标
         self.tipsLabel.text = LocalizedString(@"no_epg_data");
-        self.tipsLabel.hidden = NO;
         self.actionButton.hidden = YES;
         self.dateContainerView.hidden = YES;
         self.tableView.hidden = YES;
@@ -219,8 +242,9 @@
     }
     
     if (isExpired) {
+        self.emptyStateContainer.hidden = NO;
+        self.emptyIconLabel.text = @"⏳"; // 过期图标
         self.tipsLabel.text = LocalizedString(@"epg_expired");
-        self.tipsLabel.hidden = NO;
         [self.actionButton setTitle:LocalizedString(@"refresh_now") forState:UIControlStateNormal];
         self.actionButton.tag = 2;
         self.actionButton.hidden = NO;
@@ -232,8 +256,7 @@
         return;
     }
     
-    self.tipsLabel.hidden = YES;
-    self.actionButton.hidden = YES;
+    self.emptyStateContainer.hidden = YES;
     self.dateContainerView.hidden = NO;
     self.tableView.hidden = NO;
     
@@ -263,13 +286,16 @@
             [self highlightDateButtonAtIndex:0 animated:NO];
         }
         self.displayPrograms = self.groupedPrograms[self.selectedDate];
-        self.tipsLabel.hidden = YES;
+        self.emptyStateContainer.hidden = YES;
         self.dateContainerView.hidden = NO;
         self.tableView.hidden = NO;
     } else {
         self.displayPrograms = @[];
         self.selectedDate = nil;
-        self.tipsLabel.hidden = NO;
+        self.emptyStateContainer.hidden = NO;
+        self.emptyIconLabel.text = @"📭";
+        self.tipsLabel.text = LocalizedString(@"no_epg_data");
+        self.actionButton.hidden = YES;
         self.dateContainerView.hidden = YES;
         self.tableView.hidden = YES;
     }
@@ -298,8 +324,14 @@
 - (void)fetchAndDisplayDynamicEPGForDate:(NSDate *)date channel:(NSString *)channelName {
     if (self.groupedPrograms[date]) {
         self.displayPrograms = self.groupedPrograms[date];
-        self.tipsLabel.hidden = self.displayPrograms.count > 0 ? YES : NO;
-        self.tipsLabel.text = self.displayPrograms.count > 0 ? @"" : LocalizedString(@"no_epg_data");
+        if (self.displayPrograms.count > 0) {
+            self.emptyStateContainer.hidden = YES;
+        } else {
+            self.emptyStateContainer.hidden = NO;
+            self.emptyIconLabel.text = @"📭";
+            self.tipsLabel.text = LocalizedString(@"no_epg_data");
+            self.actionButton.hidden = YES;
+        }
         [self.tableView reloadData];
         
         [self handleScrollAfterDataLoadForDate:date];
@@ -307,8 +339,12 @@
     } else {
         self.displayPrograms = @[];
         [self.tableView reloadData];
+        
+        // 优化：显示加载状态的美化界面
+        self.emptyStateContainer.hidden = NO;
+        self.emptyIconLabel.text = @"📡"; // 加载中图标
         self.tipsLabel.text = LocalizedString(@"loading");
-        self.tipsLabel.hidden = NO;
+        self.actionButton.hidden = YES;
         
         __weak typeof(self) weakSelf = self;
         [[EPGManager sharedManager] fetchDynamicProgramsForChannelName:channelName date:date completion:^(NSArray *programs) {
@@ -319,10 +355,12 @@
                 weakSelf.displayPrograms = mut[date];
                 
                 if (weakSelf.displayPrograms.count == 0) {
+                    weakSelf.emptyStateContainer.hidden = NO;
+                    weakSelf.emptyIconLabel.text = @"📭";
                     weakSelf.tipsLabel.text = LocalizedString(@"no_epg_data");
-                    weakSelf.tipsLabel.hidden = NO;
+                    weakSelf.actionButton.hidden = YES;
                 } else {
-                    weakSelf.tipsLabel.hidden = YES;
+                    weakSelf.emptyStateContainer.hidden = YES;
                 }
                 [weakSelf.tableView reloadData];
                 
@@ -686,7 +724,8 @@
         cell.detailTextLabel.text = LocalizedString(@"already_played");
         cell.textLabel.font = [UIFont systemFontOfSize:14];
     } else {
-        UIColor *normalColor = self.isIOS7 ? [UIColor blackColor] : [UIColor whiteColor];
+        // 修改：统一使用黑色文字，解决 iOS6 系统下硬编码白色文字导致在白底背景不可见的 Bug
+        UIColor *normalColor = [UIColor blackColor];
         cell.textLabel.textColor = normalColor;
         cell.detailTextLabel.textColor = normalColor;
         cell.detailTextLabel.text = LocalizedString(@"not_played");
