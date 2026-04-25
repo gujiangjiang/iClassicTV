@@ -53,7 +53,9 @@
     
     // 获取当前频道的 EPG 数据
     if ([EPGManager sharedManager].isEPGEnabled) {
-        NSArray *programs = [[EPGManager sharedManager] programsForChannelName:self.channelTitle];
+        // 优化：优先使用 tvg-name 进行 EPG 匹配，若不存在或为空，则回退使用频道的显示名称 (channelTitle)
+        NSString *epgSearchName = (self.tvgName && self.tvgName.length > 0) ? self.tvgName : self.channelTitle;
+        NSArray *programs = [[EPGManager sharedManager] programsForChannelName:epgSearchName];
         self.epgPrograms = programs ? programs : @[];
     } else {
         self.epgPrograms = @[];

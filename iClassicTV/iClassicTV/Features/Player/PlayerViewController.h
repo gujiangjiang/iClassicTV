@@ -15,6 +15,8 @@
 @property (nonatomic, copy) NSString *videoURLString;
 // 接收外部传入的频道名称，用于在播放器顶部显示
 @property (nonatomic, copy) NSString *channelTitle;
+// 接收外部传入的 tvg-name，用于 EPG 节目单的优先精准匹配
+@property (nonatomic, copy) NSString *tvgName;
 // 接收外部传入的频道 Logo 图片，用于在锁屏界面显示
 @property (nonatomic, strong) UIImage *channelLogo;
 
