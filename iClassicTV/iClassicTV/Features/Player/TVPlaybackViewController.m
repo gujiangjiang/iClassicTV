@@ -197,12 +197,16 @@
         videoFrame = CGRectMake(0, 0, self.view.bounds.size.width, self.view.bounds.size.width * 9.0 / 16.0);
         
         self.backgroundView.frame = self.view.bounds;
-        self.backgroundView.backgroundColor = isIOS7 ? [UIColor groupTableViewBackgroundColor] : [UIColor scrollViewTexturedBackgroundColor];
+        // [优化] 统一改为纯白色背景，提升无 EPG 时的文字对比度和界面清爽度，告别 iOS6 压抑的灰色
+        self.backgroundView.backgroundColor = [UIColor whiteColor];
         
         CGFloat tableY = CGRectGetMaxY(videoFrame);
         CGFloat tableHeight = self.view.bounds.size.height - tableY;
         self.epgView.frame = CGRectMake(0, tableY, self.view.bounds.size.width, tableHeight);
         self.epgView.hidden = NO;
+        
+        // [优化] 确保 EPG 视图本身的背景也是透明或白色，以匹配父容器
+        self.epgView.backgroundColor = [UIColor clearColor];
     }
     
     self.player.view.frame = videoFrame;
