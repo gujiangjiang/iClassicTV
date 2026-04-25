@@ -125,8 +125,9 @@
     NSURL *url = [urlStr toSafeURL];
     if (!url) return;
     
-    UIAlertView *hud = [[UIAlertView alloc] initWithTitle:LocalizedString(@"syncing") message:LocalizedString(@"syncing_msg") delegate:nil cancelButtonTitle:nil otherButtonTitles:nil];
-    [hud show];
+    // [修改] 剥离原阻塞界面的 UIAlertView，替换为底部悬浮窗全局进度条
+    [ToastHelper showGlobalProgressHUDWithTitle:LocalizedString(@"syncing")];
+    [ToastHelper updateGlobalProgressHUD:0.5 text:LocalizedString(@"syncing_msg")];
     
     [[UIApplication sharedApplication] setNetworkActivityIndicatorVisible:YES];
     
@@ -134,7 +135,6 @@
         NSString *m3uData = [[NetworkManager sharedManager] downloadStringSyncFromURL:url];
         
         dispatch_async(dispatch_get_main_queue(), ^{
-            [hud dismissWithClickedButtonIndex:0 animated:YES];
             [[UIApplication sharedApplication] setNetworkActivityIndicatorVisible:NO];
             
             if (m3uData && m3uData.length > 0) {
@@ -149,12 +149,12 @@
                 
                 if (activeIndex != NSNotFound) {
                     [[AppDataManager sharedManager] updateSourceContentAtIndex:activeIndex withContent:m3uData];
-                    // 优化：在此处统一补上刷新成功的 Toast 提示
-                    [ToastHelper showToastWithMessage:LocalizedString(@"refresh_success")];
+                    // [修改] 直接触发成功并延迟消除悬浮窗
+                    [ToastHelper dismissGlobalProgressHUDWithText:LocalizedString(@"refresh_success") delay:3.0];
                 }
             } else {
-                // 优化：将原本可能因为和 HUD 冲突被吞掉的原生弹窗改为 Toast 提示
-                [ToastHelper showToastWithMessage:LocalizedString(@"refresh_failed")];
+                // [修改] 触发失败提示并延迟消除悬浮窗
+                [ToastHelper dismissGlobalProgressHUDWithText:LocalizedString(@"refresh_failed") delay:3.0];
             }
         });
     });

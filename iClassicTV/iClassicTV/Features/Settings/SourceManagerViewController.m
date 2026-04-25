@@ -158,22 +158,24 @@
                                                   return;
                                               }
                                               
-                                              UIAlertView *hud = [[UIAlertView alloc] initWithTitle:LocalizedString(@"downloading") message:LocalizedString(@"please_wait") delegate:nil cancelButtonTitle:nil otherButtonTitles:nil];
-                                              [hud show];
+                                              // [修改] 下载网路源时替换旧版的加载弹窗，使用全局悬浮窗
+                                              [ToastHelper showGlobalProgressHUDWithTitle:LocalizedString(@"downloading")];
+                                              [ToastHelper updateGlobalProgressHUD:0.5 text:LocalizedString(@"please_wait")];
                                               
                                               dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
                                                   NSString *m3uData = [[NetworkManager sharedManager] downloadStringSyncFromURL:url];
                                                   
                                                   dispatch_async(dispatch_get_main_queue(), ^{
-                                                      [hud dismissWithClickedButtonIndex:0 animated:YES];
                                                       if (m3uData) {
                                                           [[AppDataManager sharedManager] addSourceWithName:nameStr content:m3uData url:urlStr];
-                                                          [ToastHelper showToastWithMessage:LocalizedString(@"source_saved")];
+                                                          // [修改] 使用全局悬浮进度完成来展示
+                                                          [ToastHelper dismissGlobalProgressHUDWithText:LocalizedString(@"source_saved") delay:3.0];
                                                           
                                                           weakSelf.sources = [[AppDataManager sharedManager] getAllSources];
                                                           [weakSelf.tableView reloadData];
                                                       } else {
-                                                          [ToastHelper showToastWithMessage:LocalizedString(@"download_failed")];
+                                                          // [修改]
+                                                          [ToastHelper dismissGlobalProgressHUDWithText:LocalizedString(@"download_failed") delay:3.0];
                                                       }
                                                   });
                                               });
@@ -315,20 +317,22 @@
     NSURL *url = [NSURL URLWithString:source[@"url"]];
     if (!url) return;
     
-    UIAlertView *hud = [[UIAlertView alloc] initWithTitle:LocalizedString(@"refreshing") message:LocalizedString(@"please_wait") delegate:nil cancelButtonTitle:nil otherButtonTitles:nil];
-    [hud show];
+    // [优化] 统一替换为与 GroupListViewController 相同的多语言提示文案
+    [ToastHelper showGlobalProgressHUDWithTitle:LocalizedString(@"syncing")];
+    [ToastHelper updateGlobalProgressHUD:0.5 text:LocalizedString(@"syncing_msg")];
     
     dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
         NSString *m3uData = [[NetworkManager sharedManager] downloadStringSyncFromURL:url];
         
         dispatch_async(dispatch_get_main_queue(), ^{
-            [hud dismissWithClickedButtonIndex:0 animated:YES];
             if (m3uData) {
                 [[AppDataManager sharedManager] updateSourceContentAtIndex:index withContent:m3uData];
                 self.sources = [[AppDataManager sharedManager] getAllSources];
-                [ToastHelper showToastWithMessage:LocalizedString(@"refresh_success")];
+                // [修改] 使用悬浮进度完成来展示成功状态
+                [ToastHelper dismissGlobalProgressHUDWithText:LocalizedString(@"refresh_success") delay:3.0];
             } else {
-                [ToastHelper showToastWithMessage:LocalizedString(@"refresh_failed")];
+                // [修改]
+                [ToastHelper dismissGlobalProgressHUDWithText:LocalizedString(@"refresh_failed") delay:3.0];
             }
         });
     });
