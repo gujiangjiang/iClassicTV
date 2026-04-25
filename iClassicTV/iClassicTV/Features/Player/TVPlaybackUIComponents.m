@@ -173,7 +173,8 @@
     self.statusLabel.center = CGPointMake(size.width / 2.0, size.height / 2.0);
     
     if (isFullscreen) {
-        CGFloat overlayWidth = MIN(400, size.width - 60);
+        // 优化：缩小双行节目单的最大宽度，并加大边距以防与左侧回放标识重叠
+        CGFloat overlayWidth = MIN(340, size.width - 140);
         self.epgOverlayView.frame = CGRectMake((size.width - overlayWidth) / 2, size.height - 50 - 65, overlayWidth, 50);
         self.currentProgramLabel.frame = CGRectMake(10, 5, overlayWidth - 20, 20);
         self.nextProgramLabel.frame = CGRectMake(10, 25, overlayWidth - 20, 20);
@@ -205,7 +206,6 @@
 - (void)showStatusMessage:(NSString *)message { self.statusLabel.text = message; self.statusLabel.hidden = NO; }
 - (void)hideStatusMessage { self.statusLabel.hidden = YES; }
 
-// 新增：单独控制需要动画隐藏的浮层，绝对不影响 statusLabel 和 catchupBadge 的状态
 - (void)setOverlaysHidden:(BOOL)hidden {
     self.epgOverlayView.alpha = hidden ? 0.0 : 1.0;
     self.timeLabel.alpha = hidden ? 0.0 : 1.0;
