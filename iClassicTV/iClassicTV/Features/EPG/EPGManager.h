@@ -16,11 +16,26 @@
 // 全局电子节目单功能开关
 @property (nonatomic, assign) BOOL isEPGEnabled;
 
-// 当前设置的 EPG 接口 URL
-@property (nonatomic, copy) NSString *epgSourceURL;
+// 打开软件自动静默更新 EPG 开关
+@property (nonatomic, assign) BOOL autoUpdateOnLaunch;
+
+// 当前获取的 EPG 接口 URL（动态计算当前活跃的接口）
+@property (nonatomic, readonly, copy) NSString *epgSourceURL;
+
+// 全部 EPG 源列表 (包含 name, url, isActive)
+@property (nonatomic, readonly, strong) NSArray *epgSources;
+
+// EPG 源管理方法
+- (void)addEPGSourceWithName:(NSString *)name url:(NSString *)url;
+- (void)removeEPGSourceAtIndex:(NSInteger)index;
+- (void)renameEPGSourceAtIndex:(NSInteger)index withName:(NSString *)name url:(NSString *)url;
+- (void)setActiveEPGSourceAtIndex:(NSInteger)index;
 
 // 异步下载并解析 EPG 数据
 - (void)fetchAndParseEPGDataWithCompletion:(void(^)(BOOL success, NSString *errorMsg))completion;
+
+// 后台静默检查并自动更新（请在 AppDelegate 中调用）
+- (void)checkAndAutoUpdateEPG;
 
 // 清理本地 EPG 缓存
 - (void)clearEPGCache;

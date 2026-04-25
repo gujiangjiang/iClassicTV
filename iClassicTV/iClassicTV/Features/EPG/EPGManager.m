@@ -8,13 +8,16 @@
 
 #import "EPGManager.h"
 #import "EPGParser.h"
+#import "ToastHelper.h" // 引入ToastHelper用于静默提示
 
 #define kEPGEnabledKey @"ios6_iptv_epg_enabled"
-#define kEPGSourceURLKey @"ios6_iptv_epg_source_url"
+#define kEPGAutoUpdateKey @"ios6_iptv_epg_auto_update"
+#define kEPGSourcesKey @"ios6_iptv_epg_sources_list"
 
 @interface EPGManager ()
 // 在内存中持有当前解析好的数据
 @property (nonatomic, strong) NSDictionary *epgCacheDict;
+@property (nonatomic, strong) NSMutableArray *internalSources;
 @end
 
 @implementation EPGManager
@@ -31,6 +34,7 @@
 - (instancetype)init {
     self = [super init];
     if (self) {
+        [self loadSourcesFromDisk];
         [self loadCacheFromDisk];
     }
     return self;
@@ -47,13 +51,125 @@
     [[NSUserDefaults standardUserDefaults] synchronize];
 }
 
-- (NSString *)epgSourceURL {
-    return [[NSUserDefaults standardUserDefaults] objectForKey:kEPGSourceURLKey] ?: @"";
+- (BOOL)autoUpdateOnLaunch {
+    return [[NSUserDefaults standardUserDefaults] boolForKey:kEPGAutoUpdateKey];
 }
 
-- (void)setEpgSourceURL:(NSString *)epgSourceURL {
-    [[NSUserDefaults standardUserDefaults] setObject:epgSourceURL forKey:kEPGSourceURLKey];
+- (void)setAutoUpdateOnLaunch:(BOOL)autoUpdateOnLaunch {
+    [[NSUserDefaults standardUserDefaults] setBool:autoUpdateOnLaunch forKey:kEPGAutoUpdateKey];
     [[NSUserDefaults standardUserDefaults] synchronize];
+}
+
+- (NSArray *)epgSources {
+    return [self.internalSources copy];
+}
+
+- (NSString *)epgSourceURL {
+    for (NSDictionary *source in self.internalSources) {
+        if ([source[@"isActive"] boolValue]) {
+            return source[@"url"];
+        }
+    }
+    return @"";
+}
+
+#pragma mark - Sources Management
+
+- (void)loadSourcesFromDisk {
+    NSArray *saved = [[NSUserDefaults standardUserDefaults] objectForKey:kEPGSourcesKey];
+    if (saved && [saved isKindOfClass:[NSArray class]]) {
+        self.internalSources = [NSMutableArray arrayWithArray:saved];
+    } else {
+        self.internalSources = [NSMutableArray array];
+    }
+}
+
+- (void)saveSourcesToDisk {
+    [[NSUserDefaults standardUserDefaults] setObject:self.internalSources forKey:kEPGSourcesKey];
+    [[NSUserDefaults standardUserDefaults] synchronize];
+}
+
+- (void)addEPGSourceWithName:(NSString *)name url:(NSString *)url {
+    BOOL isFirst = (self.internalSources.count == 0);
+    NSDictionary *newSource = @{ @"name": name ?: @"未知EPG",
+                                 @"url": url ?: @"",
+                                 @"isActive": @(isFirst) };
+    [self.internalSources addObject:newSource];
+    [self saveSourcesToDisk];
+}
+
+- (void)removeEPGSourceAtIndex:(NSInteger)index {
+    if (index >= 0 && index < self.internalSources.count) {
+        BOOL wasActive = [self.internalSources[index][@"isActive"] boolValue];
+        [self.internalSources removeObjectAtIndex:index];
+        
+        // 如果删除的是当前激活的源，并且还有剩余源，则自动激活第一个
+        if (wasActive && self.internalSources.count > 0) {
+            [self setActiveEPGSourceAtIndex:0];
+        } else {
+            [self saveSourcesToDisk];
+        }
+    }
+}
+
+- (void)renameEPGSourceAtIndex:(NSInteger)index withName:(NSString *)name url:(NSString *)url {
+    if (index >= 0 && index < self.internalSources.count) {
+        NSMutableDictionary *dict = [self.internalSources[index] mutableCopy];
+        dict[@"name"] = name ?: dict[@"name"];
+        dict[@"url"] = url ?: dict[@"url"];
+        self.internalSources[index] = [dict copy];
+        [self saveSourcesToDisk];
+    }
+}
+
+- (void)setActiveEPGSourceAtIndex:(NSInteger)index {
+    if (index >= 0 && index < self.internalSources.count) {
+        for (NSInteger i = 0; i < self.internalSources.count; i++) {
+            NSMutableDictionary *dict = [self.internalSources[i] mutableCopy];
+            dict[@"isActive"] = @(i == index);
+            self.internalSources[i] = [dict copy];
+        }
+        [self saveSourcesToDisk];
+    }
+}
+
+#pragma mark - Auto Update Logic
+
+// 检查是否需要更新（判断缓存中最晚的节目结束时间是否小于明天凌晨 0 点）
+- (BOOL)needsUpdate {
+    if (!self.epgCacheDict || self.epgCacheDict.count == 0) return YES;
+    
+    NSDate *maxEndTime = [NSDate distantPast];
+    for (NSArray *programs in self.epgCacheDict.allValues) {
+        for (EPGProgram *p in programs) {
+            if ([p.endTime compare:maxEndTime] == NSOrderedDescending) {
+                maxEndTime = p.endTime;
+            }
+        }
+    }
+    
+    NSCalendar *calendar = [NSCalendar currentCalendar];
+    NSDateComponents *components = [calendar components:(NSYearCalendarUnit | NSMonthCalendarUnit | NSDayCalendarUnit) fromDate:[NSDate date]];
+    components.day += 1; // 明天
+    NSDate *tomorrowMidnight = [calendar dateFromComponents:components];
+    
+    // 如果最大结束时间在明天凌晨之前，说明没有明日的有效缓存，需要更新
+    return ([maxEndTime compare:tomorrowMidnight] == NSOrderedAscending);
+}
+
+- (void)checkAndAutoUpdateEPG {
+    if (!self.isEPGEnabled || !self.autoUpdateOnLaunch) return;
+    
+    if ([self needsUpdate]) {
+        [ToastHelper showToastWithMessage:@"EPG 数据静默更新中..."];
+        [self fetchAndParseEPGDataWithCompletion:^(BOOL success, NSString *errorMsg) {
+            if (success) {
+                [ToastHelper showToastWithMessage:@"EPG 数据更新完成"];
+            } else {
+                [ToastHelper showToastWithMessage:[NSString stringWithFormat:@"EPG 更新失败: %@", errorMsg]];
+            }
+        }];
+    }
 }
 
 #pragma mark - Actions
