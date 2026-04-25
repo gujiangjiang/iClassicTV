@@ -228,6 +228,10 @@
 @property (nonatomic, strong) UISwitch *epgSwitch;
 @property (nonatomic, strong) UISwitch *autoUpdateSwitch;
 @property (nonatomic, strong) UISwitch *autoExpireSwitch;
+
+// [新增] 标题栏进度条 UI 控件和标题保存
+@property (nonatomic, strong) UIProgressView *navProgressBar;
+@property (nonatomic, copy) NSString *originalTitle;
 @end
 
 @implementation EPGManagerViewController
@@ -240,7 +244,8 @@
 - (void)viewDidLoad {
     [super viewDidLoad];
     
-    self.title = LocalizedString(@"epg_manager_title");
+    self.originalTitle = LocalizedString(@"epg_manager_title");
+    self.title = self.originalTitle;
     
     UIBarButtonItem *backItem = [[UIBarButtonItem alloc] initWithTitle:LocalizedString(@"back") style:UIBarButtonItemStyleBordered target:nil action:nil];
     self.navigationItem.backBarButtonItem = backItem;
@@ -262,16 +267,56 @@
     self.autoExpireSwitch.on = [EPGManager sharedManager].autoUpdateOnExpire;
     [self.autoExpireSwitch addTarget:self action:@selector(autoExpireSwitchChanged:) forControlEvents:UIControlEventValueChanged];
     
-    // [新增] 监听 EPG 数据更新通知，以便实时刷新界面显示的时间
+    // [新增] 创建顶部导航栏进度条
+    self.navProgressBar = [[UIProgressView alloc] initWithProgressViewStyle:UIProgressViewStyleBar];
+    // 放置在导航栏的最底部，高度设为细长的 2.5 像素
+    self.navProgressBar.frame = CGRectMake(0, self.navigationController.navigationBar.bounds.size.height - 2.5, self.navigationController.navigationBar.bounds.size.width, 2.5);
+    self.navProgressBar.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleTopMargin;
+    self.navProgressBar.hidden = YES;
+    self.navProgressBar.progressTintColor = [UIColor colorWithRed:0.0 green:0.478 blue:1.0 alpha:1.0]; // 经典 iOS 蓝色
+    [self.navigationController.navigationBar addSubview:self.navProgressBar];
+    
+    // [新增] 监听进度条广播与更新完成广播
+    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(epgUpdateProgressDidChange:) name:@"EPGUpdateProgressNotification" object:nil];
     [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(epgDataDidUpdate) name:@"EPGDataDidUpdateNotification" object:nil];
 }
 
 - (void)dealloc {
-    // [新增] 移除观察者
+    // [新增] 移除观察者并清理手动附加到全局 NavigationBar 上的控件
     [[NSNotificationCenter defaultCenter] removeObserver:self];
+    if (self.navProgressBar.superview) {
+        [self.navProgressBar removeFromSuperview];
+    }
 }
 
-// [新增] 数据更新后的通知回调
+// [新增] 进度条改变的通知回调
+- (void)epgUpdateProgressDidChange:(NSNotification *)note {
+    dispatch_async(dispatch_get_main_queue(), ^{
+        CGFloat progress = [note.userInfo[@"progress"] floatValue];
+        NSString *status = note.userInfo[@"status"];
+        
+        if (self.navProgressBar.hidden && progress < 1.0) {
+            self.navProgressBar.hidden = NO;
+            self.navProgressBar.progress = 0.0;
+            self.navProgressBar.alpha = 1.0;
+        }
+        
+        [self.navProgressBar setProgress:progress animated:YES];
+        self.title = status ?: self.originalTitle;
+        
+        // 当达到 100% 时，平滑淡出进度条并恢复原标题
+        if (progress >= 1.0) {
+            [UIView animateWithDuration:0.5 delay:0.5 options:0 animations:^{
+                self.navProgressBar.alpha = 0.0;
+            } completion:^(BOOL finished) {
+                self.navProgressBar.hidden = YES;
+                self.title = self.originalTitle;
+            }];
+        }
+    });
+}
+
+// 数据更新后的通知回调
 - (void)epgDataDidUpdate {
     dispatch_async(dispatch_get_main_queue(), ^{
         [self.tableView reloadData];
@@ -293,7 +338,6 @@
     BOOL isEnabled = sender.isOn;
     [EPGManager sharedManager].isEPGEnabled = isEnabled;
     
-    // [优化] 动态源仅加载 2 个子 Section (源设置、界面设置)，非动态源加载 4 个
     BOOL isDynamic = [EPGManager sharedManager].isDynamicEPGSource;
     NSInteger sectionsCount = isDynamic ? 2 : 4;
     NSIndexSet *indexSet = [NSIndexSet indexSetWithIndexesInRange:NSMakeRange(1, sectionsCount)];
@@ -322,30 +366,23 @@
         return;
     }
     
-    UIAlertView *loadingAlert = [[UIAlertView alloc] initWithTitle:LocalizedString(@"epg_updating_title") message:LocalizedString(@"please_wait") delegate:nil cancelButtonTitle:nil otherButtonTitles:nil];
-    UIActivityIndicatorView *indicator = [[UIActivityIndicatorView alloc] initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleWhiteLarge];
-    indicator.center = CGPointMake(142.0f, 80.0f);
-    [indicator startAnimating];
-    [loadingAlert addSubview:indicator];
-    [loadingAlert show];
-    
+    // [优化] 因为有了顶部丝滑的进度条，我们移除了之前丑陋且阻塞屏幕的 UIAlertView Loading 弹窗，改为调用后台静默更新，利用进度条反馈
     [[EPGManager sharedManager] fetchAndParseEPGDataWithCompletion:^(BOOL success, NSString *errorMsg) {
-        [loadingAlert dismissWithClickedButtonIndex:0 animated:YES];
-        
-        NSString *msg = success ? LocalizedString(@"epg_update_success_alert") : [NSString stringWithFormat:LocalizedString(@"epg_update_failed_format"), errorMsg];
-        UIAlertView *resultAlert = [[UIAlertView alloc] initWithTitle:LocalizedString(@"tips") message:msg delegate:nil cancelButtonTitle:LocalizedString(@"confirm") otherButtonTitles:nil];
-        [resultAlert show];
-        
-        if (success) {
-            [self.tableView reloadData];
-        }
+        dispatch_async(dispatch_get_main_queue(), ^{
+            if (!success) {
+                NSString *msg = [NSString stringWithFormat:LocalizedString(@"epg_update_failed_format"), errorMsg ?: LocalizedString(@"unknown_error")];
+                UIAlertView *resultAlert = [[UIAlertView alloc] initWithTitle:LocalizedString(@"tips") message:msg delegate:nil cancelButtonTitle:LocalizedString(@"confirm") otherButtonTitles:nil];
+                [resultAlert show];
+            } else {
+                [self.tableView reloadData];
+            }
+        });
     }];
 }
 
 #pragma mark - Table view data source
 
 - (NSInteger)numberOfSectionsInTableView:(UITableView *)tableView {
-    // [优化] 如果 EPG 开启，并且是动态源 (DIYP/EPGInfo) 则不显示获取设置和数据管理 (总计 3 组)；否则显示 5 组
     if (![EPGManager sharedManager].isEPGEnabled) {
         return 1;
     }
@@ -373,7 +410,6 @@
     if (section == 0) return LocalizedString(@"epg_switch_footer");
     if (section == 2) return LocalizedString(@"epg_ui_and_timezone_footer");
     if (section == 3) return LocalizedString(@"epg_auto_update_footer");
-    // [优化] 将上次更新时间作为数据管理分区的页脚展示，并增加秒级精度
     if (section == 4) {
         NSDate *lastTime = [EPGManager sharedManager].lastEPGUpdateTime;
         if (lastTime) {
@@ -464,7 +500,6 @@
     } else if (indexPath.section == 4) {
         if (indexPath.row == 0) {
             cell.textLabel.text = LocalizedString(@"force_update_epg");
-            // [修改] 移除按钮侧边的时间文字，改由 Section Footer 展示
             cell.detailTextLabel.text = @"";
         } else {
             cell.textLabel.text = LocalizedString(@"clear_epg_cache");

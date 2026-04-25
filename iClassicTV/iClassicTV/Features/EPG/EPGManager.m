@@ -381,34 +381,23 @@
 - (void)performSilentBackgroundUpdate {
     if (self.isUpdatingEPG) return;
     
-    dispatch_async(dispatch_get_main_queue(), ^{
-        [ToastHelper showToastWithMessage:LocalizedString(@"epg_updating_silently")];
-    });
-    
+    // 静默更新不再直接弹 Toast，而是交给进度条逻辑
     [self fetchAndParseEPGDataWithCompletion:^(BOOL success, NSString *errorMsg) {
         if (!success) {
             self.lastFailedUpdateTime = [NSDate date];
+            dispatch_async(dispatch_get_main_queue(), ^{
+                NSString *safeMsg = errorMsg ?: LocalizedString(@"unknown_error");
+                [ToastHelper showToastWithMessage:[NSString stringWithFormat:LocalizedString(@"epg_update_failed_msg"), safeMsg]];
+            });
         } else {
             self.lastFailedUpdateTime = nil;
         }
-        
-        dispatch_async(dispatch_get_main_queue(), ^{
-            if (success) {
-                [ToastHelper showToastWithMessage:LocalizedString(@"epg_update_complete")];
-            } else {
-                NSString *safeMsg = errorMsg ?: LocalizedString(@"unknown_error");
-                [ToastHelper showToastWithMessage:[NSString stringWithFormat:LocalizedString(@"epg_update_failed_msg"), safeMsg]];
-            }
-        });
     }];
 }
 
-// [修复] 彻底解决由于数据源未更新导致的过期自动刷新无限循环判定 Bug
 - (BOOL)needsUpdate {
     if (!self.epgCacheDict || self.epgCacheDict.count == 0) return YES;
     
-    // [新增] 强制冷却锁：距离上次成功更新不足 4 小时（14400秒）则直接判定不需要更新。
-    // 这可以防止数据源服务器尚未生成新数据时，因为不断判定过期而疯狂请求的问题。
     NSDate *lastSuccess = [self lastEPGUpdateTime];
     if (lastSuccess && [[NSDate date] timeIntervalSinceDate:lastSuccess] < 14400) {
         return NO;
@@ -423,7 +412,6 @@
         }
     }
     
-    // [修复] 真实的过期逻辑：如果所有频道中最晚的节目结束时间，距离现在已经不足 2 小时（7200秒），判定为过期需要刷新
     NSDate *threshold = [[NSDate date] dateByAddingTimeInterval:7200];
     return ([maxEndTime compare:threshold] == NSOrderedAscending);
 }
@@ -450,14 +438,30 @@
     
     self.isUpdatingEPG = YES;
     NSArray *urls = [self.epgSourceURL componentsSeparatedByString:@","];
+    NSInteger totalUrls = urls.count;
+    
+    // [新增] 广播：准备开始
+    dispatch_async(dispatch_get_main_queue(), ^{
+        [[NSNotificationCenter defaultCenter] postNotificationName:@"EPGUpdateProgressNotification" object:nil userInfo:@{@"progress": @(0.05), @"status": LocalizedString(@"epg_status_preparing")}];
+    });
     
     dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
         NSMutableDictionary *mergedDict = [NSMutableDictionary dictionary];
         BOOL atLeastOneSuccess = NO;
         NSString *lastErrorMsg = nil;
+        NSInteger currentUrlIndex = 0;
         
         for (NSString *rawUrl in urls) {
             @autoreleasepool {
+                currentUrlIndex++;
+                
+                // [新增] 广播：正在下载第 N 个源
+                dispatch_async(dispatch_get_main_queue(), ^{
+                    CGFloat prog = 0.05 + 0.6 * ((CGFloat)currentUrlIndex / (CGFloat)totalUrls);
+                    NSString *statusMsg = [NSString stringWithFormat:LocalizedString(@"epg_status_downloading_format"), (long)currentUrlIndex, (long)totalUrls];
+                    [[NSNotificationCenter defaultCenter] postNotificationName:@"EPGUpdateProgressNotification" object:nil userInfo:@{@"progress": @(prog), @"status": statusMsg}];
+                });
+                
                 NSString *urlStr = [rawUrl stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
                 if (urlStr.length == 0) continue;
                 
@@ -485,6 +489,11 @@
                     continue;
                 }
                 
+                // [新增] 广播：数据较大，进入解析阶段
+                dispatch_async(dispatch_get_main_queue(), ^{
+                    [[NSNotificationCenter defaultCenter] postNotificationName:@"EPGUpdateProgressNotification" object:nil userInfo:@{@"progress": @(0.85), @"status": LocalizedString(@"epg_status_parsing")}];
+                });
+                
                 NSDictionary *parsedDict = [EPGParser parseEPGXMLData:xmlData];
                 if (parsedDict && parsedDict.count > 0) {
                     atLeastOneSuccess = YES;
@@ -508,12 +517,16 @@
             
             dispatch_async(dispatch_get_main_queue(), ^{
                 self.isUpdatingEPG = NO;
+                // [新增] 广播：完成状态
+                [[NSNotificationCenter defaultCenter] postNotificationName:@"EPGUpdateProgressNotification" object:nil userInfo:@{@"progress": @(1.0), @"status": LocalizedString(@"epg_manager_title")}];
                 if (completion) completion(YES, nil);
                 [[NSNotificationCenter defaultCenter] postNotificationName:@"EPGDataDidUpdateNotification" object:nil];
             });
         } else {
             dispatch_async(dispatch_get_main_queue(), ^{
                 self.isUpdatingEPG = NO;
+                // [新增] 广播：失败状态直接隐藏
+                [[NSNotificationCenter defaultCenter] postNotificationName:@"EPGUpdateProgressNotification" object:nil userInfo:@{@"progress": @(1.0), @"status": LocalizedString(@"epg_manager_title")}];
                 NSString *finalError = lastErrorMsg ?: LocalizedString(@"epg_all_sources_failed");
                 if (completion) completion(NO, finalError);
             });
