@@ -10,11 +10,10 @@
 #import "Channel.h"
 #import <MediaPlayer/MediaPlayer.h>
 #import "TVPlaybackViewController.h" // [修改] 引用新的播放器控制器
-#import "SSLBypassHelper.h"
+#import "NetworkManager.h"           // [优化] 引入统一下载管理器，移除原先独立的 SSLBypassHelper 和 UserAgentManager 引用
 #import "UIImage+LogoHelper.h"
 #import "ToastHelper.h"
 #import "PlayerConfigManager.h"
-#import "UserAgentManager.h"
 #import "UIViewController+ScrollToTop.h"
 #import "LanguageManager.h"
 
@@ -125,12 +124,8 @@
                 if (!url) url = [NSURL URLWithString:[cleanURLStr stringByAddingPercentEscapesUsingEncoding:NSUTF8StringEncoding]];
                 
                 if (url) {
-                    [SSLBypassHelper bypassSSLForHost:url.host];
-                    NSMutableURLRequest *request = [NSMutableURLRequest requestWithURL:url];
-                    [request setValue:[[UserAgentManager sharedManager] currentUA] forHTTPHeaderField:@"User-Agent"];
-                    [request setTimeoutInterval:15.0];
-                    
-                    NSData *data = [NSURLConnection sendSynchronousRequest:request returningResponse:nil error:nil];
+                    // [优化] 提取冗余的网络请求逻辑，直接复用 NetworkManager 的同步下载方法，内部已封装好 SSL、UA 和 超时处理
+                    NSData *data = [[NetworkManager sharedManager] downloadDataSyncFromURL:url];
                     if (data) {
                         UIImage *downloadedImage = [UIImage imageWithData:data];
                         if (downloadedImage) {
