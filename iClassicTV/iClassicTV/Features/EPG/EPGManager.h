@@ -19,6 +19,15 @@
 // 打开软件自动静默更新 EPG 开关
 @property (nonatomic, assign) BOOL autoUpdateOnLaunch;
 
+// [新增] 发现节目单过期时自动后台静默刷新
+@property (nonatomic, assign) BOOL autoUpdateOnExpire;
+
+// [新增] 定时刷新时间，格式为 "HH:mm"，例如 "00:30"
+@property (nonatomic, copy) NSString *scheduledUpdateTimeString;
+
+// [新增] 获取上一次成功更新 EPG 数据的时间
+@property (nonatomic, readonly, strong) NSDate *lastEPGUpdateTime;
+
 // EPG 节目单使用的时区（默认跟随设备系统时区）
 @property (nonatomic, strong) NSTimeZone *epgTimeZone;
 

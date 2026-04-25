@@ -18,9 +18,21 @@
 #define kEPGTimeZoneNameKey @"ios6_iptv_epg_timezone_name"
 #define kEPGAutoScrollTimeoutKey @"ios6_iptv_epg_autoscroll_timeout"
 
+// [新增] 缓存持久化 Key
+#define kEPGAutoUpdateExpireKey @"ios6_iptv_epg_auto_update_expire"
+#define kEPGScheduledUpdateTimeKey @"ios6_iptv_epg_scheduled_update_time"
+#define kEPGLastUpdateTimeKey @"ios6_iptv_epg_last_update_time"
+
 @interface EPGManager ()
 @property (nonatomic, strong) NSDictionary *epgCacheDict;
 @property (nonatomic, strong) NSMutableArray *internalSources;
+
+// [新增] 自动检查计时器和状态位
+@property (nonatomic, strong) NSTimer *autoUpdateTimer;
+@property (nonatomic, assign) BOOL hasTriggeredScheduledUpdateThisMinute;
+@property (nonatomic, assign) BOOL isUpdatingEPG;
+@property (nonatomic, strong) NSDate *lastFailedUpdateTime;
+
 @end
 
 @implementation EPGManager
@@ -39,6 +51,7 @@
     if (self) {
         [self loadSourcesFromDisk];
         [self loadCacheFromDisk];
+        [self startAutoUpdateTimer]; // [新增] 启动循环检测定时器
     }
     return self;
 }
@@ -61,6 +74,37 @@
 - (void)setAutoUpdateOnLaunch:(BOOL)autoUpdateOnLaunch {
     [[NSUserDefaults standardUserDefaults] setBool:autoUpdateOnLaunch forKey:kEPGAutoUpdateKey];
     [[NSUserDefaults standardUserDefaults] synchronize];
+}
+
+// [新增] 获取过期自动更新偏好
+- (BOOL)autoUpdateOnExpire {
+    return [[NSUserDefaults standardUserDefaults] boolForKey:kEPGAutoUpdateExpireKey];
+}
+
+// [新增] 设置过期自动更新偏好
+- (void)setAutoUpdateOnExpire:(BOOL)autoUpdateOnExpire {
+    [[NSUserDefaults standardUserDefaults] setBool:autoUpdateOnExpire forKey:kEPGAutoUpdateExpireKey];
+    [[NSUserDefaults standardUserDefaults] synchronize];
+}
+
+// [新增] 获取定时更新时间字符串
+- (NSString *)scheduledUpdateTimeString {
+    return [[NSUserDefaults standardUserDefaults] stringForKey:kEPGScheduledUpdateTimeKey];
+}
+
+// [新增] 设置定时更新时间字符串
+- (void)setScheduledUpdateTimeString:(NSString *)scheduledUpdateTimeString {
+    if (!scheduledUpdateTimeString || scheduledUpdateTimeString.length == 0) {
+        [[NSUserDefaults standardUserDefaults] removeObjectForKey:kEPGScheduledUpdateTimeKey];
+    } else {
+        [[NSUserDefaults standardUserDefaults] setObject:scheduledUpdateTimeString forKey:kEPGScheduledUpdateTimeKey];
+    }
+    [[NSUserDefaults standardUserDefaults] synchronize];
+}
+
+// [新增] 获取上次成功更新时间
+- (NSDate *)lastEPGUpdateTime {
+    return [[NSUserDefaults standardUserDefaults] objectForKey:kEPGLastUpdateTimeKey];
 }
 
 - (NSTimeZone *)epgTimeZone {
@@ -244,12 +288,21 @@
 
 - (void)setActiveEPGSourceAtIndex:(NSInteger)index {
     if (index >= 0 && index < self.internalSources.count) {
+        BOOL changed = NO;
         for (NSInteger i = 0; i < self.internalSources.count; i++) {
+            BOOL isActive = [self.internalSources[i][@"isActive"] boolValue];
+            if (i == index && !isActive) changed = YES;
+            if (i != index && isActive) changed = YES;
+            
             NSMutableDictionary *dict = [self.internalSources[i] mutableCopy];
             dict[@"isActive"] = @(i == index);
             self.internalSources[i] = [dict copy];
         }
         [self saveSourcesToDisk];
+        // [修改] 如果活动的 EPG 源发生了改变，则自动清空缓存并重置上次更新时间
+        if (changed) {
+            [self clearEPGCache];
+        }
     }
 }
 
@@ -295,7 +348,76 @@
     }
 }
 
-#pragma mark - Auto Update
+#pragma mark - Auto Update / Background Refresh Timer
+
+// [新增] 启动每隔 30 秒执行一次的检查定时器
+- (void)startAutoUpdateTimer {
+    if (!self.autoUpdateTimer) {
+        self.autoUpdateTimer = [NSTimer timerWithTimeInterval:30.0 target:self selector:@selector(timerTick) userInfo:nil repeats:YES];
+        [[NSRunLoop mainRunLoop] addTimer:self.autoUpdateTimer forMode:NSRunLoopCommonModes];
+    }
+}
+
+// [新增] 定时器触发的检测逻辑
+- (void)timerTick {
+    if (!self.isEPGEnabled || self.isDynamicEPGSource || self.isUpdatingEPG) return;
+    
+    // 1. 定时刷新检查 (匹配设定的时间)
+    if (self.scheduledUpdateTimeString.length > 0) {
+        NSDateFormatter *df = [[NSDateFormatter alloc] init];
+        [df setTimeZone:[NSTimeZone localTimeZone]]; // 定时刷新跟随系统本地时区
+        [df setDateFormat:@"HH:mm"];
+        NSString *nowStr = [df stringFromDate:[NSDate date]];
+        
+        if ([nowStr isEqualToString:self.scheduledUpdateTimeString]) {
+            if (!self.hasTriggeredScheduledUpdateThisMinute) {
+                self.hasTriggeredScheduledUpdateThisMinute = YES;
+                [self performSilentBackgroundUpdate];
+                return; // 触发了定时刷新就不再接着判断过期刷新
+            }
+        } else {
+            self.hasTriggeredScheduledUpdateThisMinute = NO;
+        }
+    }
+    
+    // 2. 过期自动刷新检查
+    if (self.autoUpdateOnExpire) {
+        if ([self needsUpdate]) {
+            // 如果刚刚更新失败过，等待至少 1 小时再自动重试，避免死循环请求
+            if (self.lastFailedUpdateTime && [[NSDate date] timeIntervalSinceDate:self.lastFailedUpdateTime] < 3600) {
+                return;
+            }
+            [self performSilentBackgroundUpdate];
+        }
+    }
+}
+
+// [新增] 执行静默后台更新
+- (void)performSilentBackgroundUpdate {
+    if (self.isUpdatingEPG) return;
+    self.isUpdatingEPG = YES;
+    
+    dispatch_async(dispatch_get_main_queue(), ^{
+        [ToastHelper showToastWithMessage:LocalizedString(@"epg_updating_silently")];
+    });
+    
+    [self fetchAndParseEPGDataWithCompletion:^(BOOL success, NSString *errorMsg) {
+        self.isUpdatingEPG = NO;
+        if (!success) {
+            self.lastFailedUpdateTime = [NSDate date];
+        } else {
+            self.lastFailedUpdateTime = nil;
+        }
+        
+        dispatch_async(dispatch_get_main_queue(), ^{
+            if (success) {
+                [ToastHelper showToastWithMessage:LocalizedString(@"epg_update_complete")];
+            } else {
+                [ToastHelper showToastWithMessage:[NSString stringWithFormat:LocalizedString(@"epg_update_failed_msg"), errorMsg]];
+            }
+        });
+    }];
+}
 
 - (BOOL)needsUpdate {
     if (!self.epgCacheDict || self.epgCacheDict.count == 0) return YES;
@@ -318,14 +440,8 @@
 - (void)checkAndAutoUpdateEPG {
     if (!self.isEPGEnabled || !self.autoUpdateOnLaunch || self.isDynamicEPGSource) return;
     if ([self needsUpdate]) {
-        [ToastHelper showToastWithMessage:LocalizedString(@"epg_updating_silently")];
-        [self fetchAndParseEPGDataWithCompletion:^(BOOL success, NSString *errorMsg) {
-            if (success) {
-                [ToastHelper showToastWithMessage:LocalizedString(@"epg_update_complete")];
-            } else {
-                [ToastHelper showToastWithMessage:[NSString stringWithFormat:LocalizedString(@"epg_update_failed_msg"), errorMsg]];
-            }
-        }];
+        // [修改] 统一调用优化后的静默更新方法
+        [self performSilentBackgroundUpdate];
     }
 }
 
@@ -374,8 +490,15 @@
         if (atLeastOneSuccess) {
             self.epgCacheDict = mergedDict;
             [self saveCacheToDisk:mergedDict];
+            
+            // [新增] 保存更新成功的时间
+            [[NSUserDefaults standardUserDefaults] setObject:[NSDate date] forKey:kEPGLastUpdateTimeKey];
+            [[NSUserDefaults standardUserDefaults] synchronize];
+            
             dispatch_async(dispatch_get_main_queue(), ^{
                 if (completion) completion(YES, nil);
+                // [新增] 发出 EPG 数据已更新的全局通知，以便各界面自动重载
+                [[NSNotificationCenter defaultCenter] postNotificationName:@"EPGDataDidUpdateNotification" object:nil];
             });
         } else {
             dispatch_async(dispatch_get_main_queue(), ^{
@@ -450,6 +573,9 @@
 - (void)clearEPGCache {
     self.epgCacheDict = nil;
     [[NSFileManager defaultManager] removeItemAtPath:[self cacheFilePath] error:nil];
+    // [新增] 清理缓存时，同步清空上次更新时间
+    [[NSUserDefaults standardUserDefaults] removeObjectForKey:kEPGLastUpdateTimeKey];
+    [[NSUserDefaults standardUserDefaults] synchronize];
 }
 
 #pragma mark - Dynamic Query

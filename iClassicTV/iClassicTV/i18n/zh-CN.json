@@ -213,5 +213,9 @@
     "show_epg_in_fullscreen": "全屏状态显示节目单",
     "show_time_in_fullscreen": "全屏状态显示悬浮时间",
     "show_catchup_badge_in_fullscreen": "全屏状态显示回放标识",
-    "supports_catchup": "[支持回放]"
+    "supports_catchup": "[支持回放]",
+    "auto_update_on_expire": "节目单过期自动刷新",
+    "scheduled_update_time": "定时刷新时间",
+    "disable_scheduled_update": "禁用定时刷新",
+    "no_update_record": "暂无更新记录"
 }

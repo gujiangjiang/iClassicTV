@@ -16,6 +16,7 @@
 #import "EPGProgram.h"
 #import "EPGManagerViewController.h"
 #import "NSString+EncodingHelper.h"
+#import "ToastHelper.h" // [新增] 引入 ToastHelper
 #import <QuartzCore/QuartzCore.h> // [新增] 引入 QuartzCore 用于绘制拟物化边框
 
 @interface TVPlaybackViewController () <TVPlaybackOverlayDelegate, PlayerEPGViewDelegate>
@@ -107,6 +108,8 @@
     [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(loadStateChanged) name:MPMoviePlayerLoadStateDidChangeNotification object:self.player];
     [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(mediaTypesAvailable) name:MPMovieMediaTypesAvailableNotification object:self.player];
     [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(playbackDidFinish:) name:MPMoviePlayerPlaybackDidFinishNotification object:self.player];
+    // [新增] 监听后台 EPG 数据获取成功的通知自动刷新界面
+    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(epgDataDidUpdateInBackground) name:@"EPGDataDidUpdateNotification" object:nil];
     
     [self.player play];
     [self startTimer];
@@ -114,6 +117,14 @@
     
     dispatch_async(dispatch_get_main_queue(), ^{
         [self.epgView scrollToCurrentProgram];
+    });
+}
+
+// [新增] EPG 数据后台刷新完成后的 UI 更新回调
+- (void)epgDataDidUpdateInBackground {
+    dispatch_async(dispatch_get_main_queue(), ^{
+        [self.epgView reloadData];
+        [self updateFullscreenEPGOverlay];
     });
 }
 
@@ -242,14 +253,15 @@
 }
 
 - (void)epgViewDidTapRefresh:(PlayerEPGView *)epgView {
+    // [修改] 将之前阻塞的加载动画改为在后台发起的静默 Toast 提示更新，并在成功后自动刷新列表
+    [ToastHelper showToastWithMessage:LocalizedString(@"epg_updating_silently")];
     [[EPGManager sharedManager] fetchAndParseEPGDataWithCompletion:^(BOOL success, NSString *errorMsg) {
         dispatch_async(dispatch_get_main_queue(), ^{
             if (success) {
-                [self.epgView reloadData];
-                [self updateFullscreenEPGOverlay];
+                [ToastHelper showToastWithMessage:LocalizedString(@"epg_update_complete")];
+                // 成功后 EPGManager 内部已发出 EPGDataDidUpdateNotification，会自动走重载界面逻辑
             } else {
-                UIAlertView *alert = [[UIAlertView alloc] initWithTitle:LocalizedString(@"refresh_failed_title") message:errorMsg delegate:nil cancelButtonTitle:LocalizedString(@"confirm") otherButtonTitles:nil];
-                [alert show];
+                [ToastHelper showToastWithMessage:[NSString stringWithFormat:LocalizedString(@"epg_update_failed_msg"), errorMsg]];
             }
         });
     }];

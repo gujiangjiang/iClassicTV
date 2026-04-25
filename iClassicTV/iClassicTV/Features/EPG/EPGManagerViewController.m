@@ -167,11 +167,67 @@
 @end
 // -------------------------------------------------------------
 
+#pragma mark - [新增] 内部类：EPG 定时刷新时间选择控制器
+// -------------------------------------------------------------
+@interface EPGScheduledTimeViewController : UIViewController
+@property (nonatomic, strong) UIDatePicker *datePicker;
+@end
+
+@implementation EPGScheduledTimeViewController
+
+- (void)viewDidLoad {
+    [super viewDidLoad];
+    self.title = LocalizedString(@"scheduled_update_time");
+    self.view.backgroundColor = [UIColor groupTableViewBackgroundColor];
+    
+    self.datePicker = [[UIDatePicker alloc] init];
+    self.datePicker.frame = CGRectMake(0, 20, self.view.bounds.size.width, 216);
+    self.datePicker.autoresizingMask = UIViewAutoresizingFlexibleWidth;
+    self.datePicker.datePickerMode = UIDatePickerModeTime;
+    [self.view addSubview:self.datePicker];
+    
+    NSString *timeStr = [EPGManager sharedManager].scheduledUpdateTimeString;
+    if (timeStr.length > 0) {
+        NSDateFormatter *df = [[NSDateFormatter alloc] init];
+        [df setDateFormat:@"HH:mm"];
+        NSDate *date = [df dateFromString:timeStr];
+        if (date) {
+            [self.datePicker setDate:date animated:NO];
+        }
+    }
+    
+    UIBarButtonItem *saveItem = [[UIBarButtonItem alloc] initWithTitle:LocalizedString(@"save") style:UIBarButtonItemStyleDone target:self action:@selector(saveAction)];
+    self.navigationItem.rightBarButtonItem = saveItem;
+    
+    UIButton *clearBtn = [UIButton buttonWithType:UIButtonTypeRoundedRect];
+    clearBtn.frame = CGRectMake(20, CGRectGetMaxY(self.datePicker.frame) + 30, self.view.bounds.size.width - 40, 44);
+    [clearBtn setTitle:LocalizedString(@"disable_scheduled_update") forState:UIControlStateNormal];
+    [clearBtn addTarget:self action:@selector(clearAction) forControlEvents:UIControlEventTouchUpInside];
+    [self.view addSubview:clearBtn];
+}
+
+- (void)saveAction {
+    NSDateFormatter *df = [[NSDateFormatter alloc] init];
+    [df setDateFormat:@"HH:mm"];
+    NSString *str = [df stringFromDate:self.datePicker.date];
+    [EPGManager sharedManager].scheduledUpdateTimeString = str;
+    [self.navigationController popViewControllerAnimated:YES];
+}
+
+- (void)clearAction {
+    [EPGManager sharedManager].scheduledUpdateTimeString = @"";
+    [self.navigationController popViewControllerAnimated:YES];
+}
+
+@end
+// -------------------------------------------------------------
+
 #pragma mark - EPGManagerViewController 主类实现
 
 @interface EPGManagerViewController ()
 @property (nonatomic, strong) UISwitch *epgSwitch;
 @property (nonatomic, strong) UISwitch *autoUpdateSwitch;
+@property (nonatomic, strong) UISwitch *autoExpireSwitch; // [新增]
 @end
 
 @implementation EPGManagerViewController
@@ -201,6 +257,11 @@
     self.autoUpdateSwitch = [[UISwitch alloc] init];
     self.autoUpdateSwitch.on = [EPGManager sharedManager].autoUpdateOnLaunch;
     [self.autoUpdateSwitch addTarget:self action:@selector(autoUpdateSwitchChanged:) forControlEvents:UIControlEventValueChanged];
+    
+    // [新增] 过期自动刷新 Switch
+    self.autoExpireSwitch = [[UISwitch alloc] init];
+    self.autoExpireSwitch.on = [EPGManager sharedManager].autoUpdateOnExpire;
+    [self.autoExpireSwitch addTarget:self action:@selector(autoExpireSwitchChanged:) forControlEvents:UIControlEventValueChanged];
 }
 
 - (void)viewWillAppear:(BOOL)animated {
@@ -235,6 +296,10 @@
     [EPGManager sharedManager].autoUpdateOnLaunch = sender.isOn;
 }
 
+- (void)autoExpireSwitchChanged:(UISwitch *)sender {
+    [EPGManager sharedManager].autoUpdateOnExpire = sender.isOn;
+}
+
 - (void)fetchEPGData {
     if ([EPGManager sharedManager].epgSourceURL.length == 0) {
         UIAlertView *alert = [[UIAlertView alloc] initWithTitle:LocalizedString(@"error") message:LocalizedString(@"epg_please_select_source") delegate:nil cancelButtonTitle:LocalizedString(@"confirm") otherButtonTitles:nil];
@@ -255,6 +320,11 @@
         NSString *msg = success ? LocalizedString(@"epg_update_success_alert") : [NSString stringWithFormat:LocalizedString(@"epg_update_failed_format"), errorMsg];
         UIAlertView *resultAlert = [[UIAlertView alloc] initWithTitle:LocalizedString(@"tips") message:msg delegate:nil cancelButtonTitle:LocalizedString(@"confirm") otherButtonTitles:nil];
         [resultAlert show];
+        
+        // [新增] 更新成功后刷新列表展示上次更新时间
+        if (success) {
+            [self.tableView reloadData];
+        }
     }];
 }
 
@@ -268,7 +338,7 @@
     if (section == 0) return 1;
     if (section == 1) return 1;
     if (section == 2) return 2;
-    if (section == 3) return 1;
+    if (section == 3) return 3; // [修改] 返回 3 行（新增过期自动刷新和定时更新）
     if (section == 4) return 2;
     return 0;
 }
@@ -347,13 +417,34 @@
         }
         
     } else if (indexPath.section == 3) {
-        cell.textLabel.text = LocalizedString(@"auto_update_on_launch");
-        cell.accessoryView = self.autoUpdateSwitch;
-        cell.selectionStyle = UITableViewCellSelectionStyleNone;
+        // [修改] 增加过期刷新和定时更新
+        if (indexPath.row == 0) {
+            cell.textLabel.text = LocalizedString(@"auto_update_on_launch");
+            cell.accessoryView = self.autoUpdateSwitch;
+            cell.selectionStyle = UITableViewCellSelectionStyleNone;
+        } else if (indexPath.row == 1) {
+            cell.textLabel.text = LocalizedString(@"auto_update_on_expire");
+            cell.accessoryView = self.autoExpireSwitch;
+            cell.selectionStyle = UITableViewCellSelectionStyleNone;
+        } else if (indexPath.row == 2) {
+            cell.textLabel.text = LocalizedString(@"scheduled_update_time");
+            NSString *timeStr = [EPGManager sharedManager].scheduledUpdateTimeString;
+            cell.detailTextLabel.text = timeStr.length > 0 ? timeStr : LocalizedString(@"not_set");
+            cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
+        }
         
     } else if (indexPath.section == 4) {
         if (indexPath.row == 0) {
             cell.textLabel.text = LocalizedString(@"force_update_epg");
+            // [新增] 显示上次更新时间
+            NSDate *lastTime = [EPGManager sharedManager].lastEPGUpdateTime;
+            if (lastTime) {
+                NSDateFormatter *df = [[NSDateFormatter alloc] init];
+                [df setDateFormat:@"yyyy-MM-dd HH:mm"];
+                cell.detailTextLabel.text = [df stringFromDate:lastTime];
+            } else {
+                cell.detailTextLabel.text = LocalizedString(@"no_update_record");
+            }
         } else {
             cell.textLabel.text = LocalizedString(@"clear_epg_cache");
         }
@@ -376,6 +467,10 @@
             EPGAutoScrollListViewController *scrollVC = [[EPGAutoScrollListViewController alloc] initWithStyle:UITableViewStyleGrouped];
             [self.navigationController pushViewController:scrollVC animated:YES];
         }
+    } else if (indexPath.section == 3 && indexPath.row == 2) {
+        // [新增] 推入定时刷新时间选择器
+        EPGScheduledTimeViewController *vc = [[EPGScheduledTimeViewController alloc] init];
+        [self.navigationController pushViewController:vc animated:YES];
     } else if (indexPath.section == 4) {
         if (indexPath.row == 0) {
             [self fetchEPGData];
@@ -383,6 +478,7 @@
             [[EPGManager sharedManager] clearEPGCache];
             UIAlertView *alert = [[UIAlertView alloc] initWithTitle:LocalizedString(@"tips") message:LocalizedString(@"epg_cache_cleared") delegate:nil cancelButtonTitle:LocalizedString(@"confirm") otherButtonTitles:nil];
             [alert show];
+            [self.tableView reloadData];
         }
     }
 }
