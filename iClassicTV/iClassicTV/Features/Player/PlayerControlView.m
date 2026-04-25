@@ -8,7 +8,7 @@
 
 #import "PlayerControlView.h"
 #import "UIImage+DynamicIcon.h"
-#import "LanguageManager.h" // 引入多语言模块
+#import "LanguageManager.h"
 
 @interface PlayerControlView ()
 
@@ -19,6 +19,11 @@
 @property (nonatomic, strong) UIButton *fullBtn;
 @property (nonatomic, strong) UILabel *statusLabel;
 @property (nonatomic, strong) UIButton *lockBtn;
+
+// 新增：全屏 EPG 悬浮窗组件
+@property (nonatomic, strong) UIView *epgOverlayView;
+@property (nonatomic, strong) UILabel *currentProgramLabel;
+@property (nonatomic, strong) UILabel *nextProgramLabel;
 
 @property (nonatomic, assign) BOOL isLocked;
 @property (nonatomic, assign) BOOL isControlsHidden;
@@ -42,10 +47,9 @@
     return self;
 }
 
-// 关键修复：允许点击事件穿透透明背景，解决底部 EPG 列表无法点击和滑动的问题
+// 允许点击事件穿透透明背景，解决底部 EPG 列表无法点击和滑动的问题
 - (UIView *)hitTest:(CGPoint)point withEvent:(UIEvent *)event {
     UIView *hitView = [super hitTest:point withEvent:event];
-    // 如果点中了控制层本身的透明区域（即既不是按钮也不是底部控制条等具体子视图），则让事件穿透到下一层
     if (hitView == self) {
         return nil;
     }
@@ -67,6 +71,8 @@
 }
 
 - (void)setupUI {
+    BOOL isIOS7 = [[[UIDevice currentDevice] systemVersion] floatValue] >= 7.0;
+    
     // 1. 状态反馈层
     self.statusLabel = [[UILabel alloc] initWithFrame:CGRectMake(0, 0, 280, 100)];
     self.statusLabel.autoresizingMask = UIViewAutoresizingFlexibleTopMargin | UIViewAutoresizingFlexibleBottomMargin | UIViewAutoresizingFlexibleLeftMargin | UIViewAutoresizingFlexibleRightMargin;
@@ -122,7 +128,27 @@
     [self.lockBtn addTarget:self action:@selector(toggleLock) forControlEvents:UIControlEventTouchUpInside];
     [self addSubview:self.lockBtn];
     
-    // 5. 手势
+    // 5. 新增：全屏模式下的 EPG 悬浮窗
+    self.epgOverlayView = [[UIView alloc] initWithFrame:CGRectZero];
+    self.epgOverlayView.backgroundColor = [UIColor colorWithWhite:0.0 alpha:0.6]; // 半透明黑底
+    self.epgOverlayView.layer.cornerRadius = 6;
+    self.epgOverlayView.clipsToBounds = YES;
+    self.epgOverlayView.hidden = YES;
+    [self addSubview:self.epgOverlayView];
+    
+    self.currentProgramLabel = [[UILabel alloc] initWithFrame:CGRectZero];
+    self.currentProgramLabel.textColor = isIOS7 ? [UIColor colorWithRed:0.0 green:0.478 blue:1.0 alpha:1.0] : [UIColor orangeColor];
+    self.currentProgramLabel.font = [UIFont boldSystemFontOfSize:14];
+    self.currentProgramLabel.backgroundColor = [UIColor clearColor];
+    [self.epgOverlayView addSubview:self.currentProgramLabel];
+    
+    self.nextProgramLabel = [[UILabel alloc] initWithFrame:CGRectZero];
+    self.nextProgramLabel.textColor = [UIColor whiteColor];
+    self.nextProgramLabel.font = [UIFont systemFontOfSize:13];
+    self.nextProgramLabel.backgroundColor = [UIColor clearColor];
+    [self.epgOverlayView addSubview:self.nextProgramLabel];
+    
+    // 6. 手势
     UITapGestureRecognizer *doubleTap = [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(handleDoubleTap:)];
     doubleTap.numberOfTapsRequired = 2;
     [self.gestureCatcherView addGestureRecognizer:doubleTap];
@@ -148,7 +174,31 @@
     self.lockBtn.center = CGPointMake(40, CGRectGetMidY(videoFrame));
     self.statusLabel.center = CGPointMake(CGRectGetMidX(videoFrame), CGRectGetMidY(videoFrame));
     
+    // 新增：布局全屏下的 EPG 悬浮窗 (放置在中下方，控件上方 15pt 处)
+    if (isFullscreen) {
+        CGFloat overlayWidth = MIN(400, self.bounds.size.width - 60); // 自适应宽度，最大 400
+        self.epgOverlayView.frame = CGRectMake((self.bounds.size.width - overlayWidth) / 2, self.bounds.size.height - 50 - 65, overlayWidth, 50);
+        self.currentProgramLabel.frame = CGRectMake(10, 5, overlayWidth - 20, 20);
+        self.nextProgramLabel.frame = CGRectMake(10, 25, overlayWidth - 20, 20);
+        
+        self.epgOverlayView.hidden = (self.currentProgramLabel.text.length == 0);
+    } else {
+        self.epgOverlayView.hidden = YES;
+    }
+    
     [self setControlsHidden:self.isControlsHidden];
+}
+
+// 新增：刷新悬浮窗的节目文本
+- (void)updateCurrentProgram:(NSString *)current nextProgram:(NSString *)next {
+    self.currentProgramLabel.text = current;
+    self.nextProgramLabel.text = next;
+    
+    if (self.currentIsFullscreen && current.length > 0) {
+        self.epgOverlayView.hidden = NO;
+    } else {
+        self.epgOverlayView.hidden = YES;
+    }
 }
 
 - (void)updateProgressWithValue:(float)value { self.progressBar.value = value; }
@@ -221,9 +271,11 @@
         if (self.isLocked) {
             self.bottomBar.alpha = 0.0;
             self.lockBtn.alpha = hidden ? 0.0 : 0.6;
+            self.epgOverlayView.alpha = hidden ? 0.0 : 1.0; // 同步隐藏/显示
         } else {
             self.bottomBar.alpha = hidden ? 0.0 : 1.0;
             self.lockBtn.alpha = hidden ? 0.0 : 0.6;
+            self.epgOverlayView.alpha = hidden ? 0.0 : 1.0; // 同步隐藏/显示
         }
     }];
     

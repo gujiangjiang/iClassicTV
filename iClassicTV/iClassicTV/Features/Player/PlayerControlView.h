@@ -11,7 +11,6 @@
 @class PlayerControlView;
 
 @protocol PlayerControlViewDelegate <NSObject>
-// 移除了 controlViewDidTapBack:，因为返回操作现在由控制器原生导航栏接管
 - (void)controlViewDidTapPlayPause:(PlayerControlView *)controlView;
 - (void)controlViewDidTapFullscreen:(PlayerControlView *)controlView;
 - (void)controlView:(PlayerControlView *)controlView sliderValueDidChange:(float)value;
@@ -30,5 +29,8 @@
 - (void)showStatusMessage:(NSString *)message;
 - (void)hideStatusMessage;
 - (void)cancelAutoHideTimer;
+
+// 新增：用于更新全屏模式下的半透明 EPG 悬浮窗内容
+- (void)updateCurrentProgram:(NSString *)current nextProgram:(NSString *)next;
 
 @end

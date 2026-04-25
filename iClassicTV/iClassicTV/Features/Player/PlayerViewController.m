@@ -10,24 +10,27 @@
 #import <MediaPlayer/MediaPlayer.h>
 #import "PlayerConfigManager.h"
 #import "PlayerControlView.h"
-#import "LanguageManager.h" // 引入多语言模块
-#import "PlayerEPGView.h"   // 引入独立出来的 EPG 管理视图模块
+#import "LanguageManager.h"
+#import "PlayerEPGView.h"
+#import "EPGManager.h"      // 新增：用于拉取当前和下一个节目
+#import "EPGProgram.h"      // 新增：用于解析时间对象
 
-// 优化：去掉了原先冗余的 UITableViewDelegate 和 UITableViewDataSource 协议
 @interface PlayerViewController () <PlayerControlViewDelegate>
 
 @property (nonatomic, strong) MPMoviePlayerController *player;
 @property (nonatomic, strong) PlayerControlView *controlView;
 
-@property (nonatomic, strong) UINavigationBar *navBar; // 接管原生的顶部导航栏
+@property (nonatomic, strong) UINavigationBar *navBar;
 @property (nonatomic, strong) UIView *backgroundView;
 
 @property (nonatomic, strong) NSTimer *timer;
 @property (nonatomic, assign) BOOL isFullscreen;
 @property (nonatomic, assign) BOOL isControlsHidden;
 
-// 新增的 EPG 模块组件
 @property (nonatomic, strong) PlayerEPGView *epgView;
+
+// 新增：专门用于全屏悬浮窗的时间格式化器
+@property (nonatomic, strong) NSDateFormatter *epgTimeFormatter;
 
 @end
 
@@ -37,19 +40,19 @@
     [super viewDidLoad];
     self.view.backgroundColor = [UIColor blackColor];
     
-    // 优化：移除了 iOS 6 下容易导致 Modal 视图首次布局错位的 wantsFullScreenLayout = YES，
-    // 改为让系统自动处理状态栏的 20pt 下沉，以彻底解决首次进入时多出一个状态栏高度缝隙的 Bug。
+    // 初始化悬浮窗使用的时间格式器
+    self.epgTimeFormatter = [[NSDateFormatter alloc] init];
+    [self.epgTimeFormatter setDateFormat:@"HH:mm"];
     
     self.backgroundView = [[UIView alloc] initWithFrame:self.view.bounds];
     [self.view addSubview:self.backgroundView];
     
-    // 实例化并挂载独立的 EPG 组件模块
+    // 实例化并挂载独立的 EPG 组件模块 (负责竖屏)
     self.epgView = [[PlayerEPGView alloc] initWithFrame:CGRectZero];
     self.epgView.channelTitle = self.channelTitle;
     self.epgView.tvgName = self.tvgName;
     [self.view addSubview:self.epgView];
     
-    // 通知组件拉取数据
     [self.epgView reloadData];
     
     [[UIApplication sharedApplication] beginReceivingRemoteControlEvents];
@@ -60,13 +63,11 @@
     self.player.controlStyle = MPMovieControlStyleNone;
     [self.view addSubview:self.player.view];
     
-    // 挂载控制层 (纯净版)
     self.controlView = [[PlayerControlView alloc] initWithFrame:self.view.bounds];
     self.controlView.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
     self.controlView.delegate = self;
     [self.view addSubview:self.controlView];
     
-    // 构建并挂载真正的系统原生 UINavigationBar 放在最顶层
     self.navBar = [[UINavigationBar alloc] initWithFrame:CGRectZero];
     UINavigationItem *navItem = [[UINavigationItem alloc] initWithTitle:self.channelTitle ?: LocalizedString(@"unknown_channel")];
     UIBarButtonItem *backItem = [[UIBarButtonItem alloc] initWithTitle:LocalizedString(@"back") style:UIBarButtonItemStyleBordered target:self action:@selector(closePlayer)];
@@ -74,7 +75,6 @@
     [self.navBar pushNavigationItem:navItem animated:NO];
     [self.view addSubview:self.navBar];
     
-    // 监听内核状态
     [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(playbackStateChanged) name:MPMoviePlayerPlaybackStateDidChangeNotification object:self.player];
     [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(loadStateChanged) name:MPMoviePlayerLoadStateDidChangeNotification object:self.player];
     [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(mediaTypesAvailable) name:MPMovieMediaTypesAvailableNotification object:self.player];
@@ -84,7 +84,6 @@
     [self startTimer];
     [self updateNowPlayingInfo];
     
-    // 延迟让 EPG 组件滑动到当前正在播放的节目
     dispatch_async(dispatch_get_main_queue(), ^{
         [self.epgView scrollToCurrentProgram];
     });
@@ -106,14 +105,12 @@
         self.backgroundView.frame = self.view.bounds;
         self.backgroundView.backgroundColor = [UIColor blackColor];
         
-        // 全屏时隐藏独立的 EPG 模块
+        // 全屏时隐藏独立的竖屏 EPG 模块
         self.epgView.hidden = YES;
         
-        // 全屏时：原生的黑色毛玻璃导航栏
         self.navBar.frame = CGRectMake(0, 0, self.view.bounds.size.width, 44);
         self.navBar.barStyle = UIBarStyleBlack;
     } else {
-        // 优化：修复 iOS 6 下的 topBarHeight 为 44.0，适配移除了 wantsFullScreenLayout 后的逻辑
         CGFloat topBarHeight = isIOS7 ? 64.0 : 44.0;
         CGFloat videoHeight = self.view.bounds.size.width * 9.0 / 16.0;
         videoFrame = CGRectMake(0, topBarHeight, self.view.bounds.size.width, videoHeight);
@@ -121,24 +118,20 @@
         self.backgroundView.frame = self.view.bounds;
         self.backgroundView.backgroundColor = isIOS7 ? [UIColor groupTableViewBackgroundColor] : [UIColor scrollViewTexturedBackgroundColor];
         
-        // 竖屏时展现并动态调整 EPG 模块的空间位置
         CGFloat tableY = CGRectGetMaxY(videoFrame);
         CGFloat tableHeight = self.view.bounds.size.height - tableY;
         self.epgView.frame = CGRectMake(0, tableY, self.view.bounds.size.width, tableHeight);
         self.epgView.hidden = NO;
         
-        // 竖屏时：完全跟随 iOS 版本的原生状态栏与导航栏布局
         if (isIOS7) {
             self.navBar.frame = CGRectMake(0, 0, self.view.bounds.size.width, 64);
-            self.navBar.barStyle = UIBarStyleDefault; // 系统经典浅色
+            self.navBar.barStyle = UIBarStyleDefault;
         } else {
-            // 优化：将 iOS 6 的 Y 坐标从 20 调整为 0，因为移除了 wantsFullScreenLayout 后，系统会自动下推 self.view 避开状态栏
             self.navBar.frame = CGRectMake(0, 0, self.view.bounds.size.width, 44);
-            self.navBar.barStyle = UIBarStyleBlack;   // iOS6 经典深色高光
+            self.navBar.barStyle = UIBarStyleBlack;
         }
     }
     
-    // 即时更新导航栏隐藏状态，避免旋转时跳动
     if (self.controlView.isLocked) {
         self.navBar.alpha = 0.0;
     } else {
@@ -147,6 +140,42 @@
     
     self.player.view.frame = videoFrame;
     [self.controlView updateLayoutForFullscreen:self.isFullscreen videoFrame:videoFrame];
+}
+
+#pragma mark - 新增：全屏 EPG 悬浮窗数据刷新
+- (void)updateFullscreenEPGOverlay {
+    // 性能优化：只有开启了 EPG 且处于全屏状态时才进行数据比对
+    if (![EPGManager sharedManager].isEPGEnabled || !self.isFullscreen) {
+        return;
+    }
+    
+    NSString *epgSearchName = (self.tvgName && self.tvgName.length > 0) ? self.tvgName : self.channelTitle;
+    NSArray *programs = [[EPGManager sharedManager] programsForChannelName:epgSearchName];
+    
+    if (programs.count == 0) {
+        [self.controlView updateCurrentProgram:nil nextProgram:nil];
+        return;
+    }
+    
+    NSDate *now = [NSDate date];
+    EPGProgram *current = nil;
+    EPGProgram *next = nil;
+    
+    for (NSInteger i = 0; i < programs.count; i++) {
+        EPGProgram *p = programs[i];
+        if ([now compare:p.startTime] != NSOrderedAscending && [now compare:p.endTime] == NSOrderedAscending) {
+            current = p;
+            if (i + 1 < programs.count) {
+                next = programs[i + 1];
+            }
+            break;
+        }
+    }
+    
+    NSString *currentStr = current ? [NSString stringWithFormat:@"%@ 正在播放：%@", [self.epgTimeFormatter stringFromDate:current.startTime], current.title] : @"正在播放：暂无节目数据";
+    NSString *nextStr = next ? [NSString stringWithFormat:@"%@ 即将播放：%@", [self.epgTimeFormatter stringFromDate:next.startTime], next.title] : @"即将播放：暂无节目数据";
+    
+    [self.controlView updateCurrentProgram:currentStr nextProgram:nextStr];
 }
 
 #pragma mark - PlayerControlViewDelegate
@@ -174,7 +203,6 @@
 - (void)controlView:(PlayerControlView *)controlView controlsHiddenDidChange:(BOOL)isHidden {
     self.isControlsHidden = isHidden;
     
-    // 联动系统原生导航栏执行淡入淡出
     [UIView animateWithDuration:0.3 animations:^{
         if (controlView.isLocked) {
             self.navBar.alpha = 0.0;
@@ -255,6 +283,8 @@
     if (self.player.duration > 0 && !isnan(self.player.duration)) {
         [self.controlView updateProgressWithValue:(self.player.currentPlaybackTime / self.player.duration)];
     }
+    // 每次更新进度条时，顺便计算并更新一次全屏的 EPG
+    [self updateFullscreenEPGOverlay];
 }
 
 - (void)forceRotateToOrientation:(UIInterfaceOrientation)orientation {
@@ -297,15 +327,18 @@
 - (void)willAnimateRotationToInterfaceOrientation:(UIInterfaceOrientation)toInterfaceOrientation duration:(NSTimeInterval)duration {
     [super willAnimateRotationToInterfaceOrientation:toInterfaceOrientation duration:duration];
     
-    // 优化：在这里统一接管所有的状态栏更新逻辑，无论是手动物理旋转还是点击按钮强制旋转，
-    // 都确保能正确触发 iOS 6 和 iOS 7 的状态栏隐藏，修复了全屏发白通知栏的 Bug。
     BOOL isLandscape = UIInterfaceOrientationIsLandscape(toInterfaceOrientation);
-    self.isFullscreen = isLandscape; // 预先更新标识位以确保后续取值准确
+    self.isFullscreen = isLandscape;
     
     if ([self respondsToSelector:@selector(setNeedsStatusBarAppearanceUpdate)]) {
         [self setNeedsStatusBarAppearanceUpdate];
     } else {
         [[UIApplication sharedApplication] setStatusBarHidden:isLandscape withAnimation:UIStatusBarAnimationFade];
+    }
+    
+    // 如果是横屏，立刻推一次 EPG 数据，保证动画期间文本就已经存在
+    if (isLandscape) {
+        [self updateFullscreenEPGOverlay];
     }
     
     [UIView animateWithDuration:duration delay:0.0 options:UIViewAnimationOptionCurveEaseInOut animations:^{
