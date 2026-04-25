@@ -19,14 +19,11 @@
     return nil;
 }
 
-// 新增：利用正则从 M3U 文件中提取全局自带的 EPG 地址
+// 利用正则从 M3U 文件中提取全局自带的 EPG 地址
 + (NSString *)extractEPGUrlsFromM3UString:(NSString *)m3uString {
     if (!m3uString || m3uString.length == 0) return nil;
-    
-    // 匹配如：#EXTM3U x-tvg-url="https://live.fanmingming.com/e.xml,http://e.erw.cc/all.xml.gz"
     NSRegularExpression *regex = [NSRegularExpression regularExpressionWithPattern:@"#EXTM3U.*x-tvg-url\\s*=\\s*\"([^\"]+)\"" options:NSRegularExpressionCaseInsensitive error:nil];
     NSTextCheckingResult *match = [regex firstMatchInString:m3uString options:0 range:NSMakeRange(0, m3uString.length)];
-    
     if (match) {
         return [m3uString substringWithRange:[match rangeAtIndex:1]];
     }
@@ -39,6 +36,18 @@
     NSRegularExpression *logoRegex = [NSRegularExpression regularExpressionWithPattern:@"tvg-logo\\s*=\\s*\"([^\"]+)\"" options:NSRegularExpressionCaseInsensitive error:nil];
     NSRegularExpression *nameRegex = [NSRegularExpression regularExpressionWithPattern:@"tvg-name\\s*=\\s*\"([^\"]+)\"" options:NSRegularExpressionCaseInsensitive error:nil];
     NSRegularExpression *groupRegex = [NSRegularExpression regularExpressionWithPattern:@"group-title\\s*=\\s*\"([^\"]+)\"" options:NSRegularExpressionCaseInsensitive error:nil];
+    
+    // 新增：提取 catchup 回放模板
+    NSRegularExpression *catchupRegex = [NSRegularExpression regularExpressionWithPattern:@"catchup-source\\s*=\\s*\"([^\"]+)\"" options:NSRegularExpressionCaseInsensitive error:nil];
+    
+    // 尝试获取全局的 catchup-source 模板
+    NSString *globalCatchup = nil;
+    NSRegularExpression *extM3URegex = [NSRegularExpression regularExpressionWithPattern:@"#EXTM3U(.*)" options:0 error:nil];
+    NSTextCheckingResult *m3uMatch = [extM3URegex firstMatchInString:m3uString options:0 range:NSMakeRange(0, m3uString.length)];
+    if (m3uMatch) {
+        NSString *m3uLine = [m3uString substringWithRange:[m3uMatch rangeAtIndex:0]];
+        globalCatchup = [self extractValueWithRegex:catchupRegex fromString:m3uLine];
+    }
     
     NSArray *lines = [m3uString componentsSeparatedByCharactersInSet:[NSCharacterSet newlineCharacterSet]];
     NSMutableArray *channels = [NSMutableArray array];
@@ -53,8 +62,10 @@
             tempChannel = [[Channel alloc] init];
             tempChannel.logo = [self extractValueWithRegex:logoRegex fromString:line] ?: @"";
             tempChannel.tvgName = [self extractValueWithRegex:nameRegex fromString:line] ?: @"";
-            // 替换未分组
             tempChannel.group = [self extractValueWithRegex:groupRegex fromString:line] ?: LocalizedString(@"ungrouped");
+            
+            // 优先使用频道单独定义的 catchup，如果没有则继承全局的
+            tempChannel.catchupSource = [self extractValueWithRegex:catchupRegex fromString:line] ?: globalCatchup;
             
             NSRange commaRange = [line rangeOfString:@"," options:NSBackwardsSearch];
             if (commaRange.location != NSNotFound) {
@@ -72,6 +83,7 @@
             } else {
                 [existing.urls addObject:line];
                 if (existing.tvgName.length == 0) existing.tvgName = tempChannel.tvgName;
+                if (existing.catchupSource.length == 0) existing.catchupSource = tempChannel.catchupSource;
             }
             tempChannel = nil;
         }

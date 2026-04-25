@@ -12,11 +12,11 @@
 #import "PlayerControlView.h"
 #import "LanguageManager.h"
 #import "PlayerEPGView.h"
-#import "EPGManager.h"      // 新增：用于拉取当前和下一个节目
-#import "EPGProgram.h"      // 新增：用于解析时间对象
-#import "EPGManagerViewController.h" // 新增：用于跳转至 EPG 设置页面
+#import "EPGManager.h"
+#import "EPGProgram.h"
+#import "EPGManagerViewController.h"
 
-@interface PlayerViewController () <PlayerControlViewDelegate, PlayerEPGViewDelegate> // 新增：遵守 PlayerEPGViewDelegate 协议
+@interface PlayerViewController () <PlayerControlViewDelegate, PlayerEPGViewDelegate>
 
 @property (nonatomic, strong) MPMoviePlayerController *player;
 @property (nonatomic, strong) PlayerControlView *controlView;
@@ -29,8 +29,6 @@
 @property (nonatomic, assign) BOOL isControlsHidden;
 
 @property (nonatomic, strong) PlayerEPGView *epgView;
-
-// 新增：专门用于全屏悬浮窗的时间格式化器
 @property (nonatomic, strong) NSDateFormatter *epgTimeFormatter;
 
 @end
@@ -41,18 +39,19 @@
     [super viewDidLoad];
     self.view.backgroundColor = [UIColor blackColor];
     
-    // 初始化悬浮窗使用的时间格式器
     self.epgTimeFormatter = [[NSDateFormatter alloc] init];
     [self.epgTimeFormatter setDateFormat:@"HH:mm"];
     
     self.backgroundView = [[UIView alloc] initWithFrame:self.view.bounds];
     [self.view addSubview:self.backgroundView];
     
-    // 实例化并挂载独立的 EPG 组件模块 (负责竖屏)
     self.epgView = [[PlayerEPGView alloc] initWithFrame:CGRectZero];
     self.epgView.channelTitle = self.channelTitle;
     self.epgView.tvgName = self.tvgName;
-    self.epgView.delegate = self; // 新增：设置 EPG 操作代理
+    self.epgView.delegate = self;
+    
+    // 优化：将是否支持时移回看的标识传递给 EPG UI 组件以开启交互
+    self.epgView.supportsCatchup = (self.catchupSource && self.catchupSource.length > 0);
     [self.view addSubview:self.epgView];
     
     [self.epgView reloadData];
@@ -91,7 +90,6 @@
     });
 }
 
-// 新增：在页面每次即将展现时（包括从设置页返回时），触发一次数据重载和悬浮窗刷新
 - (void)viewWillAppear:(BOOL)animated {
     [super viewWillAppear:animated];
     [self.epgView reloadData];
@@ -114,7 +112,6 @@
         self.backgroundView.frame = self.view.bounds;
         self.backgroundView.backgroundColor = [UIColor blackColor];
         
-        // 全屏时隐藏独立的竖屏 EPG 模块
         self.epgView.hidden = YES;
         
         self.navBar.frame = CGRectMake(0, 0, self.view.bounds.size.width, 44);
@@ -151,16 +148,14 @@
     [self.controlView updateLayoutForFullscreen:self.isFullscreen videoFrame:videoFrame];
 }
 
-#pragma mark - 新增：PlayerEPGViewDelegate 代理方法实现
+#pragma mark - PlayerEPGViewDelegate
 
-// 代理回调：跳转至 EPG 管理页面
 - (void)epgViewDidTapSettings:(PlayerEPGView *)epgView {
     EPGManagerViewController *epgVC = [[EPGManagerViewController alloc] init];
     UINavigationController *nav = [[UINavigationController alloc] initWithRootViewController:epgVC];
     [self presentViewController:nav animated:YES completion:nil];
 }
 
-// 代理回调：手动立即刷新 EPG 数据
 - (void)epgViewDidTapRefresh:(PlayerEPGView *)epgView {
     [[EPGManager sharedManager] fetchAndParseEPGDataWithCompletion:^(BOOL success, NSString *errorMsg) {
         dispatch_async(dispatch_get_main_queue(), ^{
@@ -175,9 +170,42 @@
     }];
 }
 
-#pragma mark - 新增：全屏 EPG 悬浮窗数据刷新
+// 优化：在此处监听节目点击事件，计算替换时间模板并重新塞给播放器实现切流回放
+- (void)epgView:(PlayerEPGView *)epgView didSelectProgram:(EPGProgram *)program {
+    if (self.catchupSource.length == 0) return;
+    
+    // 按照最通用的 yyyyMMddHHmmss 将节目的起止时间进行格式化
+    NSDateFormatter *df = [[NSDateFormatter alloc] init];
+    [df setDateFormat:@"yyyyMMddHHmmss"];
+    NSString *bTime = [df stringFromDate:program.startTime];
+    NSString *eTime = [df stringFromDate:program.endTime];
+    
+    // 执行正则规则变量的查找替换
+    NSString *catchupParams = self.catchupSource;
+    catchupParams = [catchupParams stringByReplacingOccurrencesOfString:@"${(b)yyyyMMddHHmmss}" withString:bTime];
+    catchupParams = [catchupParams stringByReplacingOccurrencesOfString:@"${(e)yyyyMMddHHmmss}" withString:eTime];
+    
+    // 合并拼装回看 URL（兼容模板自带全链接和以参数形式拼接原始推流地址的情况）
+    NSString *finalURLStr = self.videoURLString;
+    if ([catchupParams hasPrefix:@"http://"] || [catchupParams hasPrefix:@"https://"]) {
+        finalURLStr = catchupParams;
+    } else {
+        finalURLStr = [finalURLStr stringByAppendingString:catchupParams];
+    }
+    
+    // 强制系统播放器释放当前流并请求新的切片地址
+    NSURL *url = [NSURL URLWithString:[finalURLStr stringByAddingPercentEscapesUsingEncoding:NSUTF8StringEncoding]];
+    [self.player setContentURL:url];
+    [self.player play];
+    
+    // 借用底部的提示黑条给用户展示明确的进入回放状态感知
+    [self.controlView showStatusMessage:[NSString stringWithFormat:@"正在回看: %@", program.title]];
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(3.0 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+        [self.controlView hideStatusMessage];
+    });
+}
+
 - (void)updateFullscreenEPGOverlay {
-    // 性能优化：只有开启了 EPG 且处于全屏状态时才进行数据比对
     if (![EPGManager sharedManager].isEPGEnabled || !self.isFullscreen) {
         return;
     }
@@ -316,9 +344,7 @@
     if (self.player.duration > 0 && !isnan(self.player.duration)) {
         [self.controlView updateProgressWithValue:(self.player.currentPlaybackTime / self.player.duration)];
     }
-    // 每次更新进度条时，顺便计算并更新一次全屏的 EPG
     [self updateFullscreenEPGOverlay];
-    // [新增] 顺便通过1秒定时器实时更新右上角的悬浮系统时间
     [self.controlView updateSystemTime];
 }
 
@@ -371,7 +397,6 @@
         [[UIApplication sharedApplication] setStatusBarHidden:isLandscape withAnimation:UIStatusBarAnimationFade];
     }
     
-    // 如果是横屏，立刻推一次 EPG 数据，保证动画期间文本就已经存在
     if (isLandscape) {
         [self updateFullscreenEPGOverlay];
     }

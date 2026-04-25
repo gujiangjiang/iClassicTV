@@ -9,29 +9,26 @@
 #import "PlayerEPGView.h"
 #import "EPGManager.h"
 #import "EPGProgram.h"
-#import <QuartzCore/QuartzCore.h> // 用于按钮的边框圆角设置
+#import <QuartzCore/QuartzCore.h>
 
 @interface PlayerEPGView () <UITableViewDelegate, UITableViewDataSource>
 
-// UI 组件
 @property (nonatomic, strong) UIView *dateContainerView;
 @property (nonatomic, strong) UIScrollView *dateScrollView;
 @property (nonatomic, strong) UIView *indicatorLine;
 @property (nonatomic, strong) UIView *separatorLine;
 @property (nonatomic, strong) UITableView *tableView;
 @property (nonatomic, strong) UILabel *tipsLabel;
-@property (nonatomic, strong) UIButton *actionButton; // 空状态下的操作按钮
+@property (nonatomic, strong) UIButton *actionButton;
 @property (nonatomic, strong) NSMutableArray *dateButtons;
 
-// 数据源
 @property (nonatomic, strong) NSDateFormatter *timeFormatter;
-@property (nonatomic, strong) NSArray *availableDates;          // 存储所有可用的日期 (NSDate)
-@property (nonatomic, strong) NSDictionary *groupedPrograms;    // 按日期分组的节目数据
-@property (nonatomic, strong) NSArray *displayPrograms;         // 当前选中日期需要展示的节目
-@property (nonatomic, strong) NSDate *selectedDate;             // 当前选中的日期
-@property (nonatomic, copy) NSString *currentChannelName;       // 记录当前正在查的频道名
+@property (nonatomic, strong) NSArray *availableDates;
+@property (nonatomic, strong) NSDictionary *groupedPrograms;
+@property (nonatomic, strong) NSArray *displayPrograms;
+@property (nonatomic, strong) NSDate *selectedDate;
+@property (nonatomic, copy) NSString *currentChannelName;
 
-// 系统主题适配标识
 @property (nonatomic, assign) BOOL isIOS7;
 
 @end
@@ -44,13 +41,11 @@
         self.backgroundColor = [UIColor clearColor];
         self.isIOS7 = [[[UIDevice currentDevice] systemVersion] floatValue] >= 7.0;
         
-        // 1. 初始化时间格式化器
         self.timeFormatter = [[NSDateFormatter alloc] init];
         [self.timeFormatter setDateFormat:@"HH:mm"];
         
         self.dateButtons = [NSMutableArray array];
         
-        // 2. 顶部的日期选择容器
         self.dateContainerView = [[UIView alloc] initWithFrame:CGRectZero];
         self.dateContainerView.backgroundColor = [UIColor colorWithWhite:0.0 alpha:0.05];
         [self addSubview:self.dateContainerView];
@@ -68,7 +63,6 @@
         self.separatorLine.backgroundColor = self.isIOS7 ? [UIColor colorWithWhite:0.8 alpha:1.0] : [UIColor darkGrayColor];
         [self.dateContainerView addSubview:self.separatorLine];
         
-        // 3. 底部的节目列表
         self.tableView = [[UITableView alloc] initWithFrame:CGRectZero style:UITableViewStylePlain];
         self.tableView.backgroundColor = [UIColor clearColor];
         self.tableView.delegate = self;
@@ -79,7 +73,6 @@
         }
         [self addSubview:self.tableView];
         
-        // 4. 空状态提示
         self.tipsLabel = [[UILabel alloc] initWithFrame:CGRectZero];
         self.tipsLabel.backgroundColor = [UIColor clearColor];
         self.tipsLabel.textAlignment = NSTextAlignmentCenter;
@@ -89,7 +82,6 @@
         self.tipsLabel.numberOfLines = 0;
         [self addSubview:self.tipsLabel];
         
-        // 5. 操作按钮（用于跳转设置或立即刷新）
         self.actionButton = [UIButton buttonWithType:UIButtonTypeCustom];
         UIColor *themeColor = self.isIOS7 ? [UIColor colorWithRed:0.0 green:0.478 blue:1.0 alpha:1.0] : [UIColor orangeColor];
         [self.actionButton setTitleColor:themeColor forState:UIControlStateNormal];
@@ -107,25 +99,19 @@
 
 - (void)layoutSubviews {
     [super layoutSubviews];
-    
     CGFloat viewWidth = self.bounds.size.width;
     CGFloat viewHeight = self.bounds.size.height;
     
-    // 顶部日期栏固定 40 高度
     self.dateContainerView.frame = CGRectMake(0, 0, viewWidth, 40);
     self.dateScrollView.frame = self.dateContainerView.bounds;
     self.separatorLine.frame = CGRectMake(0, 39, viewWidth, 1);
     
-    // 列表从 40 开始，占据余下的所有高度
     self.tableView.frame = CGRectMake(0, 40, viewWidth, viewHeight - 40);
     
-    // 提示文本和操作按钮居中放置
     CGFloat listCenterY = 40 + (viewHeight - 40) / 2.0;
     self.tipsLabel.frame = CGRectMake(20, listCenterY - 35, viewWidth - 40, 30);
     self.actionButton.frame = CGRectMake((viewWidth - 100) / 2.0, listCenterY + 5, 100, 32);
 }
-
-#pragma mark - 按钮操作事件
 
 - (void)actionButtonTapped:(UIButton *)sender {
     if (sender.tag == 1 && [self.delegate respondsToSelector:@selector(epgViewDidTapSettings:)]) {
@@ -135,13 +121,10 @@
     }
 }
 
-#pragma mark - 数据加载与处理
-
 - (void)reloadData {
     BOOL isEPGEnabled = [EPGManager sharedManager].isEPGEnabled;
     NSString *epgSearchName = (self.tvgName && self.tvgName.length > 0) ? self.tvgName : self.channelTitle;
     
-    // 频道切换时重置界面状态
     if (![self.currentChannelName isEqualToString:epgSearchName]) {
         self.currentChannelName = epgSearchName;
         self.availableDates = nil;
@@ -150,7 +133,6 @@
         [self.dateScrollView setContentOffset:CGPointZero animated:NO];
     }
     
-    // 状态 1：未开启电子节目单
     if (!isEPGEnabled) {
         self.tipsLabel.text = @"未开启电子节目单";
         self.tipsLabel.hidden = NO;
@@ -165,14 +147,12 @@
         return;
     }
     
-    // --- 动态请求类型处理 ---
     if ([[EPGManager sharedManager] isDynamicEPGSource]) {
         self.tipsLabel.hidden = YES;
-        self.actionButton.hidden = YES; // 动态请求无需显示刷新/设置按钮
+        self.actionButton.hidden = YES;
         self.dateContainerView.hidden = NO;
         self.tableView.hidden = NO;
         
-        // 动态源默认构建 7 天时间栏 (前推5天, 昨天, 今天, 明天)
         if (!self.availableDates) {
             NSDate *today = [self startOfDayForDate:[NSDate date]];
             NSMutableArray *dates = [NSMutableArray array];
@@ -183,21 +163,18 @@
             self.groupedPrograms = [NSMutableDictionary dictionary];
             [self buildDateBarUI];
             self.selectedDate = today;
-            [self highlightDateButtonAtIndex:5 animated:NO]; // 默认高亮今天 (index 5)
+            [self highlightDateButtonAtIndex:5 animated:NO];
         }
-        
         [self fetchAndDisplayDynamicEPGForDate:self.selectedDate channel:epgSearchName];
         return;
     }
     
-    // --- XML静态数据解析 ---
     NSArray *allPrograms = @[];
     if (isEPGEnabled) {
         NSArray *fetched = [[EPGManager sharedManager] programsForChannelName:epgSearchName];
         if (fetched) allPrograms = fetched;
     }
     
-    // 检查是否过期：如果所有节目的结束时间都早于当前时间，则视为已过期
     BOOL isExpired = YES;
     NSDate *now = [NSDate date];
     if (allPrograms.count > 0) {
@@ -209,21 +186,18 @@
         }
     }
     
-    // 状态 2：开启了但暂无匹配的节目单数据
     if (allPrograms.count == 0) {
         self.tipsLabel.text = @"暂无节目单数据";
         self.tipsLabel.hidden = NO;
         self.actionButton.hidden = YES;
         self.dateContainerView.hidden = YES;
         self.tableView.hidden = YES;
-        
         self.displayPrograms = @[];
         self.selectedDate = nil;
         [self.tableView reloadData];
         return;
     }
     
-    // 状态 3：开启了且有节目单，但所有节目均已过期
     if (isExpired) {
         self.tipsLabel.text = @"节目单已过期";
         self.tipsLabel.hidden = NO;
@@ -232,20 +206,17 @@
         self.actionButton.hidden = NO;
         self.dateContainerView.hidden = YES;
         self.tableView.hidden = YES;
-        
         self.displayPrograms = @[];
         self.selectedDate = nil;
         [self.tableView reloadData];
         return;
     }
     
-    // 正常状态：隐藏提示并正常渲染
     self.tipsLabel.hidden = YES;
     self.actionButton.hidden = YES;
     self.dateContainerView.hidden = NO;
     self.tableView.hidden = NO;
     
-    // 1. 将节目按“自然日”进行分组
     NSMutableDictionary *grouped = [NSMutableDictionary dictionary];
     for (EPGProgram *p in allPrograms) {
         NSDate *dayStart = [self startOfDayForDate:p.startTime];
@@ -257,17 +228,12 @@
         [dayPrograms addObject:p];
     }
     self.groupedPrograms = grouped;
-    
-    // 2. 提取所有有节目的日期并排序
     self.availableDates = [[grouped allKeys] sortedArrayUsingSelector:@selector(compare:)];
     
-    // 3. 构建顶部的日期 UI
     [self buildDateBarUI];
     
-    // 4. 判断并设置默认选中的日期
     if (self.availableDates.count > 0) {
         NSDate *todayStart = [self startOfDayForDate:[NSDate date]];
-        
         NSUInteger todayIndex = [self.availableDates indexOfObject:todayStart];
         if (todayIndex != NSNotFound) {
             self.selectedDate = todayStart;
@@ -276,7 +242,6 @@
             self.selectedDate = self.availableDates.firstObject;
             [self highlightDateButtonAtIndex:0 animated:NO];
         }
-        
         self.displayPrograms = self.groupedPrograms[self.selectedDate];
         self.tipsLabel.hidden = YES;
         self.dateContainerView.hidden = NO;
@@ -296,7 +261,6 @@
     });
 }
 
-// 动态提取获取并展示某日数据的业务块
 - (void)fetchAndDisplayDynamicEPGForDate:(NSDate *)date channel:(NSString *)channelName {
     if (self.groupedPrograms[date]) {
         self.displayPrograms = self.groupedPrograms[date];
@@ -312,7 +276,6 @@
         
         __weak typeof(self) weakSelf = self;
         [[EPGManager sharedManager] fetchDynamicProgramsForChannelName:channelName date:date completion:^(NSArray *programs) {
-            // 确保网络回调时依然在当前频道以及这个日期视图下
             if ([weakSelf.currentChannelName isEqualToString:channelName] && [weakSelf.selectedDate isEqualToDate:date]) {
                 NSMutableDictionary *mut = [weakSelf.groupedPrograms mutableCopy] ?: [NSMutableDictionary dictionary];
                 mut[date] = programs ?: @[];
@@ -332,18 +295,16 @@
     }
 }
 
-// 抹除时间(时分秒)，获取某天 00:00:00 的 NSDate
 - (NSDate *)startOfDayForDate:(NSDate *)date {
     NSCalendar *calendar = [NSCalendar currentCalendar];
     NSDateComponents *components = [calendar components:(NSYearCalendarUnit | NSMonthCalendarUnit | NSDayCalendarUnit) fromDate:date];
     return [calendar dateFromComponents:components];
 }
 
-// 将日期格式化为人类易读的文本
 - (NSString *)friendlyTitleForDate:(NSDate *)date {
     NSDate *todayStart = [self startOfDayForDate:[NSDate date]];
     NSTimeInterval diff = [date timeIntervalSinceDate:todayStart];
-    int days = round(diff / 86400.0); // 86400秒 = 1天
+    int days = round(diff / 86400.0);
     
     if (days == 0) return @"今天";
     if (days == 1) return @"明天";
@@ -354,8 +315,6 @@
     [df setDateFormat:@"MM-dd"];
     return [df stringFromDate:date];
 }
-
-#pragma mark - 顶部日期栏 UI 构建
 
 - (void)buildDateBarUI {
     for (UIButton *btn in self.dateButtons) {
@@ -385,21 +344,15 @@
         
         [self.dateScrollView addSubview:btn];
         [self.dateButtons addObject:btn];
-        
         currentX += btnWidth;
     }
-    
     self.dateScrollView.contentSize = CGSizeMake(currentX + 5.0, 40);
 }
 
-// 日期点击事件
 - (void)dateButtonTapped:(UIButton *)sender {
     NSInteger index = sender.tag;
     NSDate *tappedDate = self.availableDates[index];
-    
-    if ([self.selectedDate isEqualToDate:tappedDate]) {
-        return;
-    }
+    if ([self.selectedDate isEqualToDate:tappedDate]) return;
     
     self.selectedDate = tappedDate;
     [self highlightDateButtonAtIndex:index animated:YES];
@@ -422,17 +375,14 @@
     }
 }
 
-// 负责高亮指定的按钮，并执行底部指示器的平滑过渡动画
 - (void)highlightDateButtonAtIndex:(NSInteger)index animated:(BOOL)animated {
     for (UIButton *btn in self.dateButtons) {
         btn.selected = NO;
         btn.titleLabel.font = [UIFont systemFontOfSize:14];
     }
-    
     UIButton *selectedBtn = self.dateButtons[index];
     selectedBtn.selected = YES;
     selectedBtn.titleLabel.font = [UIFont boldSystemFontOfSize:15];
-    
     CGRect indicatorFrame = CGRectMake(selectedBtn.frame.origin.x + 10, 37, selectedBtn.bounds.size.width - 20, 2);
     
     if (animated) {
@@ -442,22 +392,16 @@
     } else {
         self.indicatorLine.frame = indicatorFrame;
     }
-    
     [self.dateScrollView scrollRectToVisible:selectedBtn.frame animated:animated];
 }
-
-#pragma mark - 自动滚动逻辑
 
 - (void)scrollToCurrentProgram {
     if (self.displayPrograms.count == 0 || !self.selectedDate) return;
     
-    // 只有当目前展示的是“今天”的数据时，才执行时间匹配滚动
     NSDate *now = [NSDate date];
     NSDate *todayStart = [self startOfDayForDate:now];
     
-    if (![self.selectedDate isEqualToDate:todayStart]) {
-        return;
-    }
+    if (![self.selectedDate isEqualToDate:todayStart]) return;
     
     NSInteger currentIndex = -1;
     for (NSInteger i = 0; i < self.displayPrograms.count; i++) {
@@ -467,14 +411,13 @@
             break;
         }
     }
-    
     if (currentIndex >= 0) {
         NSIndexPath *indexPath = [NSIndexPath indexPathForRow:currentIndex inSection:0];
         [self.tableView scrollToRowAtIndexPath:indexPath atScrollPosition:UITableViewScrollPositionMiddle animated:YES];
     }
 }
 
-#pragma mark - UITableViewDataSource & UITableViewDelegate
+#pragma mark - UITableView
 
 - (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section {
     return self.displayPrograms.count;
@@ -488,28 +431,27 @@
         cell.backgroundColor = [UIColor clearColor];
         cell.textLabel.font = [UIFont systemFontOfSize:14];
         cell.detailTextLabel.font = [UIFont systemFontOfSize:12];
-        cell.selectionStyle = UITableViewCellSelectionStyleNone;
     }
     
     EPGProgram *program = self.displayPrograms[indexPath.row];
     NSString *timeString = [self.timeFormatter stringFromDate:program.startTime];
-    
     cell.textLabel.text = [NSString stringWithFormat:@"%@   %@", timeString, program.title];
     
     NSDate *now = [NSDate date];
     
+    // 优化：针对支持回看的节目单，渲染可点击的颜色，并附加提示文案
     if ([now compare:program.startTime] != NSOrderedAscending && [now compare:program.endTime] == NSOrderedAscending) {
         // 正在播放
         UIColor *playingColor = self.isIOS7 ? [UIColor colorWithRed:0.0 green:0.478 blue:1.0 alpha:1.0] : [UIColor orangeColor];
         cell.textLabel.textColor = playingColor;
         cell.detailTextLabel.textColor = playingColor;
-        cell.detailTextLabel.text = @"正在播放";
+        cell.detailTextLabel.text = self.supportsCatchup ? @"正在播放 (可回看)" : @"正在播放";
         cell.textLabel.font = [UIFont boldSystemFontOfSize:15];
     } else if ([now compare:program.endTime] != NSOrderedAscending) {
         // 已播完
         cell.textLabel.textColor = [UIColor darkGrayColor];
         cell.detailTextLabel.textColor = [UIColor darkGrayColor];
-        cell.detailTextLabel.text = @"已播放";
+        cell.detailTextLabel.text = self.supportsCatchup ? @"已播放 (可回看)" : @"已播放";
         cell.textLabel.font = [UIFont systemFontOfSize:14];
     } else {
         // 未播放
@@ -520,11 +462,36 @@
         cell.textLabel.font = [UIFont systemFontOfSize:14];
     }
     
+    // 如果支持回放且不是未播放的节目，开启交互选中样式
+    if (self.supportsCatchup && ([now compare:program.startTime] != NSOrderedAscending)) {
+        cell.selectionStyle = UITableViewCellSelectionStyleBlue;
+    } else {
+        cell.selectionStyle = UITableViewCellSelectionStyleNone;
+    }
+    
     return cell;
 }
 
 - (CGFloat)tableView:(UITableView *)tableView heightForRowAtIndexPath:(NSIndexPath *)indexPath {
     return 44.0;
+}
+
+// 优化：点击选中后回调执行回看逻辑
+- (void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath {
+    [tableView deselectRowAtIndexPath:indexPath animated:YES];
+    
+    // 如果频道不支持回放，点击无效
+    if (!self.supportsCatchup) return;
+    
+    EPGProgram *program = self.displayPrograms[indexPath.row];
+    NSDate *now = [NSDate date];
+    
+    // 确保只能点击已经播放过，或者正在播放的节目进行回看，未播放的无法穿越
+    if ([now compare:program.startTime] != NSOrderedAscending) {
+        if ([self.delegate respondsToSelector:@selector(epgView:didSelectProgram:)]) {
+            [self.delegate epgView:self didSelectProgram:program];
+        }
+    }
 }
 
 @end

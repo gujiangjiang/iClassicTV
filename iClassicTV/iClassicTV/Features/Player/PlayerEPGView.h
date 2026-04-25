@@ -8,31 +8,31 @@
 
 #import <UIKit/UIKit.h>
 
-@class PlayerEPGView;
+@class PlayerEPGView, EPGProgram;
 
-// 新增：EPG 操作代理协议，用于回调给 Controller 处理跳转和刷新动作
 @protocol PlayerEPGViewDelegate <NSObject>
 @optional
-// 点击了去设置按钮
 - (void)epgViewDidTapSettings:(PlayerEPGView *)epgView;
-// 点击了立即刷新按钮
 - (void)epgViewDidTapRefresh:(PlayerEPGView *)epgView;
+// 新增：用户在列表中点击某个节目时触发（用于回放）
+- (void)epgView:(PlayerEPGView *)epgView didSelectProgram:(EPGProgram *)program;
 @end
 
-// 独立的 EPG 节目单展示模块，包含顶部的日期选择器和底部的节目列表
 @interface PlayerEPGView : UIView
 
-// 接收外部传入的频道名称和 EPG 映射名称
+@property (nonatomic, weak) id<PlayerEPGViewDelegate> delegate;
+
+// 频道信息，用于查询 EPG
 @property (nonatomic, copy) NSString *channelTitle;
 @property (nonatomic, copy) NSString *tvgName;
 
-// 新增：操作代理
-@property (nonatomic, weak) id<PlayerEPGViewDelegate> delegate;
+// 新增：标识该频道是否支持回看，以便开启列表点击交互
+@property (nonatomic, assign) BOOL supportsCatchup;
 
-// 加载/刷新 EPG 数据并重新渲染列表
+// 通知组件刷新数据或切换频道时重置
 - (void)reloadData;
 
-// 自动滚动到当前时间正在播放的节目
+// 主动要求列表滚动至当前正在播放的节目
 - (void)scrollToCurrentProgram;
 
 @end

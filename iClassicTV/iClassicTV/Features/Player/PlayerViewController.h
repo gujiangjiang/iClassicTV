@@ -8,7 +8,6 @@
 
 #import <UIKit/UIKit.h>
 
-// 在 Xcode 中新建文件时，Subclass 必须选择: UIViewController
 @interface PlayerViewController : UIViewController
 
 // 接收外部传入的视频播放地址
@@ -19,5 +18,7 @@
 @property (nonatomic, copy) NSString *tvgName;
 // 接收外部传入的频道 Logo 图片，用于在锁屏界面显示
 @property (nonatomic, strong) UIImage *channelLogo;
+// 新增：接收外部传入的回放源抓取模板 (catchup-source)
+@property (nonatomic, copy) NSString *catchupSource;
 
 @end
