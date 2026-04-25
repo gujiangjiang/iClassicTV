@@ -8,7 +8,7 @@
 
 #import <UIKit/UIKit.h>
 
-// 独立的 EPG 节目单展示模块，用于在播放界面底部显示频道对应的节目表
+// 独立的 EPG 节目单展示模块，包含顶部的日期选择器和底部的节目列表
 @interface PlayerEPGView : UIView
 
 // 接收外部传入的频道名称和 EPG 映射名称
