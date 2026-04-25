@@ -30,6 +30,8 @@
 
 @property (nonatomic, strong) PlayerEPGView *epgView;
 @property (nonatomic, strong) NSDateFormatter *epgTimeFormatter;
+@property (nonatomic, strong) NSDateFormatter *catchupTimeFormatter; // [优化] 缓存回看参数时间格式化器
+@property (nonatomic, strong) NSDateFormatter *displayTimeFormatter; // [优化] 缓存回看展示时间格式化器
 
 @property (nonatomic, strong) EPGProgram *replayingProgram;
 
@@ -45,6 +47,15 @@
     self.epgTimeFormatter = [[NSDateFormatter alloc] init];
     [self.epgTimeFormatter setTimeZone:[EPGManager sharedManager].epgTimeZone];
     [self.epgTimeFormatter setDateFormat:@"HH:mm"];
+    
+    // [优化] 集中初始化所需的时间格式化器，避免每次点击时重复创建，提升性能
+    self.catchupTimeFormatter = [[NSDateFormatter alloc] init];
+    [self.catchupTimeFormatter setTimeZone:[EPGManager sharedManager].epgTimeZone];
+    [self.catchupTimeFormatter setDateFormat:@"yyyyMMddHHmmss"];
+    
+    self.displayTimeFormatter = [[NSDateFormatter alloc] init];
+    [self.displayTimeFormatter setTimeZone:[EPGManager sharedManager].epgTimeZone];
+    [self.displayTimeFormatter setDateFormat:@"MM-dd HH:mm"];
     
     self.backgroundView = [[UIView alloc] initWithFrame:self.view.bounds];
     [self.view addSubview:self.backgroundView];
@@ -198,12 +209,9 @@
     self.epgView.replayingProgram = program;
     self.overlayView.widgetsView.isCatchupMode = YES;
     
-    // 优化：生成回看接口请求时间参数时，也要强制使用配置的时区生成 yyyyMMddHHmmss
-    NSDateFormatter *df = [[NSDateFormatter alloc] init];
-    [df setTimeZone:[EPGManager sharedManager].epgTimeZone];
-    [df setDateFormat:@"yyyyMMddHHmmss"];
-    NSString *bTime = [df stringFromDate:program.startTime];
-    NSString *eTime = [df stringFromDate:program.endTime];
+    // [优化] 复用全局缓存的时间格式化器
+    NSString *bTime = [self.catchupTimeFormatter stringFromDate:program.startTime];
+    NSString *eTime = [self.catchupTimeFormatter stringFromDate:program.endTime];
     
     NSString *catchupParams = self.catchupSource;
     catchupParams = [catchupParams stringByReplacingOccurrencesOfString:@"${(b)yyyyMMddHHmmss}" withString:bTime];
@@ -220,11 +228,8 @@
     [self.player setContentURL:url];
     [self.player play];
     
-    // UI 展示同理
-    NSDateFormatter *displayDf = [[NSDateFormatter alloc] init];
-    [displayDf setTimeZone:[EPGManager sharedManager].epgTimeZone];
-    [displayDf setDateFormat:@"MM-dd HH:mm"];
-    NSString *displayTime = [displayDf stringFromDate:program.startTime];
+    // [优化] 复用全局缓存的 UI 展示时间格式化器
+    NSString *displayTime = [self.displayTimeFormatter stringFromDate:program.startTime];
     
     [self.overlayView showStatusMessage:[NSString stringWithFormat:LocalizedString(@"replaying_time_format"), displayTime, program.title]];
     
