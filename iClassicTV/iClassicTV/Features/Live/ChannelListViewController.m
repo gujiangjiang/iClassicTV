@@ -235,8 +235,9 @@
         playerVC.tvgName = channel.tvgName;
         playerVC.catchupSource = channel.catchupSource;
         
-        playerVC.modalTransitionStyle = UIModalTransitionStyleCoverVertical;
-        [self presentViewController:playerVC animated:YES completion:nil];
+        // [优化] 弃用模态弹出，改为推入独立页面的方式展示，从底层规避 iOS6 状态栏布局错乱问题
+        playerVC.hidesBottomBarWhenPushed = YES;
+        [self.navigationController pushViewController:playerVC animated:YES];
     }
 }
 
