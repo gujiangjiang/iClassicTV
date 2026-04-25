@@ -16,6 +16,7 @@
 @property (nonatomic, strong) UIView *dateContainerView;
 @property (nonatomic, strong) UIScrollView *dateScrollView;
 @property (nonatomic, strong) UIView *indicatorLine;
+@property (nonatomic, strong) UIView *separatorLine;
 @property (nonatomic, strong) UITableView *tableView;
 @property (nonatomic, strong) UILabel *tipsLabel;
 @property (nonatomic, strong) NSMutableArray *dateButtons;
@@ -40,43 +41,36 @@
         self.backgroundColor = [UIColor clearColor];
         self.isIOS7 = [[[UIDevice currentDevice] systemVersion] floatValue] >= 7.0;
         
-        // 1. 初始化时间格式化器，用于在列表中展示 HH:mm 格式的时间
+        // 1. 初始化时间格式化器
         self.timeFormatter = [[NSDateFormatter alloc] init];
         [self.timeFormatter setDateFormat:@"HH:mm"];
         
         self.dateButtons = [NSMutableArray array];
         
         // 2. 顶部的日期选择容器
-        self.dateContainerView = [[UIView alloc] initWithFrame:CGRectMake(0, 0, self.bounds.size.width, 40)];
-        self.dateContainerView.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleBottomMargin;
-        // 添加细微的底色区分
+        // 注意：移除了 autoresizingMask，统一交由 layoutSubviews 精准计算坐标
+        self.dateContainerView = [[UIView alloc] initWithFrame:CGRectZero];
         self.dateContainerView.backgroundColor = [UIColor colorWithWhite:0.0 alpha:0.05];
         [self addSubview:self.dateContainerView];
         
-        // 日期滑动视图
-        self.dateScrollView = [[UIScrollView alloc] initWithFrame:self.dateContainerView.bounds];
-        self.dateScrollView.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+        self.dateScrollView = [[UIScrollView alloc] initWithFrame:CGRectZero];
         self.dateScrollView.showsHorizontalScrollIndicator = NO;
         self.dateScrollView.bounces = YES;
         [self.dateContainerView addSubview:self.dateScrollView];
         
-        // 选中指示器线条 (动态颜色适配)
         self.indicatorLine = [[UIView alloc] initWithFrame:CGRectZero];
         self.indicatorLine.backgroundColor = self.isIOS7 ? [UIColor colorWithRed:0.0 green:0.478 blue:1.0 alpha:1.0] : [UIColor orangeColor];
         [self.dateScrollView addSubview:self.indicatorLine];
         
-        // 分割线
-        UIView *separator = [[UIView alloc] initWithFrame:CGRectMake(0, 39, self.bounds.size.width, 1)];
-        separator.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleTopMargin;
-        separator.backgroundColor = self.isIOS7 ? [UIColor colorWithWhite:0.8 alpha:1.0] : [UIColor darkGrayColor];
-        [self.dateContainerView addSubview:separator];
+        self.separatorLine = [[UIView alloc] initWithFrame:CGRectZero];
+        self.separatorLine.backgroundColor = self.isIOS7 ? [UIColor colorWithWhite:0.8 alpha:1.0] : [UIColor darkGrayColor];
+        [self.dateContainerView addSubview:self.separatorLine];
         
         // 3. 底部的节目列表
-        self.tableView = [[UITableView alloc] initWithFrame:CGRectMake(0, 40, self.bounds.size.width, self.bounds.size.height - 40) style:UITableViewStylePlain];
+        self.tableView = [[UITableView alloc] initWithFrame:CGRectZero style:UITableViewStylePlain];
         self.tableView.backgroundColor = [UIColor clearColor];
         self.tableView.delegate = self;
         self.tableView.dataSource = self;
-        self.tableView.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
         self.tableView.separatorColor = self.isIOS7 ? [UIColor colorWithWhite:0.8 alpha:1.0] : [UIColor darkGrayColor];
         if (self.isIOS7) {
             self.tableView.separatorInset = UIEdgeInsetsZero;
@@ -84,17 +78,35 @@
         [self addSubview:self.tableView];
         
         // 4. 空状态提示
-        self.tipsLabel = [[UILabel alloc] initWithFrame:CGRectMake(20, 60, self.bounds.size.width - 40, 40)];
+        self.tipsLabel = [[UILabel alloc] initWithFrame:CGRectZero];
         self.tipsLabel.backgroundColor = [UIColor clearColor];
         self.tipsLabel.textAlignment = NSTextAlignmentCenter;
         self.tipsLabel.textColor = [UIColor grayColor];
         self.tipsLabel.font = [UIFont systemFontOfSize:14];
         self.tipsLabel.text = @"暂无节目单数据";
         self.tipsLabel.numberOfLines = 0;
-        self.tipsLabel.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleBottomMargin;
         [self addSubview:self.tipsLabel];
     }
     return self;
+}
+
+// 关键修复：完全弃用自动拉伸，依靠每次视图尺寸变动时进行精准的坐标重绘
+- (void)layoutSubviews {
+    [super layoutSubviews];
+    
+    CGFloat viewWidth = self.bounds.size.width;
+    CGFloat viewHeight = self.bounds.size.height;
+    
+    // 顶部日期栏固定 40 高度
+    self.dateContainerView.frame = CGRectMake(0, 0, viewWidth, 40);
+    self.dateScrollView.frame = self.dateContainerView.bounds;
+    self.separatorLine.frame = CGRectMake(0, 39, viewWidth, 1);
+    
+    // 列表从 40 开始，占据余下的所有高度
+    self.tableView.frame = CGRectMake(0, 40, viewWidth, viewHeight - 40);
+    
+    // 提示文本居中放置
+    self.tipsLabel.frame = CGRectMake(20, 60, viewWidth - 40, 40);
 }
 
 #pragma mark - 数据加载与处理
@@ -332,7 +344,7 @@
         cell.textLabel.textColor = playingColor;
         cell.detailTextLabel.textColor = playingColor;
         
-        // 可选：正在播放的节目名称加粗
+        // 正在播放的节目名称加粗
         cell.textLabel.font = [UIFont boldSystemFontOfSize:15];
     } else if ([now compare:program.endTime] != NSOrderedAscending) {
         // 已播完的节目，置灰
