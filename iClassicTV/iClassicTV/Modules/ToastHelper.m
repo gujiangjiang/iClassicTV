@@ -7,40 +7,8 @@
 //
 
 #import "ToastHelper.h"
+#import "UIStyleHelper.h" // 引入新模块
 #import <QuartzCore/QuartzCore.h>
-
-// 宏定义：用于判断当前运行系统是否为 iOS 7 及以上版本
-#ifndef IS_IOS7_OR_LATER
-#define IS_IOS7_OR_LATER ([[[UIDevice currentDevice] systemVersion] floatValue] >= 7.0)
-#endif
-
-// [优化] 将重复冗余的背景渲染代码提取为公共静态方法
-static void ApplyToastStyleToView(UIView *view) {
-    if (IS_IOS7_OR_LATER) {
-        // iOS 7 及以上：扁平化半透明风格
-        view.backgroundColor = [UIColor colorWithWhite:0.0 alpha:0.8];
-        view.layer.cornerRadius = 8.0;
-        view.layer.masksToBounds = YES;
-    } else {
-        // iOS 6 及以下：经典拟物化风格（渐变、阴影）
-        view.backgroundColor = [UIColor clearColor];
-        view.layer.shadowColor = [UIColor blackColor].CGColor;
-        view.layer.shadowOffset = CGSizeMake(0, 3);
-        view.layer.shadowOpacity = 0.6;
-        view.layer.shadowRadius = 4.0;
-        
-        CAGradientLayer *gradientLayer = [CAGradientLayer layer];
-        gradientLayer.frame = view.bounds;
-        gradientLayer.cornerRadius = 8.0;
-        gradientLayer.colors = [NSArray arrayWithObjects:
-                                (id)[UIColor colorWithWhite:0.25 alpha:0.9].CGColor,
-                                (id)[UIColor colorWithWhite:0.1 alpha:0.9].CGColor,
-                                nil];
-        gradientLayer.borderColor = [UIColor colorWithWhite:1.0 alpha:0.2].CGColor;
-        gradientLayer.borderWidth = 1.0;
-        [view.layer insertSublayer:gradientLayer atIndex:0];
-    }
-}
 
 // 专门用于管理悬浮窗实例的内部视图类
 @interface ToastProgressHUDView : UIView
@@ -60,8 +28,8 @@ static void ApplyToastStyleToView(UIView *view) {
     if (self) {
         self.autoresizingMask = UIViewAutoresizingFlexibleTopMargin | UIViewAutoresizingFlexibleLeftMargin;
         
-        // [调用公共方法] 一行代码搞定背景渲染
-        ApplyToastStyleToView(self);
+        // [优化] 使用统一模块应用背景样式
+        [UIStyleHelper applyGlobalStyleToView:self];
         
         self.titleLabel = [[UILabel alloc] initWithFrame:CGRectMake(10, 8, frame.size.width - 20, 20)];
         self.titleLabel.backgroundColor = [UIColor clearColor];
@@ -69,25 +37,23 @@ static void ApplyToastStyleToView(UIView *view) {
         self.titleLabel.textAlignment = NSTextAlignmentCenter;
         self.titleLabel.adjustsFontSizeToFitWidth = YES;
         
-        if (IS_IOS7_OR_LATER) {
-            self.titleLabel.font = [UIFont systemFontOfSize:13]; // 扁平化使用标准细体
-        } else {
-            self.titleLabel.font = [UIFont boldSystemFontOfSize:13]; // 拟物化使用粗体
-            self.titleLabel.shadowColor = [UIColor blackColor];
-            self.titleLabel.shadowOffset = CGSizeMake(0, -1);
-        }
+        // [优化] 使用统一模块应用文字样式
+        [UIStyleHelper applyTextStyleToLabel:self.titleLabel isBold:YES fontSize:13.0];
         
         [self addSubview:self.titleLabel];
         
         self.progressBar = [[UIProgressView alloc] initWithProgressViewStyle:UIProgressViewStyleDefault];
         self.progressBar.frame = CGRectMake(10, 36, frame.size.width - 20, 10);
+        
+        // [优化] 使用统一模块应用进度条样式
+        [UIStyleHelper applyProgressStyleToView:self.progressBar];
+        
         [self addSubview:self.progressBar];
     }
     return self;
 }
 @end
 
-// 静态全局数组，用于维护当前所有正在显示的悬浮窗队列
 static NSMutableArray *g_activeHUDs = nil;
 
 @implementation ToastHelper
@@ -95,7 +61,6 @@ static NSMutableArray *g_activeHUDs = nil;
 + (void)showToastWithMessage:(NSString *)message {
     if (!message || message.length == 0) return;
     
-    // 确保 UI 操作在主线程执行
     dispatch_async(dispatch_get_main_queue(), ^{
         UIWindow *window = [[[UIApplication sharedApplication] delegate] window];
         if (!window) window = [UIApplication sharedApplication].keyWindow;
@@ -105,15 +70,17 @@ static NSMutableArray *g_activeHUDs = nil;
         if (!targetView) targetView = window;
         
         CGFloat maxWidth = targetView.bounds.size.width - 60;
-        UIFont *font = IS_IOS7_OR_LATER ? [UIFont systemFontOfSize:15] : [UIFont boldSystemFontOfSize:15];
+        // 动态获取字体
+        UIFont *font = [UIStyleHelper isIOS7OrLater] ? [UIFont systemFontOfSize:15] : [UIFont boldSystemFontOfSize:15];
+        
         CGSize expectedSize = [message sizeWithFont:font constrainedToSize:CGSizeMake(maxWidth - 30, 9999) lineBreakMode:NSLineBreakByWordWrapping];
         
         UIView *toastView = [[UIView alloc] initWithFrame:CGRectMake(0, 0, expectedSize.width + 30, expectedSize.height + 20)];
         toastView.center = CGPointMake(targetView.bounds.size.width / 2, targetView.bounds.size.height / 2);
         toastView.autoresizingMask = UIViewAutoresizingFlexibleTopMargin | UIViewAutoresizingFlexibleBottomMargin | UIViewAutoresizingFlexibleLeftMargin | UIViewAutoresizingFlexibleRightMargin;
         
-        // [调用公共方法] 一行代码搞定背景渲染
-        ApplyToastStyleToView(toastView);
+        // [优化] 使用统一模块应用背景样式
+        [UIStyleHelper applyGlobalStyleToView:toastView];
         
         UILabel *textLabel = [[UILabel alloc] initWithFrame:CGRectMake(15, 10, expectedSize.width, expectedSize.height)];
         textLabel.backgroundColor = [UIColor clearColor];
@@ -122,17 +89,13 @@ static NSMutableArray *g_activeHUDs = nil;
         textLabel.text = message;
         textLabel.numberOfLines = 0;
         textLabel.lineBreakMode = NSLineBreakByWordWrapping;
-        textLabel.font = font;
         
-        if (!IS_IOS7_OR_LATER) {
-            textLabel.shadowColor = [UIColor blackColor];
-            textLabel.shadowOffset = CGSizeMake(0, -1);
-        }
+        // [优化] 使用统一模块应用文字样式
+        [UIStyleHelper applyTextStyleToLabel:textLabel isBold:YES fontSize:15.0];
         
         [toastView addSubview:textLabel];
         [targetView addSubview:toastView];
         
-        // 淡入淡出动画
         toastView.alpha = 0.0;
         [UIView animateWithDuration:0.25 animations:^{
             toastView.alpha = 1.0;
@@ -165,7 +128,7 @@ static NSMutableArray *g_activeHUDs = nil;
     
     CGFloat width = 160.0;
     CGFloat height = 55.0;
-    CGFloat spacing = 10.0; // 悬浮窗之间的间距
+    CGFloat spacing = 10.0;
     CGFloat startX = window.bounds.size.width - width - 15;
     CGFloat startY = window.bounds.size.height - height - 65;
     

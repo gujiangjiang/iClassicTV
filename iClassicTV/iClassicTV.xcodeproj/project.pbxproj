@@ -37,6 +37,7 @@
 		48317BB22F9A78E9002489FE /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 48317B9F2F9A78E9002489FE /* Images.xcassets */; };
 		4843BC212F9BDFE3007A0595 /* en-US.json in Resources */ = {isa = PBXBuildFile; fileRef = 4843BC1F2F9BDFE3007A0595 /* en-US.json */; };
 		4843BC222F9BDFE3007A0595 /* zh-CN.json in Resources */ = {isa = PBXBuildFile; fileRef = 4843BC202F9BDFE3007A0595 /* zh-CN.json */; };
+		487972422F9E82EB00BF7DD9 /* UIStyleHelper.m in Sources */ = {isa = PBXBuildFile; fileRef = 487972412F9E82EB00BF7DD9 /* UIStyleHelper.m */; };
 		488143362F9E6D750098F995 /* EPGManager+Sources.m in Sources */ = {isa = PBXBuildFile; fileRef = 488143352F9E6D750098F995 /* EPGManager+Sources.m */; };
 		4887FE5F2F9CF96C00EA87E2 /* EPGProgramCell.m in Sources */ = {isa = PBXBuildFile; fileRef = 4887FE5E2F9CF96C00EA87E2 /* EPGProgramCell.m */; };
 		4887FE622F9CF98C00EA87E2 /* PlayerEPGEmptyView.m in Sources */ = {isa = PBXBuildFile; fileRef = 4887FE612F9CF98C00EA87E2 /* PlayerEPGEmptyView.m */; };
@@ -139,6 +140,8 @@
 		48317B9F2F9A78E9002489FE /* Images.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Images.xcassets; sourceTree = "<group>"; };
 		4843BC1F2F9BDFE3007A0595 /* en-US.json */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.json; name = "en-US.json"; path = "i18n/en-US.json"; sourceTree = "<group>"; };
 		4843BC202F9BDFE3007A0595 /* zh-CN.json */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.json; name = "zh-CN.json"; path = "i18n/zh-CN.json"; sourceTree = "<group>"; };
+		487972402F9E82EB00BF7DD9 /* UIStyleHelper.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = UIStyleHelper.h; sourceTree = "<group>"; };
+		487972412F9E82EB00BF7DD9 /* UIStyleHelper.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = UIStyleHelper.m; sourceTree = "<group>"; };
 		488143332F9E6D560098F995 /* EPGManager+Internal.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "EPGManager+Internal.h"; sourceTree = "<group>"; };
 		488143342F9E6D750098F995 /* EPGManager+Sources.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "EPGManager+Sources.h"; sourceTree = "<group>"; };
 		488143352F9E6D750098F995 /* EPGManager+Sources.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = "EPGManager+Sources.m"; sourceTree = "<group>"; };
@@ -397,6 +400,8 @@
 				48C2CB652F9BB9E200A9379F /* NetworkManager.m */,
 				48FBEB1C2F9BD2D200DD08EE /* AlertHelper.h */,
 				48FBEB1D2F9BD2D200DD08EE /* AlertHelper.m */,
+				487972402F9E82EB00BF7DD9 /* UIStyleHelper.h */,
+				487972412F9E82EB00BF7DD9 /* UIStyleHelper.m */,
 			);
 			path = Modules;
 			sourceTree = "<group>";
@@ -598,6 +603,7 @@
 				48C2CB662F9BB9E200A9379F /* NetworkManager.m in Sources */,
 				48FBEB1B2F9BCCA300DD08EE /* DataManagementViewController.m in Sources */,
 				4816D54B2F9C813800D0A5AE /* EPGProgram.m in Sources */,
+				487972422F9E82EB00BF7DD9 /* UIStyleHelper.m in Sources */,
 				48B8495C2F9E637400DF4667 /* TVPlaybackViewController+Player.m in Sources */,
 				48204B8A2F9E6AB700966094 /* PlayerEPGView+Table.m in Sources */,
 				48B849592F9E635700DF4667 /* TVPlaybackViewController+UI.m in Sources */,

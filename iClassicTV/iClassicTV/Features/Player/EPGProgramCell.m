@@ -7,6 +7,7 @@
 //
 
 #import "EPGProgramCell.h"
+#import "UIStyleHelper.h" // [新增] 引入样式管理中心
 
 @interface EPGMarqueeLabel ()
 // 记录上一次的尺寸和边界，防止滚动列表时触发 layoutSubviews 意外打断正在播放的动画
@@ -123,14 +124,29 @@
         
         self.timeLabel = [[UILabel alloc] initWithFrame:CGRectZero];
         self.timeLabel.backgroundColor = [UIColor clearColor];
+        [UIStyleHelper applyTextStyleToLabel:self.timeLabel isBold:NO fontSize:12.0]; // [适配]
+        self.timeLabel.textColor = [UIColor lightGrayColor];
         [self.contentView addSubview:self.timeLabel];
         
         self.titleMarqueeLabel = [[EPGMarqueeLabel alloc] initWithFrame:CGRectZero];
+        // [适配] 由于 EPGMarqueeLabel 不是单纯的 UILabel，我们直接配置其对外暴露的属性
+        if ([UIStyleHelper isIOS7OrLater]) {
+            self.titleMarqueeLabel.font = [UIFont systemFontOfSize:16.0];
+            self.titleMarqueeLabel.shadowColor = nil;
+            self.titleMarqueeLabel.shadowOffset = CGSizeZero;
+        } else {
+            self.titleMarqueeLabel.font = [UIFont boldSystemFontOfSize:16.0];
+            self.titleMarqueeLabel.shadowColor = [UIColor blackColor];
+            self.titleMarqueeLabel.shadowOffset = CGSizeMake(0, -1);
+        }
+        self.titleMarqueeLabel.textColor = [UIColor whiteColor];
         [self.contentView addSubview:self.titleMarqueeLabel];
         
         self.statusLabel = [[UILabel alloc] initWithFrame:CGRectZero];
         self.statusLabel.backgroundColor = [UIColor clearColor];
         self.statusLabel.textAlignment = NSTextAlignmentRight;
+        [UIStyleHelper applyTextStyleToLabel:self.statusLabel isBold:NO fontSize:12.0]; // [适配]
+        self.statusLabel.textColor = [UIColor lightGrayColor];
         [self.contentView addSubview:self.statusLabel];
     }
     return self;
