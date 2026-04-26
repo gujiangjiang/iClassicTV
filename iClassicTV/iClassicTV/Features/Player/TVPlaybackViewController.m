@@ -55,6 +55,11 @@
         self.edgesForExtendedLayout = UIRectEdgeNone;
     }
     
+    // [优化] 兼容 iOS 6：允许视图全屏延伸至状态栏和导航栏下方，防止状态栏显隐时挤压画面
+    if ([self respondsToSelector:@selector(setWantsFullScreenLayout:)]) {
+        self.wantsFullScreenLayout = YES;
+    }
+    
     self.title = self.channelTitle ?: LocalizedString(@"unknown_channel");
     
     self.epgTimeFormatter = [[NSDateFormatter alloc] init];
@@ -154,13 +159,14 @@
     self.navigationController.navigationBar.translucent = (isLandscape || isIOS7) ? YES : NO;
     
     if (!isIOS7) {
-        [[UIApplication sharedApplication] setStatusBarHidden:self.isFullscreen withAnimation:UIStatusBarAnimationNone];
-        // [修复] 强制将 iOS 6 的状态栏变为黑色，以防从设置页弹回后依然保持蓝色
+        // [修复] 竖屏强制显示状态栏，横屏时才根据控件显隐；并且横屏使用半透明样式防止挤压画面
+        BOOL shouldHideStatusBar = isLandscape ? self.isControlsHidden : NO;
+        [[UIApplication sharedApplication] setStatusBarHidden:shouldHideStatusBar withAnimation:UIStatusBarAnimationNone];
         [[UIApplication sharedApplication] setStatusBarStyle:(isLandscape ? UIStatusBarStyleBlackTranslucent : UIStatusBarStyleBlackOpaque) animated:animated];
         
-        // [修复] 横屏直接进入播放器时，强制设置导航栏 Y 为 0，竖屏时设为 20，避免标题栏越位
+        // [修复] 统一校准导航栏坐标：竖屏或状态栏可见时，Y为20；仅在全屏且状态栏隐藏时，Y才为0
         CGRect navFrame = self.navigationController.navigationBar.frame;
-        CGFloat expectedY = isLandscape ? 0.0 : 20.0;
+        CGFloat expectedY = shouldHideStatusBar ? 0.0 : 20.0;
         if (navFrame.origin.y != expectedY) {
             navFrame.origin.y = expectedY;
             self.navigationController.navigationBar.frame = navFrame;
@@ -266,7 +272,8 @@
     // [修复] 统一在此处处理 iOS 6 导航栏坐标，不论从横屏还是竖屏进入或旋转，都能正确对齐状态栏
     if (!isIOS7 && !self.navigationController.navigationBarHidden) {
         CGRect navFrame = self.navigationController.navigationBar.frame;
-        CGFloat expectedY = self.isFullscreen ? 0.0 : 20.0;
+        BOOL shouldHideStatusBar = self.isFullscreen ? self.isControlsHidden : NO;
+        CGFloat expectedY = shouldHideStatusBar ? 0.0 : 20.0;
         if (navFrame.origin.y != expectedY) {
             navFrame.origin.y = expectedY;
             self.navigationController.navigationBar.frame = navFrame;
@@ -407,17 +414,30 @@
 - (void)overlayControlsHiddenDidChange:(BOOL)isHidden {
     self.isControlsHidden = isHidden;
     
-    if (self.overlayView.isLocked) {
-        [self.navigationController setNavigationBarHidden:YES animated:YES];
-    } else {
-        BOOL shouldHide = self.isFullscreen ? isHidden : NO;
-        [self.navigationController setNavigationBarHidden:shouldHide animated:YES];
-    }
+    // [修复] 竖屏时状态栏永远可见，全屏时才跟随控件一同隐藏
+    BOOL shouldHideStatusBar = self.isFullscreen ? isHidden : NO;
     
     if ([self respondsToSelector:@selector(setNeedsStatusBarAppearanceUpdate)]) {
         [self setNeedsStatusBarAppearanceUpdate];
     } else {
-        [[UIApplication sharedApplication] setStatusBarHidden:[self prefersStatusBarHidden] withAnimation:UIStatusBarAnimationFade];
+        [[UIApplication sharedApplication] setStatusBarHidden:shouldHideStatusBar withAnimation:UIStatusBarAnimationFade];
+    }
+    
+    if (self.overlayView.isLocked) {
+        [self.navigationController setNavigationBarHidden:YES animated:YES];
+    } else {
+        BOOL shouldHideNav = self.isFullscreen ? isHidden : NO;
+        [self.navigationController setNavigationBarHidden:shouldHideNav animated:YES];
+        
+        // 手动调整 iOS 6 下导航条出现时的 Y 轴偏移，防止被悬浮的半透明状态栏遮盖
+        if (![[[UIDevice currentDevice] systemVersion] floatValue] >= 7.0 && !shouldHideNav) {
+            CGRect navFrame = self.navigationController.navigationBar.frame;
+            CGFloat expectedY = shouldHideStatusBar ? 0.0 : 20.0;
+            if (navFrame.origin.y != expectedY) {
+                navFrame.origin.y = expectedY;
+                self.navigationController.navigationBar.frame = navFrame;
+            }
+        }
     }
 }
 
@@ -501,7 +521,8 @@
 }
 
 - (BOOL)prefersStatusBarHidden {
-    return self.isFullscreen;
+    // [修复] 统一根据是否横屏来决定状态栏跟随隐藏，竖屏永远不隐藏
+    return self.isFullscreen ? self.isControlsHidden : NO;
 }
 
 - (BOOL)shouldAutorotate { return YES; }
@@ -514,7 +535,10 @@
     BOOL isIOS7 = [[[UIDevice currentDevice] systemVersion] floatValue] >= 7.0;
     if (!isIOS7) {
         BOOL isLandscape = UIInterfaceOrientationIsLandscape(toInterfaceOrientation);
-        [[UIApplication sharedApplication] setStatusBarHidden:isLandscape withAnimation:UIStatusBarAnimationNone];
+        BOOL shouldHideStatusBar = isLandscape ? self.isControlsHidden : NO;
+        // 旋转时提前根据目标方向和控件状态设定状态栏
+        [[UIApplication sharedApplication] setStatusBarHidden:shouldHideStatusBar withAnimation:UIStatusBarAnimationNone];
+        [[UIApplication sharedApplication] setStatusBarStyle:(isLandscape ? UIStatusBarStyleBlackTranslucent : UIStatusBarStyleBlackOpaque) animated:NO];
     }
 }
 
