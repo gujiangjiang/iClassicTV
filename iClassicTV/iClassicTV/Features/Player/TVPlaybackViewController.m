@@ -157,6 +157,14 @@
         [[UIApplication sharedApplication] setStatusBarHidden:self.isFullscreen withAnimation:UIStatusBarAnimationNone];
         // [修复] 强制将 iOS 6 的状态栏变为黑色，以防从设置页弹回后依然保持蓝色
         [[UIApplication sharedApplication] setStatusBarStyle:(isLandscape ? UIStatusBarStyleBlackTranslucent : UIStatusBarStyleBlackOpaque) animated:animated];
+        
+        // [修复] 横屏直接进入播放器时，强制设置导航栏 Y 为 0，竖屏时设为 20，避免标题栏越位
+        CGRect navFrame = self.navigationController.navigationBar.frame;
+        CGFloat expectedY = isLandscape ? 0.0 : 20.0;
+        if (navFrame.origin.y != expectedY) {
+            navFrame.origin.y = expectedY;
+            self.navigationController.navigationBar.frame = navFrame;
+        }
     }
     
     if (isLandscape) {
@@ -169,6 +177,20 @@
 - (void)viewWillDisappear:(BOOL)animated {
     [super viewWillDisappear:animated];
     
+    BOOL isIOS7 = [[[UIDevice currentDevice] systemVersion] floatValue] >= 7.0;
+    
+    // [修复] 提前恢复状态栏的显示和样式，并强制重置导航栏的 Y 坐标，防止横屏返回时列表页的标题栏上移被状态栏遮挡
+    if (!isIOS7) {
+        [[UIApplication sharedApplication] setStatusBarHidden:NO withAnimation:UIStatusBarAnimationNone];
+        [[UIApplication sharedApplication] setStatusBarStyle:self.originalStatusBarStyle animated:NO];
+        
+        CGRect navFrame = self.navigationController.navigationBar.frame;
+        if (navFrame.origin.y != 20.0) {
+            navFrame.origin.y = 20.0;
+            self.navigationController.navigationBar.frame = navFrame;
+        }
+    }
+    
     if ([self isMovingFromParentViewController]) {
         [self performCleanupBeforePop];
     }
@@ -177,13 +199,7 @@
     self.navigationController.navigationBar.barStyle = self.originalBarStyle;
     self.navigationController.navigationBar.translucent = self.originalTranslucent;
     
-    BOOL isIOS7 = [[[UIDevice currentDevice] systemVersion] floatValue] >= 7.0;
-    if (!isIOS7) {
-        // [修复] 退出播放页时，还原 iOS 6 之前的状态栏样式
-        [[UIApplication sharedApplication] setStatusBarStyle:self.originalStatusBarStyle animated:animated];
-    }
-    
-    if (![self respondsToSelector:@selector(setNeedsStatusBarAppearanceUpdate)]) {
+    if (isIOS7 && ![self respondsToSelector:@selector(setNeedsStatusBarAppearanceUpdate)]) {
         [[UIApplication sharedApplication] setStatusBarHidden:NO withAnimation:UIStatusBarAnimationFade];
     }
 }
@@ -222,13 +238,6 @@
         self.epgContainerView.hidden = YES;
         self.epgView.hidden = YES;
         
-        if (!isIOS7 && !self.navigationController.navigationBarHidden) {
-            CGRect navFrame = self.navigationController.navigationBar.frame;
-            if (navFrame.origin.y != 0) {
-                navFrame.origin.y = 0;
-                self.navigationController.navigationBar.frame = navFrame;
-            }
-        }
     } else {
         videoFrame = CGRectMake(0, 0, self.view.bounds.size.width, self.view.bounds.size.width * 9.0 / 16.0);
         
@@ -252,6 +261,16 @@
         self.epgView.layer.masksToBounds = YES;
         self.epgView.hidden = NO;
         self.epgView.backgroundColor = [UIColor whiteColor];
+    }
+    
+    // [修复] 统一在此处处理 iOS 6 导航栏坐标，不论从横屏还是竖屏进入或旋转，都能正确对齐状态栏
+    if (!isIOS7 && !self.navigationController.navigationBarHidden) {
+        CGRect navFrame = self.navigationController.navigationBar.frame;
+        CGFloat expectedY = self.isFullscreen ? 0.0 : 20.0;
+        if (navFrame.origin.y != expectedY) {
+            navFrame.origin.y = expectedY;
+            self.navigationController.navigationBar.frame = navFrame;
+        }
     }
     
     self.player.view.frame = videoFrame;
