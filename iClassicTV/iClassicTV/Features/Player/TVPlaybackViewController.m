@@ -222,7 +222,23 @@
     [self.player stop];
     [[NSNotificationCenter defaultCenter] removeObserver:self];
     
-    [self forceRotateToOrientation:UIInterfaceOrientationPortrait];
+    // [修复] 退出播放时，不再强制写死回到竖屏，而是根据当前手机的真实物理方向旋转
+    UIDeviceOrientation deviceOrientation = [[UIDevice currentDevice] orientation];
+    UIInterfaceOrientation targetOrientation;
+    if (deviceOrientation == UIDeviceOrientationLandscapeLeft) {
+        targetOrientation = UIInterfaceOrientationLandscapeRight;
+    } else if (deviceOrientation == UIDeviceOrientationLandscapeRight) {
+        targetOrientation = UIInterfaceOrientationLandscapeLeft;
+    } else if (deviceOrientation == UIDeviceOrientationPortraitUpsideDown) {
+        targetOrientation = UIInterfaceOrientationPortraitUpsideDown;
+    } else if (deviceOrientation == UIDeviceOrientationPortrait) {
+        targetOrientation = UIInterfaceOrientationPortrait;
+    } else {
+        // 如果设备平放等无法判断方向，则维持当前状态栏方向
+        targetOrientation = [UIApplication sharedApplication].statusBarOrientation;
+    }
+    
+    [self forceRotateToOrientation:targetOrientation];
 }
 
 - (void)viewWillLayoutSubviews {
