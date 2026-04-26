@@ -328,6 +328,8 @@
     self.currentProgramLabel.alpha = hidden ? 0.0 : 1.0;
     self.nextProgramLabel.alpha = hidden ? 0.0 : 1.0;
     self.timeLabel.alpha = hidden ? 0.0 : 1.0;
+    // [优化] 同时将回放角标纳入动画显隐控制范畴
+    self.catchupBadge.alpha = hidden ? 0.0 : 1.0;
 }
 
 @end

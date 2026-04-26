@@ -326,9 +326,19 @@
         [self.navigationController setNavigationBarHidden:shouldHideNav animated:YES];
     }
     
+    // [优化] 动画开始前先将全屏挂件彻底透明隐藏，避免过渡形变期间文字提前突兀出现导致错位
+    [self.overlayView.widgetsView setOverlaysHidden:YES];
+    
     [UIView animateWithDuration:0.35 animations:^{
         [self.view setNeedsLayout];
         [self.view layoutIfNeeded];
+    } completion:^(BOOL finished) {
+        // [优化] 动画彻底结束后，如果当前不需要隐藏控制栏，再通过动画平滑淡入这些文字挂件
+        if (!self.isControlsHidden) {
+            [UIView animateWithDuration:0.25 animations:^{
+                [self.overlayView.widgetsView setOverlaysHidden:NO];
+            }];
+        }
     }];
 }
 
@@ -650,9 +660,19 @@
         [self.navigationController setNavigationBarHidden:shouldHide animated:YES];
     }
     
+    // [优化] 动画开始前先将全屏挂件彻底透明隐藏，避免过渡形变期间文字提前突兀出现导致错位
+    [self.overlayView.widgetsView setOverlaysHidden:YES];
+    
     [UIView animateWithDuration:duration delay:0.0 options:UIViewAnimationOptionCurveEaseInOut animations:^{
         [self.view layoutIfNeeded];
-    } completion:nil];
+    } completion:^(BOOL finished) {
+        // [优化] 动画彻底结束后，如果当前不需要隐藏控制栏，再通过动画平滑淡入这些文字挂件
+        if (!self.isControlsHidden) {
+            [UIView animateWithDuration:0.25 animations:^{
+                [self.overlayView.widgetsView setOverlaysHidden:NO];
+            }];
+        }
+    }];
 }
 
 @end
