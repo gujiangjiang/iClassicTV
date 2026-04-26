@@ -116,48 +116,19 @@
     });
 }
 
+// [优化] 接入 AppDataManager 中统一提取好的同步功能模块
 - (void)refreshActiveSourceFromServer {
     NSDictionary *activeSource = [[AppDataManager sharedManager] getActiveSourceInfo];
-    NSString *urlStr = activeSource[@"url"];
-    if (urlStr.length == 0) return;
+    NSString *sourceId = activeSource[@"id"];
     
-    // [优化] 直接使用统一封装的 toSafeURL 方法进行转换
-    NSURL *url = [urlStr toSafeURL];
-    if (!url) return;
-    
-    // [修改] 剥离原阻塞界面的 UIAlertView，替换为底部悬浮窗全局进度条
-    [ToastHelper showGlobalProgressHUDWithTitle:LocalizedString(@"syncing")];
-    [ToastHelper updateGlobalProgressHUD:0.5 text:LocalizedString(@"syncing_msg")];
+    if (!sourceId || [activeSource[@"url"] length] == 0) return;
     
     [[UIApplication sharedApplication] setNetworkActivityIndicatorVisible:YES];
     
-    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
-        NSString *m3uData = [[NetworkManager sharedManager] downloadStringSyncFromURL:url];
-        
-        dispatch_async(dispatch_get_main_queue(), ^{
-            [[UIApplication sharedApplication] setNetworkActivityIndicatorVisible:NO];
-            
-            if (m3uData && m3uData.length > 0) {
-                NSMutableArray *sources = [[AppDataManager sharedManager] getAllSources];
-                NSInteger activeIndex = NSNotFound;
-                for (int i = 0; i < sources.count; i++) {
-                    if ([sources[i][@"id"] isEqualToString:activeSource[@"id"]]) {
-                        activeIndex = i;
-                        break;
-                    }
-                }
-                
-                if (activeIndex != NSNotFound) {
-                    [[AppDataManager sharedManager] updateSourceContentAtIndex:activeIndex withContent:m3uData];
-                    // [修改] 直接触发成功并延迟消除悬浮窗
-                    [ToastHelper dismissGlobalProgressHUDWithText:LocalizedString(@"refresh_success") delay:3.0];
-                }
-            } else {
-                // [修改] 触发失败提示并延迟消除悬浮窗
-                [ToastHelper dismissGlobalProgressHUDWithText:LocalizedString(@"refresh_failed") delay:3.0];
-            }
-        });
-    });
+    [[AppDataManager sharedManager] refreshSourceFromNetworkWithId:sourceId completion:^(BOOL success, NSString *message) {
+        [[UIApplication sharedApplication] setNetworkActivityIndicatorVisible:NO];
+        // 成功后 AppDataManager 内部会自动抛出 "M3UDataUpdated" 通知触发 loadDataFromUserDefaults 刷新页面
+    }];
 }
 
 - (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section {

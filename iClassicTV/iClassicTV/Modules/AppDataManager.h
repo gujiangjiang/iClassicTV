@@ -52,4 +52,7 @@
 // 新增：更新指定直播源的内容 (刷新同步时使用)
 - (void)updateSourceContentAtIndex:(NSInteger)index withContent:(NSString *)content;
 
+// [新增] 从网络统一同步刷新指定直播源（封装网络请求、格式校验及提示回调）
+- (void)refreshSourceFromNetworkWithId:(NSString *)sourceId completion:(void(^)(BOOL success, NSString *message))completion;
+
 @end

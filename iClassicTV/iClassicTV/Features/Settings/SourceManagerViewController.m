@@ -233,29 +233,6 @@
         return;
     }
     
-    if (actionSheet.tag == 102) {
-        NSString *fileName = self.scannedLocalFiles[buttonIndex];
-        NSString *docsPath = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES).firstObject;
-        NSString *filePath = [docsPath stringByAppendingPathComponent:fileName];
-        
-        NSString *content = [NSString stringWithContentsOfFileWithFallback:filePath];
-        
-        if (content && content.length > 0) {
-            // [新增] 针对本地导入的文件内容进行 M3U 格式校验
-            if ([M3UValidator isValidM3UString:content]) {
-                self.tempM3UData = content;
-                self.tempURLString = @"";
-                [self showNamingAlertWithTag:204 presetName:[fileName stringByDeletingPathExtension]];
-            } else {
-                // [修改] 替换硬编码字符串为多语言宏
-                [ToastHelper showToastWithMessage:LocalizedString(@"file_content_m3u_invalid")];
-            }
-        } else {
-            [ToastHelper showToastWithMessage:LocalizedString(@"file_read_error")];
-        }
-        return;
-    }
-    
     if (actionSheet.tag == 100) {
         NSString *title = [actionSheet buttonTitleAtIndex:buttonIndex];
         NSDictionary *sourceDict = self.sources[self.selectedIndexPath.row];
@@ -332,35 +309,21 @@
     [nameAlert show];
 }
 
+// [优化] 接入 AppDataManager 中统一提取好的同步功能模块
 - (void)refreshSource:(NSDictionary *)source atIndex:(NSInteger)index {
-    NSURL *url = [NSURL URLWithString:source[@"url"]];
-    if (!url) return;
+    NSString *sourceId = source[@"id"];
+    if (!sourceId || [source[@"url"] length] == 0) return;
     
-    // [优化] 统一替换为与 GroupListViewController 相同的多语言提示文案
-    [ToastHelper showGlobalProgressHUDWithTitle:LocalizedString(@"syncing")];
-    [ToastHelper updateGlobalProgressHUD:0.5 text:LocalizedString(@"syncing_msg")];
+    [[UIApplication sharedApplication] setNetworkActivityIndicatorVisible:YES];
     
-    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
-        NSString *m3uData = [[NetworkManager sharedManager] downloadStringSyncFromURL:url];
-        
-        dispatch_async(dispatch_get_main_queue(), ^{
-            if (m3uData) {
-                // [新增] 针对同步刷新的源进行 M3U 格式校验
-                if ([M3UValidator isValidM3UString:m3uData]) {
-                    [[AppDataManager sharedManager] updateSourceContentAtIndex:index withContent:m3uData];
-                    self.sources = [[AppDataManager sharedManager] getAllSources];
-                    // [修改] 使用悬浮进度完成来展示成功状态
-                    [ToastHelper dismissGlobalProgressHUDWithText:LocalizedString(@"refresh_success") delay:3.0];
-                } else {
-                    // [修改] 替换硬编码字符串为多语言宏
-                    [ToastHelper dismissGlobalProgressHUDWithText:LocalizedString(@"sync_m3u_invalid") delay:3.0];
-                }
-            } else {
-                // [修改]
-                [ToastHelper dismissGlobalProgressHUDWithText:LocalizedString(@"refresh_failed") delay:3.0];
-            }
-        });
-    });
+    __weak typeof(self) weakSelf = self;
+    [[AppDataManager sharedManager] refreshSourceFromNetworkWithId:sourceId completion:^(BOOL success, NSString *message) {
+        [[UIApplication sharedApplication] setNetworkActivityIndicatorVisible:NO];
+        if (success) {
+            weakSelf.sources = [[AppDataManager sharedManager] getAllSources];
+            [weakSelf.tableView reloadData];
+        }
+    }];
 }
 
 @end

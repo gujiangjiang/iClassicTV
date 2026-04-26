@@ -10,6 +10,10 @@
 #import "LanguageManager.h" // 新增多语言
 #import "M3UParser.h"       // 新增：引入解析器，用于提取头部 EPG URL
 #import "EPGManager.h"      // 新增：用于和 EPG 的绑定数据联动同步
+#import "NetworkManager.h"  // [新增] 用于统一下载更新
+#import "ToastHelper.h"     // [新增] 用于统一UI提示
+#import "M3UValidator.h"    // [新增] 用于统一校验
+#import "NSString+EncodingHelper.h" // [新增] 用于处理 URL
 
 @implementation AppDataManager
 
@@ -213,6 +217,61 @@
     if ([source[@"id"] isEqualToString:[defs objectForKey:@"ios6_iptv_active_source_id"]]) {
         [[NSNotificationCenter defaultCenter] postNotificationName:@"M3UDataUpdated" object:nil];
     }
+}
+
+// [新增] 从网络统一同步刷新指定直播源（提取合并后的独立模块）
+- (void)refreshSourceFromNetworkWithId:(NSString *)sourceId completion:(void(^)(BOOL success, NSString *message))completion {
+    NSDictionary *targetSource = nil;
+    NSInteger targetIndex = NSNotFound;
+    NSArray *sources = [self getAllSources];
+    for (NSInteger i = 0; i < sources.count; i++) {
+        if ([sources[i][@"id"] isEqualToString:sourceId]) {
+            targetSource = sources[i];
+            targetIndex = i;
+            break;
+        }
+    }
+    
+    if (!targetSource) {
+        if (completion) completion(NO, LocalizedString(@"refresh_failed"));
+        return;
+    }
+    
+    NSString *urlStr = targetSource[@"url"];
+    if (urlStr.length == 0) {
+        if (completion) completion(NO, LocalizedString(@"invalid_url"));
+        return;
+    }
+    
+    // 统一处理可能存在的特殊字符链接编码
+    NSURL *url = [urlStr toSafeURL];
+    if (!url) {
+        if (completion) completion(NO, LocalizedString(@"invalid_url"));
+        return;
+    }
+    
+    [ToastHelper showGlobalProgressHUDWithTitle:LocalizedString(@"syncing")];
+    [ToastHelper updateGlobalProgressHUD:0.5 text:LocalizedString(@"syncing_msg")];
+    
+    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
+        NSString *m3uData = [[NetworkManager sharedManager] downloadStringSyncFromURL:url];
+        
+        dispatch_async(dispatch_get_main_queue(), ^{
+            if (m3uData && m3uData.length > 0) {
+                if ([M3UValidator isValidM3UString:m3uData]) {
+                    [self updateSourceContentAtIndex:targetIndex withContent:m3uData];
+                    [ToastHelper dismissGlobalProgressHUDWithText:LocalizedString(@"refresh_success") delay:3.0];
+                    if (completion) completion(YES, LocalizedString(@"refresh_success"));
+                } else {
+                    [ToastHelper dismissGlobalProgressHUDWithText:LocalizedString(@"sync_m3u_invalid") delay:3.0];
+                    if (completion) completion(NO, LocalizedString(@"sync_m3u_invalid"));
+                }
+            } else {
+                [ToastHelper dismissGlobalProgressHUDWithText:LocalizedString(@"refresh_failed") delay:3.0];
+                if (completion) completion(NO, LocalizedString(@"refresh_failed"));
+            }
+        });
+    });
 }
 
 @end
