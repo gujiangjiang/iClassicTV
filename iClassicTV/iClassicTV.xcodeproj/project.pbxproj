@@ -53,6 +53,7 @@
 		48B8E5842F9E6DA500668461 /* EPGManager+Cache.m in Sources */ = {isa = PBXBuildFile; fileRef = 48B8E5832F9E6DA500668461 /* EPGManager+Cache.m */; };
 		48B8E5872F9E6DBE00668461 /* EPGManager+Update.m in Sources */ = {isa = PBXBuildFile; fileRef = 48B8E5862F9E6DBE00668461 /* EPGManager+Update.m */; };
 		48B8E58A2F9E6DD700668461 /* EPGManager+Query.m in Sources */ = {isa = PBXBuildFile; fileRef = 48B8E5892F9E6DD700668461 /* EPGManager+Query.m */; };
+		48BCAB132F9E71FC00BCBE0A /* M3UValidator.m in Sources */ = {isa = PBXBuildFile; fileRef = 48BCAB122F9E71FC00BCBE0A /* M3UValidator.m */; };
 		48C2CB602F9BB73000A9379F /* UserAgentManager.m in Sources */ = {isa = PBXBuildFile; fileRef = 48C2CB5F2F9BB73000A9379F /* UserAgentManager.m */; };
 		48C2CB632F9BB76900A9379F /* UAManagerViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 48C2CB622F9BB76900A9379F /* UAManagerViewController.m */; };
 		48C2CB662F9BB9E200A9379F /* NetworkManager.m in Sources */ = {isa = PBXBuildFile; fileRef = 48C2CB652F9BB9E200A9379F /* NetworkManager.m */; };
@@ -171,6 +172,8 @@
 		48B8E5862F9E6DBE00668461 /* EPGManager+Update.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = "EPGManager+Update.m"; sourceTree = "<group>"; };
 		48B8E5882F9E6DD700668461 /* EPGManager+Query.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "EPGManager+Query.h"; sourceTree = "<group>"; };
 		48B8E5892F9E6DD700668461 /* EPGManager+Query.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = "EPGManager+Query.m"; sourceTree = "<group>"; };
+		48BCAB112F9E71FC00BCBE0A /* M3UValidator.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = M3UValidator.h; sourceTree = "<group>"; };
+		48BCAB122F9E71FC00BCBE0A /* M3UValidator.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = M3UValidator.m; sourceTree = "<group>"; };
 		48C2CB5E2F9BB73000A9379F /* UserAgentManager.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = UserAgentManager.h; path = ../Features/Settings/UserAgentManager.h; sourceTree = "<group>"; };
 		48C2CB5F2F9BB73000A9379F /* UserAgentManager.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = UserAgentManager.m; path = ../Features/Settings/UserAgentManager.m; sourceTree = "<group>"; };
 		48C2CB612F9BB76900A9379F /* UAManagerViewController.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = UAManagerViewController.h; sourceTree = "<group>"; };
@@ -274,6 +277,8 @@
 			children = (
 				48317B782F9A78E9002489FE /* M3UParser.h */,
 				48317B792F9A78E9002489FE /* M3UParser.m */,
+				48BCAB112F9E71FC00BCBE0A /* M3UValidator.h */,
+				48BCAB122F9E71FC00BCBE0A /* M3UValidator.m */,
 				48FBEB242F9BD59800DD08EE /* LanguageManager.h */,
 				48FBEB252F9BD59800DD08EE /* LanguageManager.m */,
 			);
@@ -598,6 +603,7 @@
 				48B849592F9E635700DF4667 /* TVPlaybackViewController+UI.m in Sources */,
 				48317BA32F9A78E9002489FE /* ChannelListViewController.m in Sources */,
 				4887FE5F2F9CF96C00EA87E2 /* EPGProgramCell.m in Sources */,
+				48BCAB132F9E71FC00BCBE0A /* M3UValidator.m in Sources */,
 				48317BA92F9A78E9002489FE /* TextImportModalViewController.m in Sources */,
 				48204B842F9E6A7C00966094 /* PlayerEPGView+Data.m in Sources */,
 				488143362F9E6D750098F995 /* EPGManager+Sources.m in Sources */,

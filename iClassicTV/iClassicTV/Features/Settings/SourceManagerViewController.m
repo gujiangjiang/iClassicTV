@@ -15,6 +15,7 @@
 #import "UIViewController+ScrollToTop.h"
 #import "AlertHelper.h"
 #import "LanguageManager.h"
+#import "M3UValidator.h" // [新增] 引入独立的M3U格式校验器
 
 @interface SourceManagerViewController () <UIActionSheetDelegate, UIAlertViewDelegate>
 @property (nonatomic, strong) NSArray *scannedLocalFiles;
@@ -167,12 +168,18 @@
                                                   
                                                   dispatch_async(dispatch_get_main_queue(), ^{
                                                       if (m3uData) {
-                                                          [[AppDataManager sharedManager] addSourceWithName:nameStr content:m3uData url:urlStr];
-                                                          // [修改] 使用全局悬浮进度完成来展示
-                                                          [ToastHelper dismissGlobalProgressHUDWithText:LocalizedString(@"source_saved") delay:3.0];
-                                                          
-                                                          weakSelf.sources = [[AppDataManager sharedManager] getAllSources];
-                                                          [weakSelf.tableView reloadData];
+                                                          // [新增] 添加 M3U 格式校验
+                                                          if ([M3UValidator isValidM3UString:m3uData]) {
+                                                              [[AppDataManager sharedManager] addSourceWithName:nameStr content:m3uData url:urlStr];
+                                                              // [修改] 使用全局悬浮进度完成来展示
+                                                              [ToastHelper dismissGlobalProgressHUDWithText:LocalizedString(@"source_saved") delay:3.0];
+                                                              
+                                                              weakSelf.sources = [[AppDataManager sharedManager] getAllSources];
+                                                              [weakSelf.tableView reloadData];
+                                                          } else {
+                                                              // [修改] 替换硬编码字符串为多语言宏
+                                                              [ToastHelper dismissGlobalProgressHUDWithText:LocalizedString(@"m3u_format_invalid") delay:3.0];
+                                                          }
                                                       } else {
                                                           // [修改]
                                                           [ToastHelper dismissGlobalProgressHUDWithText:LocalizedString(@"download_failed") delay:3.0];
@@ -185,9 +192,15 @@
         } else if (buttonIndex == 1) {
             TextImportModalViewController *textVC = [[TextImportModalViewController alloc] init];
             textVC.completionHandler = ^(NSString *text) {
-                self.tempM3UData = text;
-                self.tempURLString = @"";
-                [self showNamingAlertWithTag:204 presetName:nil];
+                // [新增] 针对手动输入的文本进行 M3U 格式校验
+                if ([M3UValidator isValidM3UString:text]) {
+                    self.tempM3UData = text;
+                    self.tempURLString = @"";
+                    [self showNamingAlertWithTag:204 presetName:nil];
+                } else {
+                    // [修改] 替换硬编码字符串为多语言宏
+                    [ToastHelper showToastWithMessage:LocalizedString(@"input_m3u_invalid")];
+                }
             };
             UINavigationController *nav = [[UINavigationController alloc] initWithRootViewController:textVC];
             [self presentViewController:nav animated:YES completion:nil];
@@ -228,9 +241,15 @@
         NSString *content = [NSString stringWithContentsOfFileWithFallback:filePath];
         
         if (content && content.length > 0) {
-            self.tempM3UData = content;
-            self.tempURLString = @"";
-            [self showNamingAlertWithTag:204 presetName:[fileName stringByDeletingPathExtension]];
+            // [新增] 针对本地导入的文件内容进行 M3U 格式校验
+            if ([M3UValidator isValidM3UString:content]) {
+                self.tempM3UData = content;
+                self.tempURLString = @"";
+                [self showNamingAlertWithTag:204 presetName:[fileName stringByDeletingPathExtension]];
+            } else {
+                // [修改] 替换硬编码字符串为多语言宏
+                [ToastHelper showToastWithMessage:LocalizedString(@"file_content_m3u_invalid")];
+            }
         } else {
             [ToastHelper showToastWithMessage:LocalizedString(@"file_read_error")];
         }
@@ -326,10 +345,16 @@
         
         dispatch_async(dispatch_get_main_queue(), ^{
             if (m3uData) {
-                [[AppDataManager sharedManager] updateSourceContentAtIndex:index withContent:m3uData];
-                self.sources = [[AppDataManager sharedManager] getAllSources];
-                // [修改] 使用悬浮进度完成来展示成功状态
-                [ToastHelper dismissGlobalProgressHUDWithText:LocalizedString(@"refresh_success") delay:3.0];
+                // [新增] 针对同步刷新的源进行 M3U 格式校验
+                if ([M3UValidator isValidM3UString:m3uData]) {
+                    [[AppDataManager sharedManager] updateSourceContentAtIndex:index withContent:m3uData];
+                    self.sources = [[AppDataManager sharedManager] getAllSources];
+                    // [修改] 使用悬浮进度完成来展示成功状态
+                    [ToastHelper dismissGlobalProgressHUDWithText:LocalizedString(@"refresh_success") delay:3.0];
+                } else {
+                    // [修改] 替换硬编码字符串为多语言宏
+                    [ToastHelper dismissGlobalProgressHUDWithText:LocalizedString(@"sync_m3u_invalid") delay:3.0];
+                }
             } else {
                 // [修改]
                 [ToastHelper dismissGlobalProgressHUDWithText:LocalizedString(@"refresh_failed") delay:3.0];

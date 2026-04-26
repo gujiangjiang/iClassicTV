@@ -223,5 +223,9 @@
     "scheduled_update_time": "定时刷新时间",
     "disable_scheduled_update": "禁用定时刷新",
     "last_update_time_label": "上次更新时间",
-    "no_update_record": "暂无更新记录"
+    "no_update_record": "暂无更新记录",
+    "m3u_format_invalid": "M3U格式无效",
+    "input_m3u_invalid": "输入的M3U格式无效",
+    "file_content_m3u_invalid": "文件内容不是有效的M3U格式",
+    "sync_m3u_invalid": "同步的M3U格式无效"
 }
