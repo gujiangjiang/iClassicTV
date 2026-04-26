@@ -43,6 +43,9 @@
 		489537532F9CBB4B005D3CA3 /* TVPlaybackUIComponents.m in Sources */ = {isa = PBXBuildFile; fileRef = 489537522F9CBB4B005D3CA3 /* TVPlaybackUIComponents.m */; };
 		489537562F9CBB69005D3CA3 /* TVPlaybackOverlayView.m in Sources */ = {isa = PBXBuildFile; fileRef = 489537552F9CBB69005D3CA3 /* TVPlaybackOverlayView.m */; };
 		489537592F9CBB89005D3CA3 /* TVPlaybackViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 489537582F9CBB89005D3CA3 /* TVPlaybackViewController.m */; };
+		48B849592F9E635700DF4667 /* TVPlaybackViewController+UI.m in Sources */ = {isa = PBXBuildFile; fileRef = 48B849582F9E635700DF4667 /* TVPlaybackViewController+UI.m */; };
+		48B8495C2F9E637400DF4667 /* TVPlaybackViewController+Player.m in Sources */ = {isa = PBXBuildFile; fileRef = 48B8495B2F9E637400DF4667 /* TVPlaybackViewController+Player.m */; };
+		48B8495F2F9E639000DF4667 /* TVPlaybackViewController+EPG.m in Sources */ = {isa = PBXBuildFile; fileRef = 48B8495E2F9E639000DF4667 /* TVPlaybackViewController+EPG.m */; };
 		48C2CB602F9BB73000A9379F /* UserAgentManager.m in Sources */ = {isa = PBXBuildFile; fileRef = 48C2CB5F2F9BB73000A9379F /* UserAgentManager.m */; };
 		48C2CB632F9BB76900A9379F /* UAManagerViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 48C2CB622F9BB76900A9379F /* UAManagerViewController.m */; };
 		48C2CB662F9BB9E200A9379F /* NetworkManager.m in Sources */ = {isa = PBXBuildFile; fileRef = 48C2CB652F9BB9E200A9379F /* NetworkManager.m */; };
@@ -121,6 +124,7 @@
 		48317B9F2F9A78E9002489FE /* Images.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Images.xcassets; sourceTree = "<group>"; };
 		4843BC1F2F9BDFE3007A0595 /* en-US.json */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.json; name = "en-US.json"; path = "i18n/en-US.json"; sourceTree = "<group>"; };
 		4843BC202F9BDFE3007A0595 /* zh-CN.json */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.json; name = "zh-CN.json"; path = "i18n/zh-CN.json"; sourceTree = "<group>"; };
+		488228802F9E631000CA5ECA /* TVPlaybackViewController+Internal.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "TVPlaybackViewController+Internal.h"; sourceTree = "<group>"; };
 		4887FE5D2F9CF96C00EA87E2 /* EPGProgramCell.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = EPGProgramCell.h; sourceTree = "<group>"; };
 		4887FE5E2F9CF96C00EA87E2 /* EPGProgramCell.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = EPGProgramCell.m; sourceTree = "<group>"; };
 		4887FE602F9CF98C00EA87E2 /* PlayerEPGEmptyView.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = PlayerEPGEmptyView.h; sourceTree = "<group>"; };
@@ -138,6 +142,12 @@
 		489537552F9CBB69005D3CA3 /* TVPlaybackOverlayView.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = TVPlaybackOverlayView.m; sourceTree = "<group>"; };
 		489537572F9CBB89005D3CA3 /* TVPlaybackViewController.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = TVPlaybackViewController.h; sourceTree = "<group>"; };
 		489537582F9CBB89005D3CA3 /* TVPlaybackViewController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = TVPlaybackViewController.m; sourceTree = "<group>"; };
+		48B849572F9E635700DF4667 /* TVPlaybackViewController+UI.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "TVPlaybackViewController+UI.h"; sourceTree = "<group>"; };
+		48B849582F9E635700DF4667 /* TVPlaybackViewController+UI.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = "TVPlaybackViewController+UI.m"; sourceTree = "<group>"; };
+		48B8495A2F9E637400DF4667 /* TVPlaybackViewController+Player.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "TVPlaybackViewController+Player.h"; sourceTree = "<group>"; };
+		48B8495B2F9E637400DF4667 /* TVPlaybackViewController+Player.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = "TVPlaybackViewController+Player.m"; sourceTree = "<group>"; };
+		48B8495D2F9E639000DF4667 /* TVPlaybackViewController+EPG.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "TVPlaybackViewController+EPG.h"; sourceTree = "<group>"; };
+		48B8495E2F9E639000DF4667 /* TVPlaybackViewController+EPG.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = "TVPlaybackViewController+EPG.m"; sourceTree = "<group>"; };
 		48C2CB5E2F9BB73000A9379F /* UserAgentManager.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = UserAgentManager.h; path = ../Features/Settings/UserAgentManager.h; sourceTree = "<group>"; };
 		48C2CB5F2F9BB73000A9379F /* UserAgentManager.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = UserAgentManager.m; path = ../Features/Settings/UserAgentManager.m; sourceTree = "<group>"; };
 		48C2CB612F9BB76900A9379F /* UAManagerViewController.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = UAManagerViewController.h; sourceTree = "<group>"; };
@@ -269,6 +279,13 @@
 				489537552F9CBB69005D3CA3 /* TVPlaybackOverlayView.m */,
 				489537572F9CBB89005D3CA3 /* TVPlaybackViewController.h */,
 				489537582F9CBB89005D3CA3 /* TVPlaybackViewController.m */,
+				488228802F9E631000CA5ECA /* TVPlaybackViewController+Internal.h */,
+				48B849572F9E635700DF4667 /* TVPlaybackViewController+UI.h */,
+				48B849582F9E635700DF4667 /* TVPlaybackViewController+UI.m */,
+				48B8495A2F9E637400DF4667 /* TVPlaybackViewController+Player.h */,
+				48B8495B2F9E637400DF4667 /* TVPlaybackViewController+Player.m */,
+				48B8495D2F9E639000DF4667 /* TVPlaybackViewController+EPG.h */,
+				48B8495E2F9E639000DF4667 /* TVPlaybackViewController+EPG.m */,
 				4887FE5D2F9CF96C00EA87E2 /* EPGProgramCell.h */,
 				4887FE5E2F9CF96C00EA87E2 /* EPGProgramCell.m */,
 				4887FE602F9CF98C00EA87E2 /* PlayerEPGEmptyView.h */,
@@ -514,6 +531,7 @@
 				48C2CB632F9BB76900A9379F /* UAManagerViewController.m in Sources */,
 				4887FE652F9CF9A900EA87E2 /* PlayerEPGDateBar.m in Sources */,
 				4816D5492F9C813800D0A5AE /* EPGManager.m in Sources */,
+				48B8495F2F9E639000DF4667 /* TVPlaybackViewController+EPG.m in Sources */,
 				48317BA12F9A78E9002489FE /* main.m in Sources */,
 				4887FE622F9CF98C00EA87E2 /* PlayerEPGEmptyView.m in Sources */,
 				48C2CB602F9BB73000A9379F /* UserAgentManager.m in Sources */,
@@ -535,6 +553,8 @@
 				48C2CB662F9BB9E200A9379F /* NetworkManager.m in Sources */,
 				48FBEB1B2F9BCCA300DD08EE /* DataManagementViewController.m in Sources */,
 				4816D54B2F9C813800D0A5AE /* EPGProgram.m in Sources */,
+				48B8495C2F9E637400DF4667 /* TVPlaybackViewController+Player.m in Sources */,
+				48B849592F9E635700DF4667 /* TVPlaybackViewController+UI.m in Sources */,
 				48317BA32F9A78E9002489FE /* ChannelListViewController.m in Sources */,
 				4887FE5F2F9CF96C00EA87E2 /* EPGProgramCell.m in Sources */,
 				48317BA92F9A78E9002489FE /* TextImportModalViewController.m in Sources */,
