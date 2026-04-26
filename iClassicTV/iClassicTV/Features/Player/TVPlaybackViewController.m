@@ -56,14 +56,12 @@
     self.isFullscreen = UIInterfaceOrientationIsLandscape([UIApplication sharedApplication].statusBarOrientation);
     self.isManualFullscreen = NO;
     
-    // [优化] 兼容 iOS 6/7：允许视图全屏延伸至状态栏和导航栏下方，防止控件显隐时挤压跳动画面
+    // [优化] 利用原生特性动态控制视图延伸：全屏时延伸至边缘(All)，非全屏时不延伸(None)以此避开导航栏
     if ([self respondsToSelector:@selector(setEdgesForExtendedLayout:)]) {
-        // 使用 UIRectEdgeAll 确保底层画布尺寸永远固定为全屏尺寸
-        self.edgesForExtendedLayout = UIRectEdgeAll;
+        self.edgesForExtendedLayout = self.isFullscreen ? UIRectEdgeAll : UIRectEdgeNone;
     }
-    
     if ([self respondsToSelector:@selector(setWantsFullScreenLayout:)]) {
-        self.wantsFullScreenLayout = YES;
+        self.wantsFullScreenLayout = self.isFullscreen;
     }
     
     self.title = self.channelTitle ?: LocalizedString(@"unknown_channel");
@@ -261,15 +259,8 @@
         self.epgView.hidden = YES;
         
     } else {
-        // [修复] 非全屏模式下，因为底层画布全屏延展，因此需要手动计算避让导航栏和状态栏的高度
-        CGFloat topOffset = 0;
-        if (isIOS7) {
-            topOffset = CGRectGetMaxY(self.navigationController.navigationBar.frame);
-            if (topOffset <= 0) topOffset = 64.0; // 兜底保护，防极端情况高度丢失
-        }
-        
-        // 非全屏模式下，视频固定在上方 16:9 比例，向下偏移 topOffset 避免被导航栏遮盖
-        videoFrame = CGRectMake(0, topOffset, self.view.bounds.size.width, self.view.bounds.size.width * 9.0 / 16.0);
+        // [修复] 剥离 topOffset 计算：通过 UIRectEdgeNone 原生特性支持，Y=0 即可完美对齐导航栏底边！
+        videoFrame = CGRectMake(0, 0, self.view.bounds.size.width, self.view.bounds.size.width * 9.0 / 16.0);
         
         self.backgroundView.frame = self.view.bounds;
         // [优化] 使用经典的 iOS 6 浅灰纹理色作为底层，让纯白的 EPG 区域更有层次感
@@ -316,7 +307,15 @@
     BOOL isIOS7 = [[[UIDevice currentDevice] systemVersion] floatValue] >= 7.0;
     BOOL isLocked = self.overlayView.isLocked;
     
-    // [修复] 更新全屏状态时，实时将导航栏变为透明悬浮
+    // [修复] 原生级布局特性：在动画执行前，动态重置布局边缘限制，根除手动算偏移量带来的误差
+    if ([self respondsToSelector:@selector(setEdgesForExtendedLayout:)]) {
+        self.edgesForExtendedLayout = self.isFullscreen ? UIRectEdgeAll : UIRectEdgeNone;
+    }
+    if ([self respondsToSelector:@selector(setWantsFullScreenLayout:)]) {
+        self.wantsFullScreenLayout = self.isFullscreen;
+    }
+    
+    // 更新全屏状态时，实时将导航栏变为透明悬浮
     self.navigationController.navigationBar.translucent = (self.isFullscreen || isIOS7) ? YES : NO;
     
     if ([self respondsToSelector:@selector(setNeedsStatusBarAppearanceUpdate)]) {
@@ -325,7 +324,6 @@
         if (!isIOS7) {
             BOOL shouldHideStatusBar = self.isFullscreen ? (self.isControlsHidden || isLocked) : NO;
             [[UIApplication sharedApplication] setStatusBarHidden:shouldHideStatusBar withAnimation:UIStatusBarAnimationFade];
-            // [修复] 全屏状态一旦变化，立刻更新状态栏样式为透明悬浮
             [[UIApplication sharedApplication] setStatusBarStyle:(self.isFullscreen ? UIStatusBarStyleBlackTranslucent : UIStatusBarStyleBlackOpaque) animated:YES];
         }
     }
@@ -344,10 +342,10 @@
         [self.view setNeedsLayout];
         [self.view layoutIfNeeded];
     } completion:^(BOOL finished) {
-        // [优化] 动画彻底结束后，如果当前未被锁屏，再通过动画平滑淡入这些文字挂件
+        // [修复] 非锁屏状态下，挂件显隐彻底与播放控制栏状态同步
         if (!self.overlayView.isLocked) {
             [UIView animateWithDuration:0.25 animations:^{
-                [self.overlayView.widgetsView setOverlaysHidden:NO];
+                [self.overlayView.widgetsView setOverlaysHidden:(self.isFullscreen ? self.isControlsHidden : NO)];
             }];
         }
     }];
@@ -478,7 +476,7 @@
 
 - (void)overlayDidTapFullscreen {
     if (self.isFullscreen) {
-        // [新增] 用户主动退出全屏时，清除“手动全屏”记忆标记
+        // 用户主动退出全屏时，清除“手动全屏”记忆标记
         self.isManualFullscreen = NO;
         
         // 如果当前是物理上的横屏，退出全屏必须将其旋转回竖屏
@@ -492,11 +490,11 @@
             [self updateFullscreenUIState];
         }
     } else {
-        // [新增] 准备进入全屏：只要是手动点击进入，就开启“手动全屏”记忆标记
+        // 准备进入全屏：只要是手动点击进入，就开启“手动全屏”记忆标记
         self.isFullscreen = YES;
         self.isManualFullscreen = YES;
         
-        // [优化] 直接读取设置中的枚举值，彻底修复“跟随系统”失效总是横屏的 Bug
+        // 直接读取设置中的枚举值，彻底修复“跟随系统”失效总是横屏的 Bug
         NSInteger pref = [PlayerConfigManager preferredInterfaceOrientationPref];
         
         if (pref == 1) { // 设置项要求强制横屏
@@ -541,7 +539,7 @@
     if (isLocked) {
         [self.navigationController setNavigationBarHidden:YES animated:YES];
         
-        // [优化] 锁屏状态下，强制隐藏所有的挂件（节目单、时间等）
+        // 锁屏状态下，强制隐藏所有的挂件（节目单、时间等）
         [UIView animateWithDuration:0.25 animations:^{
             [self.overlayView.widgetsView setOverlaysHidden:YES];
         }];
@@ -549,9 +547,9 @@
         BOOL shouldHideNav = self.isFullscreen ? isHidden : NO;
         [self.navigationController setNavigationBarHidden:shouldHideNav animated:YES];
         
-        // [优化] 非锁屏状态下，恢复挂件常驻显示
+        // [修复] 非锁屏状态下，挂件显隐状态彻底与播放控件栏的显隐保持同步
         [UIView animateWithDuration:0.25 animations:^{
-            [self.overlayView.widgetsView setOverlaysHidden:NO];
+            [self.overlayView.widgetsView setOverlaysHidden:(self.isFullscreen ? isHidden : NO)];
         }];
         
         // 手动调整 iOS 6 下导航条出现时的 Y 轴偏移，防止被悬浮的半透明状态栏遮盖
@@ -646,7 +644,7 @@
 }
 
 - (BOOL)prefersStatusBarHidden {
-    // [修复] 锁屏状态下彻底强制隐藏状态栏
+    // 锁屏状态下彻底强制隐藏状态栏
     if (self.isFullscreen && self.overlayView.isLocked) return YES;
     return self.isFullscreen ? self.isControlsHidden : NO;
 }
@@ -687,6 +685,14 @@
         self.isFullscreen = self.isManualFullscreen;
     }
     
+    // [修复] 原生级布局特性：随旋转方向改变同步动态设置布局延伸限制
+    if ([self respondsToSelector:@selector(setEdgesForExtendedLayout:)]) {
+        self.edgesForExtendedLayout = self.isFullscreen ? UIRectEdgeAll : UIRectEdgeNone;
+    }
+    if ([self respondsToSelector:@selector(setWantsFullScreenLayout:)]) {
+        self.wantsFullScreenLayout = self.isFullscreen;
+    }
+    
     if ([self respondsToSelector:@selector(setNeedsStatusBarAppearanceUpdate)]) {
         [self setNeedsStatusBarAppearanceUpdate];
     }
@@ -710,10 +716,10 @@
     [UIView animateWithDuration:duration delay:0.0 options:UIViewAnimationOptionCurveEaseInOut animations:^{
         [self.view layoutIfNeeded];
     } completion:^(BOOL finished) {
-        // [优化] 动画彻底结束后，如果当前未被锁屏，再通过动画平滑淡入这些文字挂件
+        // [修复] 旋转动画彻底结束后，非锁屏状态下挂件显隐彻底与播放控制栏状态同步
         if (!self.overlayView.isLocked) {
             [UIView animateWithDuration:0.25 animations:^{
-                [self.overlayView.widgetsView setOverlaysHidden:NO];
+                [self.overlayView.widgetsView setOverlaysHidden:(self.isFullscreen ? self.isControlsHidden : NO)];
             }];
         }
     }];
