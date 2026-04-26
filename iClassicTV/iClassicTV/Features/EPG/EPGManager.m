@@ -553,7 +553,8 @@
             dispatch_async(dispatch_get_main_queue(), ^{
                 self.isUpdatingEPG = NO;
                 NSString *finalError = lastErrorMsg ?: LocalizedString(@"epg_all_sources_failed");
-                [ToastHelper dismissGlobalProgressHUDWithText:finalError delay:30.0];
+                // [修复] 将失败后的悬浮窗显示时间从 30 秒改为 3 秒，避免长时间遮挡
+                [ToastHelper dismissGlobalProgressHUDWithText:finalError delay:3.0];
                 if (completion) completion(NO, finalError);
             });
         }

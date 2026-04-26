@@ -28,6 +28,9 @@ typedef NS_ENUM(NSInteger, EPGEmptyStateType) {
 
 @property (nonatomic, weak) id<PlayerEPGEmptyViewDelegate> delegate;
 
+// [新增] 标识是否为动态接口，如果是，空状态刷新按钮将显示为“重试”
+@property (nonatomic, assign) BOOL isDynamicSource;
+
 // 根据传入的状态自动更新 UI 呈现
 - (void)setState:(EPGEmptyStateType)state;
 

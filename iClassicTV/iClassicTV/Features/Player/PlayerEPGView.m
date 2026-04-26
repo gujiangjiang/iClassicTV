@@ -105,8 +105,23 @@
 }
 
 - (void)emptyViewDidTapRefresh {
-    if ([self.delegate respondsToSelector:@selector(epgViewDidTapRefresh:)]) {
-        [self.delegate epgViewDidTapRefresh:self];
+    // [优化] 如果是动态接口（DIYP / EPGInfo），点击按钮时只请求当前频道，而不是全量更新XML
+    if ([[EPGManager sharedManager] isDynamicEPGSource]) {
+        NSString *epgSearchName = (self.tvgName && self.tvgName.length > 0) ? self.tvgName : self.channelTitle;
+        NSDate *targetDate = self.selectedDate ?: [self startOfDayForDate:[NSDate date]];
+        
+        // [修复] 重试前先清除当前日期的错误缓存（如空数组），强制触发重新网络请求，否则依然显示无数据
+        if (self.groupedPrograms[targetDate]) {
+            NSMutableDictionary *mut = [self.groupedPrograms mutableCopy];
+            [mut removeObjectForKey:targetDate];
+            self.groupedPrograms = mut;
+        }
+        
+        [self fetchAndDisplayDynamicEPGForDate:targetDate channel:epgSearchName];
+    } else {
+        if ([self.delegate respondsToSelector:@selector(epgViewDidTapRefresh:)]) {
+            [self.delegate epgViewDidTapRefresh:self];
+        }
     }
 }
 
@@ -115,6 +130,9 @@
 - (void)reloadData {
     BOOL isEPGEnabled = [EPGManager sharedManager].isEPGEnabled;
     NSString *epgSearchName = (self.tvgName && self.tvgName.length > 0) ? self.tvgName : self.channelTitle;
+    
+    // [新增] 每次重载数据前，将当前数据源类型传递给 EmptyView，以便其更新按钮文案
+    self.emptyView.isDynamicSource = [[EPGManager sharedManager] isDynamicEPGSource];
     
     if (![self.currentChannelName isEqualToString:epgSearchName]) {
         self.currentChannelName = epgSearchName;

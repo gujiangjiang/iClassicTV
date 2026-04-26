@@ -68,7 +68,6 @@
     // 无论什么状态，如果有数据(None状态)则隐藏整个空视图，否则显示
     self.hidden = (state == EPGEmptyStateTypeNone);
     
-    // 修复警告：将 None 状态放入 switch 语句中，彻底覆盖所有枚举分支
     switch (state) {
         case EPGEmptyStateTypeNone:
             // 隐藏状态，无需做任何 UI 赋值操作
@@ -83,15 +82,15 @@
         case EPGEmptyStateTypeNoData:
             self.emptyIconLabel.text = @"📭";
             self.tipsLabel.text = LocalizedString(@"no_epg_data");
-            // [修改] 开启 XML 后如果没有拉取到数据，也提供快捷刷新入口
-            [self.actionButton setTitle:LocalizedString(@"refresh_now") forState:UIControlStateNormal];
-            self.actionButton.tag = 2; // Refresh
+            // [优化] 根据是否为动态接口，自动切换按钮文案为“重试”或“立即更新”
+            [self.actionButton setTitle:(self.isDynamicSource ? LocalizedString(@"retry") : LocalizedString(@"refresh_now")) forState:UIControlStateNormal];
+            self.actionButton.tag = 2; // Refresh / Retry
             self.actionButton.hidden = NO;
             break;
         case EPGEmptyStateTypeExpired:
             self.emptyIconLabel.text = @"⏳";
             self.tipsLabel.text = LocalizedString(@"epg_expired");
-            [self.actionButton setTitle:LocalizedString(@"refresh_now") forState:UIControlStateNormal];
+            [self.actionButton setTitle:(self.isDynamicSource ? LocalizedString(@"retry") : LocalizedString(@"refresh_now")) forState:UIControlStateNormal];
             self.actionButton.tag = 2;
             self.actionButton.hidden = NO;
             break;
