@@ -184,6 +184,11 @@
     return YES;
 }
 
+// 优化：修改左滑删除按钮的文字，接入多语言支持
+- (NSString *)tableView:(UITableView *)tableView titleForDeleteConfirmationButtonForRowAtIndexPath:(NSIndexPath *)indexPath {
+    return LocalizedString(@"delete");
+}
+
 - (void)tableView:(UITableView *)tableView commitEditingStyle:(UITableViewCellEditingStyle)editingStyle forRowAtIndexPath:(NSIndexPath *)indexPath {
     if (editingStyle == UITableViewCellEditingStyleDelete) {
         [[EPGManager sharedManager] removeEPGSourceAtIndex:indexPath.row];
