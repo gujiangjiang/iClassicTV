@@ -110,7 +110,7 @@
         NSString *epgSearchName = (self.tvgName && self.tvgName.length > 0) ? self.tvgName : self.channelTitle;
         NSDate *targetDate = self.selectedDate ?: [self startOfDayForDate:[NSDate date]];
         
-        // [修复] 重试前先清除当前日期的错误缓存（如空数组），强制触发重新网络请求，否则依然显示无数据
+        // 修复：重试前先清除当前日期的错误缓存（如空数组），强制触发重新网络请求，否则依然显示无数据
         if (self.groupedPrograms[targetDate]) {
             NSMutableDictionary *mut = [self.groupedPrograms mutableCopy];
             [mut removeObjectForKey:targetDate];
@@ -131,7 +131,7 @@
     BOOL isEPGEnabled = [EPGManager sharedManager].isEPGEnabled;
     NSString *epgSearchName = (self.tvgName && self.tvgName.length > 0) ? self.tvgName : self.channelTitle;
     
-    // [新增] 每次重载数据前，将当前数据源类型传递给 EmptyView，以便其更新按钮文案
+    // 每次重载数据前，将当前数据源类型传递给 EmptyView，以便其更新按钮文案
     self.emptyView.isDynamicSource = [[EPGManager sharedManager] isDynamicEPGSource];
     
     if (![self.currentChannelName isEqualToString:epgSearchName]) {
@@ -299,6 +299,18 @@
         __weak typeof(self) weakSelf = self;
         [[EPGManager sharedManager] fetchDynamicProgramsForChannelName:channelName date:date completion:^(NSArray *programs) {
             if ([weakSelf.currentChannelName isEqualToString:channelName] && [weakSelf.selectedDate isEqualToDate:date]) {
+                
+                // [修复] 防脏数据覆盖机制：如果拉取回来的数据为空，并且本地已经有当天的有效缓存，则直接丢弃空数据，不执行覆盖！
+                NSArray *existingData = weakSelf.groupedPrograms[date];
+                if ((!programs || programs.count == 0) && existingData && existingData.count > 0) {
+                    // 沿用旧数据，跳过覆盖操作，恢复UI状态
+                    weakSelf.displayPrograms = existingData;
+                    [weakSelf.emptyView setState:EPGEmptyStateTypeNone];
+                    weakSelf.tableView.hidden = NO;
+                    [weakSelf.tableView reloadData];
+                    return;
+                }
+                
                 NSMutableDictionary *mut = [weakSelf.groupedPrograms mutableCopy] ?: [NSMutableDictionary dictionary];
                 mut[date] = programs ?: @[];
                 weakSelf.groupedPrograms = mut;
