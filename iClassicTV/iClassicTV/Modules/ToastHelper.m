@@ -7,14 +7,50 @@
 //
 
 #import "ToastHelper.h"
-#import <QuartzCore/QuartzCore.h> // 新增：引入 QuartzCore 用于设置圆角
+#import <QuartzCore/QuartzCore.h>
 
-// 静态全局变量，用于持有全局悬浮窗控件
-static UIView *g_progressHUD = nil;
-static UILabel *g_progressLabel = nil;
-static UIProgressView *g_progressBar = nil;
-// [新增] 用于标记当前的请求批次，防止动画多线程错乱覆盖被误销毁
-static NSInteger g_hudRequestId = 0;
+// [新增] 专门用于管理悬浮窗实例的内部视图类
+@interface ToastProgressHUDView : UIView
+@property (nonatomic, copy) NSString *taskKey;
+@property (nonatomic, strong) UILabel *titleLabel;
+@property (nonatomic, strong) UIProgressView *progressBar;
+@end
+
+@implementation ToastProgressHUDView
+
+// [修复] 显式添加 synthesize 兼容早期旧版 Xcode 编译器
+@synthesize taskKey;
+@synthesize titleLabel;
+@synthesize progressBar;
+
+// [修复] 将 instancetype 降级为 id 兼容早期旧版 Xcode 编译器
+- (id)initWithFrame:(CGRect)frame {
+    self = [super initWithFrame:frame];
+    if (self) {
+        self.backgroundColor = [UIColor colorWithWhite:0.0 alpha:0.85];
+        self.layer.cornerRadius = 8.0;
+        self.layer.masksToBounds = YES;
+        self.autoresizingMask = UIViewAutoresizingFlexibleTopMargin | UIViewAutoresizingFlexibleLeftMargin;
+        
+        self.titleLabel = [[UILabel alloc] initWithFrame:CGRectMake(10, 8, frame.size.width - 20, 20)];
+        self.titleLabel.backgroundColor = [UIColor clearColor];
+        self.titleLabel.textColor = [UIColor whiteColor];
+        self.titleLabel.font = [UIFont systemFontOfSize:13];
+        self.titleLabel.textAlignment = NSTextAlignmentCenter;
+        self.titleLabel.adjustsFontSizeToFitWidth = YES;
+        [self addSubview:self.titleLabel];
+        
+        self.progressBar = [[UIProgressView alloc] initWithProgressViewStyle:UIProgressViewStyleDefault];
+        self.progressBar.frame = CGRectMake(10, 36, frame.size.width - 20, 10);
+        [self addSubview:self.progressBar];
+    }
+    return self;
+}
+@end
+
+// [新增] 静态全局数组，用于维护当前所有正在显示的悬浮窗队列
+// [修复] 移除泛型语法 <ToastProgressHUDView *> 彻底解决旧版编译器的语法解析报错
+static NSMutableArray *g_activeHUDs = nil;
 
 @implementation ToastHelper
 
@@ -23,7 +59,6 @@ static NSInteger g_hudRequestId = 0;
     
     // 优化：确保 UI 操作在主线程执行，防止多线程调用时引发奔溃
     dispatch_async(dispatch_get_main_queue(), ^{
-        // [修复] 强制获取真实的主窗口，避免抓取到 UIActionSheet 等临时废弃窗口
         UIWindow *window = [[[UIApplication sharedApplication] delegate] window];
         if (!window) window = [UIApplication sharedApplication].keyWindow;
         if (!window) window = [[UIApplication sharedApplication].windows firstObject];
@@ -76,86 +111,121 @@ static NSInteger g_hudRequestId = 0;
     });
 }
 
-// 新增：显示全局悬浮进度窗
-+ (void)showGlobalProgressHUDWithTitle:(NSString *)title {
+// [新增] 辅助方法：通过 Key 查找对应的悬浮窗实例
++ (ToastProgressHUDView *)hudForKey:(NSString *)key {
+    if (!g_activeHUDs) return nil;
+    for (ToastProgressHUDView *hud in g_activeHUDs) {
+        if ([hud.taskKey isEqualToString:key]) {
+            return hud;
+        }
+    }
+    return nil;
+}
+
+// [新增] 辅助方法：执行栈内所有悬浮窗的重新排布动画（实现向上顶和向下回落）
++ (void)relayoutHUDsAnimated:(BOOL)animated {
+    if (!g_activeHUDs || g_activeHUDs.count == 0) return;
+    
+    UIWindow *window = [[[UIApplication sharedApplication] delegate] window];
+    if (!window) window = [UIApplication sharedApplication].keyWindow;
+    if (!window) window = [[UIApplication sharedApplication].windows firstObject];
+    
+    CGFloat width = 160.0;
+    CGFloat height = 55.0;
+    CGFloat spacing = 10.0; // 悬浮窗之间的间距
+    CGFloat startX = window.bounds.size.width - width - 15;
+    // index 为 0 时（最新），始终紧贴右下角
+    CGFloat startY = window.bounds.size.height - height - 65;
+    
+    [UIView animateWithDuration:(animated ? 0.3 : 0.0)
+                          delay:0.0
+                        options:UIViewAnimationOptionBeginFromCurrentState | UIViewAnimationOptionCurveEaseInOut
+                     animations:^{
+                         for (NSInteger i = 0; i < g_activeHUDs.count; i++) {
+                             // [修复] 移除现代数组下标语法，改用传统 objectAtIndex 兼容老旧编译器
+                             ToastProgressHUDView *hud = [g_activeHUDs objectAtIndex:i];
+                             CGFloat targetY = startY - i * (height + spacing);
+                             hud.frame = CGRectMake(startX, targetY, width, height);
+                             [hud.superview bringSubviewToFront:hud];
+                         }
+                     } completion:nil];
+}
+
++ (void)showGlobalProgressHUDWithKey:(NSString *)key title:(NSString *)title {
+    if (!key) return;
     dispatch_async(dispatch_get_main_queue(), ^{
-        g_hudRequestId++; // [修复] 每次重新呼出时增加标识ID
-        
-        if (!g_progressHUD) {
-            // [修复] 强制获取真实的主窗口，避开弹窗层
-            UIWindow *window = [[[UIApplication sharedApplication] delegate] window];
-            if (!window) window = [UIApplication sharedApplication].keyWindow;
-            if (!window) window = [[UIApplication sharedApplication].windows firstObject];
-            
-            CGFloat width = 160.0;
-            CGFloat height = 55.0;
-            // 固定在右下角，避开底部 TabBar (通常 49pt)
-            CGFloat x = window.bounds.size.width - width - 15;
-            CGFloat y = window.bounds.size.height - height - 65;
-            
-            g_progressHUD = [[UIView alloc] initWithFrame:CGRectMake(x, y, width, height)];
-            g_progressHUD.backgroundColor = [UIColor colorWithWhite:0.0 alpha:0.85];
-            g_progressHUD.layer.cornerRadius = 8.0;
-            g_progressHUD.layer.masksToBounds = YES;
-            // 支持跨 tab 和屏幕旋转，始终吸附在右下角
-            g_progressHUD.autoresizingMask = UIViewAutoresizingFlexibleTopMargin | UIViewAutoresizingFlexibleLeftMargin;
-            
-            g_progressLabel = [[UILabel alloc] initWithFrame:CGRectMake(10, 8, width - 20, 20)];
-            g_progressLabel.backgroundColor = [UIColor clearColor];
-            g_progressLabel.textColor = [UIColor whiteColor];
-            g_progressLabel.font = [UIFont systemFontOfSize:13];
-            g_progressLabel.textAlignment = NSTextAlignmentCenter;
-            g_progressLabel.adjustsFontSizeToFitWidth = YES;
-            [g_progressHUD addSubview:g_progressLabel];
-            
-            g_progressBar = [[UIProgressView alloc] initWithProgressViewStyle:UIProgressViewStyleDefault];
-            g_progressBar.frame = CGRectMake(10, 36, width - 20, 10);
-            [g_progressHUD addSubview:g_progressBar];
-            
-            [window addSubview:g_progressHUD];
-        } else {
-            // [修复] 如果悬浮窗已经存在，强制移除正在执行的消失动画，防止被提前回收
-            [g_progressHUD.layer removeAllAnimations];
+        if (!g_activeHUDs) {
+            g_activeHUDs = [NSMutableArray array];
         }
         
-        [g_progressHUD.superview bringSubviewToFront:g_progressHUD]; // 确保显示在最前面
-        g_progressHUD.alpha = 1.0;
-        g_progressLabel.text = title;
-        g_progressBar.progress = 0.0;
+        ToastProgressHUDView *existingHUD = [self hudForKey:key];
+        if (existingHUD) {
+            // 如果同样 Key 的任务已经存在，仅仅重置状态，不改变其排列位置
+            [existingHUD.layer removeAllAnimations];
+            existingHUD.alpha = 1.0;
+            existingHUD.titleLabel.text = title;
+            existingHUD.progressBar.progress = 0.0;
+            return;
+        }
+        
+        UIWindow *window = [[[UIApplication sharedApplication] delegate] window];
+        if (!window) window = [UIApplication sharedApplication].keyWindow;
+        if (!window) window = [[UIApplication sharedApplication].windows firstObject];
+        
+        CGFloat width = 160.0;
+        CGFloat height = 55.0;
+        CGFloat startX = window.bounds.size.width - width - 15;
+        CGFloat startY = window.bounds.size.height - height - 65;
+        
+        ToastProgressHUDView *hud = [[ToastProgressHUDView alloc] initWithFrame:CGRectMake(startX, startY, width, height)];
+        hud.taskKey = key;
+        hud.titleLabel.text = title;
+        hud.progressBar.progress = 0.0;
+        hud.alpha = 0.0;
+        [window addSubview:hud];
+        
+        // 插入到首位（使其 index=0，计算坐标时位于最下方，也就是把它视为“底部新来的”）
+        [g_activeHUDs insertObject:hud atIndex:0];
+        
+        // 触发队列排布，原有的悬浮窗会被自动往上推
+        [self relayoutHUDsAnimated:YES];
+        
+        // 新悬浮窗执行淡入动画
+        [UIView animateWithDuration:0.3 animations:^{
+            hud.alpha = 1.0;
+        }];
     });
 }
 
-// 新增：更新全局悬浮进度窗
-+ (void)updateGlobalProgressHUD:(CGFloat)progress text:(NSString *)text {
++ (void)updateGlobalProgressHUDWithKey:(NSString *)key progress:(CGFloat)progress text:(NSString *)text {
+    if (!key) return;
     dispatch_async(dispatch_get_main_queue(), ^{
-        if (g_progressHUD) {
-            if (text) g_progressLabel.text = text;
-            [g_progressBar setProgress:progress animated:YES];
+        ToastProgressHUDView *hud = [self hudForKey:key];
+        if (hud) {
+            if (text) hud.titleLabel.text = text;
+            [hud.progressBar setProgress:progress animated:YES];
         }
     });
 }
 
-// 新增：隐藏全局悬浮进度窗
-+ (void)dismissGlobalProgressHUDWithText:(NSString *)text delay:(NSTimeInterval)delay {
++ (void)dismissGlobalProgressHUDWithKey:(NSString *)key text:(NSString *)text delay:(NSTimeInterval)delay {
+    if (!key) return;
     dispatch_async(dispatch_get_main_queue(), ^{
-        if (g_progressHUD) {
-            if (text) g_progressLabel.text = text;
-            [g_progressBar setProgress:1.0 animated:YES];
-            
-            NSInteger currentRequestId = g_hudRequestId; // [修复] 记录派发任务时的标识 ID
+        ToastProgressHUDView *hud = [self hudForKey:key];
+        if (hud) {
+            if (text) hud.titleLabel.text = text;
+            [hud.progressBar setProgress:1.0 animated:YES];
             
             dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(delay * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-                // [修复] 只有当标识 ID 未被新的显示请求篡改时，才执行销毁动画，避免错杀正在工作的新进度条
-                if (g_progressHUD && currentRequestId == g_hudRequestId) {
+                // 再次确保仍存在于队列中防止重复销毁
+                if ([g_activeHUDs containsObject:hud]) {
                     [UIView animateWithDuration:0.3 animations:^{
-                        g_progressHUD.alpha = 0.0;
+                        hud.alpha = 0.0;
                     } completion:^(BOOL finished) {
-                        if (currentRequestId == g_hudRequestId) { // 再次校验
-                            [g_progressHUD removeFromSuperview];
-                            g_progressHUD = nil;
-                            g_progressLabel = nil;
-                            g_progressBar = nil;
-                        }
+                        [hud removeFromSuperview];
+                        [g_activeHUDs removeObject:hud];
+                        // 当前任务销毁后，上面的其他任务自动掉落回底部空缺位置
+                        [self relayoutHUDsAnimated:YES];
                     }];
                 }
             });

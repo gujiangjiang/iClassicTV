@@ -161,8 +161,10 @@
                                                   return;
                                               }
                                               
-                                              [ToastHelper showGlobalProgressHUDWithTitle:LocalizedString(@"downloading")];
-                                              [ToastHelper updateGlobalProgressHUD:0.5 text:LocalizedString(@"please_wait")];
+                                              // [修改] 增加新源的任务 Key，适配并独立于堆叠进度窗队列
+                                              NSString *taskKey = @"download_m3u_task";
+                                              [ToastHelper showGlobalProgressHUDWithKey:taskKey title:LocalizedString(@"downloading")];
+                                              [ToastHelper updateGlobalProgressHUDWithKey:taskKey progress:0.5 text:LocalizedString(@"please_wait")];
                                               
                                               dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
                                                   NSString *m3uData = [[NetworkManager sharedManager] downloadStringSyncFromURL:url];
@@ -171,15 +173,15 @@
                                                       if (m3uData) {
                                                           if ([M3UValidator isValidM3UString:m3uData]) {
                                                               [[AppDataManager sharedManager] addSourceWithName:nameStr content:m3uData url:urlStr];
-                                                              [ToastHelper dismissGlobalProgressHUDWithText:LocalizedString(@"source_saved") delay:3.0];
+                                                              [ToastHelper dismissGlobalProgressHUDWithKey:taskKey text:LocalizedString(@"source_saved") delay:3.0];
                                                               
                                                               weakSelf.sources = [[AppDataManager sharedManager] getAllSources];
                                                               [weakSelf.tableView reloadData];
                                                           } else {
-                                                              [ToastHelper dismissGlobalProgressHUDWithText:LocalizedString(@"m3u_format_invalid") delay:3.0];
+                                                              [ToastHelper dismissGlobalProgressHUDWithKey:taskKey text:LocalizedString(@"m3u_format_invalid") delay:3.0];
                                                           }
                                                       } else {
-                                                          [ToastHelper dismissGlobalProgressHUDWithText:LocalizedString(@"download_failed") delay:3.0];
+                                                          [ToastHelper dismissGlobalProgressHUDWithKey:taskKey text:LocalizedString(@"download_failed") delay:3.0];
                                                       }
                                                   });
                                               });
@@ -283,7 +285,6 @@
 
 #pragma mark - UIAlertViewDelegate
 
-// [修改] 将 clickedButtonAtIndex 变更为 didDismissWithButtonIndex，同理防幽灵窗。
 - (void)alertView:(UIAlertView *)alertView didDismissWithButtonIndex:(NSInteger)buttonIndex {
     if (buttonIndex == alertView.cancelButtonIndex) return;
     

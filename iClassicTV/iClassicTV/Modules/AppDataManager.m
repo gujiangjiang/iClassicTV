@@ -250,8 +250,10 @@
         return;
     }
     
-    [ToastHelper showGlobalProgressHUDWithTitle:LocalizedString(@"syncing")];
-    [ToastHelper updateGlobalProgressHUD:0.5 text:LocalizedString(@"syncing_msg")];
+    // [修改] 为当前直播源更新操作生成一个唯一的任务 Key，适配堆叠进度窗
+    NSString *taskKey = [NSString stringWithFormat:@"sync_m3u_%@", sourceId];
+    [ToastHelper showGlobalProgressHUDWithKey:taskKey title:LocalizedString(@"syncing")];
+    [ToastHelper updateGlobalProgressHUDWithKey:taskKey progress:0.5 text:LocalizedString(@"syncing_msg")];
     
     dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
         NSString *m3uData = [[NetworkManager sharedManager] downloadStringSyncFromURL:url];
@@ -260,14 +262,14 @@
             if (m3uData && m3uData.length > 0) {
                 if ([M3UValidator isValidM3UString:m3uData]) {
                     [self updateSourceContentAtIndex:targetIndex withContent:m3uData];
-                    [ToastHelper dismissGlobalProgressHUDWithText:LocalizedString(@"refresh_success") delay:3.0];
+                    [ToastHelper dismissGlobalProgressHUDWithKey:taskKey text:LocalizedString(@"refresh_success") delay:3.0];
                     if (completion) completion(YES, LocalizedString(@"refresh_success"));
                 } else {
-                    [ToastHelper dismissGlobalProgressHUDWithText:LocalizedString(@"sync_m3u_invalid") delay:3.0];
+                    [ToastHelper dismissGlobalProgressHUDWithKey:taskKey text:LocalizedString(@"sync_m3u_invalid") delay:3.0];
                     if (completion) completion(NO, LocalizedString(@"sync_m3u_invalid"));
                 }
             } else {
-                [ToastHelper dismissGlobalProgressHUDWithText:LocalizedString(@"refresh_failed") delay:3.0];
+                [ToastHelper dismissGlobalProgressHUDWithKey:taskKey text:LocalizedString(@"refresh_failed") delay:3.0];
                 if (completion) completion(NO, LocalizedString(@"refresh_failed"));
             }
         });

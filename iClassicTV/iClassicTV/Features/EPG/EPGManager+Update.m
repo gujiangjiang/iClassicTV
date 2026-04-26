@@ -122,7 +122,6 @@
         return NO;
     }
     
-    // [修复] 补充 __block 修饰符，使得在 Block 内部可以正常修改这个变量
     __block NSDate *maxEndTime = [[NSUserDefaults standardUserDefaults] objectForKey:kEPGMaxEndTimeKey];
     
     // 如果因某种原因缓存不存在，做一次全量扫描保底，并重新写入缓存
@@ -174,8 +173,9 @@
     NSArray *urls = [self.epgSourceURL componentsSeparatedByString:@","];
     NSInteger totalUrls = urls.count;
     
-    [ToastHelper showGlobalProgressHUDWithTitle:LocalizedString(@"epg_status_preparing")];
-    [ToastHelper updateGlobalProgressHUD:0.05 text:LocalizedString(@"epg_status_preparing")];
+    NSString *taskKey = @"epg_update_task";
+    [ToastHelper showGlobalProgressHUDWithKey:taskKey title:LocalizedString(@"epg_status_preparing")];
+    [ToastHelper updateGlobalProgressHUDWithKey:taskKey progress:0.05 text:LocalizedString(@"epg_status_preparing")];
     
     dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
         NSMutableDictionary *mergedDict = [NSMutableDictionary dictionary];
@@ -189,7 +189,7 @@
                 
                 CGFloat prog = 0.05 + 0.6 * ((CGFloat)currentUrlIndex / (CGFloat)totalUrls);
                 NSString *statusMsg = [NSString stringWithFormat:LocalizedString(@"epg_status_downloading_format"), (long)currentUrlIndex, (long)totalUrls];
-                [ToastHelper updateGlobalProgressHUD:prog text:statusMsg];
+                [ToastHelper updateGlobalProgressHUDWithKey:taskKey progress:prog text:statusMsg];
                 
                 NSString *urlStr = [rawUrl stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
                 if (urlStr.length == 0) continue;
@@ -205,7 +205,7 @@
                 NSData *xmlData = [NSURLConnection sendSynchronousRequest:request returningResponse:&response error:&error];
                 
                 if (error || !xmlData || xmlData.length == 0) {
-                    lastErrorMsg = error ? error.localizedDescription : @"No Data returned";
+                    lastErrorMsg = error ? error.localizedDescription : LocalizedString(@"epg_no_data");
                     continue;
                 }
                 
@@ -214,24 +214,23 @@
                 }
                 
                 if (!xmlData || xmlData.length == 0) {
-                    lastErrorMsg = @"Gzip decompression failed";
+                    lastErrorMsg = LocalizedString(@"epg_unzip_failed");
                     continue;
                 }
                 
-                [ToastHelper updateGlobalProgressHUD:0.85 text:LocalizedString(@"epg_status_parsing")];
+                [ToastHelper updateGlobalProgressHUDWithKey:taskKey progress:0.85 text:LocalizedString(@"epg_status_parsing")];
                 
                 NSDictionary *parsedDict = [EPGParser parseEPGXMLData:xmlData];
                 
-                // [优化] 摒弃 for-in 循环，使用底层的 Block 枚举方式合并字典，在庞大数据集下效率更高
                 if (parsedDict && parsedDict.count > 0) {
                     atLeastOneSuccess = YES;
                     [parsedDict enumerateKeysAndObjectsUsingBlock:^(id channelKey, id programs, BOOL *stop) {
-                        if (!mergedDict[channelKey]) {
-                            mergedDict[channelKey] = programs;
+                        if (![mergedDict objectForKey:channelKey]) {
+                            [mergedDict setObject:programs forKey:channelKey];
                         }
                     }];
                 } else {
-                    lastErrorMsg = @"XML parse resulted in empty data";
+                    lastErrorMsg = LocalizedString(@"epg_parse_empty");
                 }
             }
         }
@@ -240,10 +239,9 @@
             self.epgCacheDict = mergedDict;
             [self saveCacheToDisk:mergedDict];
             
-            // [优化] 在此异步线程一并计算出全局的最大结束时间，并存入 NSUserDefaults，彻底解放 UI 线程
             NSDate *globalMaxEndTime = [NSDate distantPast];
-            for (NSArray *programs in mergedDict.allValues) {
-                EPGProgram *lastProgram = [programs lastObject]; // 节目通常按时间排序，只需取最后一个判断即可
+            for (NSArray *programs in [mergedDict allValues]) {
+                EPGProgram *lastProgram = [programs lastObject];
                 if (lastProgram && lastProgram.endTime) {
                     if ([lastProgram.endTime compare:globalMaxEndTime] == NSOrderedDescending) {
                         globalMaxEndTime = lastProgram.endTime;
@@ -257,7 +255,8 @@
             
             dispatch_async(dispatch_get_main_queue(), ^{
                 self.isUpdatingEPG = NO;
-                [ToastHelper dismissGlobalProgressHUDWithText:@"EPG 更新完成" delay:3.0];
+                // [修复] 复用已有的 epg_update_complete 多语言键值，不再使用多余的新增键值
+                [ToastHelper dismissGlobalProgressHUDWithKey:taskKey text:LocalizedString(@"epg_update_complete") delay:3.0];
                 if (completion) completion(YES, nil);
                 [[NSNotificationCenter defaultCenter] postNotificationName:@"EPGDataDidUpdateNotification" object:nil];
             });
@@ -265,8 +264,7 @@
             dispatch_async(dispatch_get_main_queue(), ^{
                 self.isUpdatingEPG = NO;
                 NSString *finalError = lastErrorMsg ?: LocalizedString(@"epg_all_sources_failed");
-                // [修复] 将失败后的悬浮窗显示时间从 30 秒改为 3 秒，避免长时间遮挡
-                [ToastHelper dismissGlobalProgressHUDWithText:finalError delay:3.0];
+                [ToastHelper dismissGlobalProgressHUDWithKey:taskKey text:finalError delay:3.0];
                 if (completion) completion(NO, finalError);
             });
         }
