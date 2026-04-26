@@ -421,7 +421,9 @@
     
     NSString *displayTime = [self.displayTimeFormatter stringFromDate:program.startTime];
     
-    [self.overlayView showStatusMessage:[NSString stringWithFormat:LocalizedString(@"replaying_time_format"), displayTime, program.title]];
+    // [优化] 提示语改成多行显示：第一行正在回放，第二行显示日期+时间，第三行显示节目名
+    NSString *multiLineMsg = [NSString stringWithFormat:@"正在回放\n%@\n%@", displayTime, program.title];
+    [self.overlayView showStatusMessage:multiLineMsg];
     
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(3.0 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
         [self.overlayView hideStatusMessage];
@@ -539,12 +541,18 @@
     if (isLocked) {
         [self.navigationController setNavigationBarHidden:YES animated:YES];
         
-        // [优化] 锁屏状态下挂件的显隐逻辑已完全交由 OverlayView 统一管理，移除此处重复的动画调用防止闪烁冲突
+        // 锁屏状态下，强制隐藏所有的挂件（节目单、时间等）
+        [UIView animateWithDuration:0.25 animations:^{
+            [self.overlayView.widgetsView setOverlaysHidden:YES];
+        }];
     } else {
         BOOL shouldHideNav = self.isFullscreen ? isHidden : NO;
         [self.navigationController setNavigationBarHidden:shouldHideNav animated:YES];
         
-        // [优化] 非锁屏状态下挂件的显隐逻辑已完全交由 OverlayView 统一管理，移除此处重复的动画调用防止闪烁冲突
+        // [修复] 非锁屏状态下，挂件显隐状态彻底与播放控件栏的显隐保持同步
+        [UIView animateWithDuration:0.25 animations:^{
+            [self.overlayView.widgetsView setOverlaysHidden:(self.isFullscreen ? isHidden : NO)];
+        }];
         
         // 手动调整 iOS 6 下导航条出现时的 Y 轴偏移，防止被悬浮的半透明状态栏遮盖
         if (![[[UIDevice currentDevice] systemVersion] floatValue] >= 7.0 && !shouldHideNav) {

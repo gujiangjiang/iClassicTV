@@ -94,6 +94,9 @@
 @property (nonatomic, strong) NSDateFormatter *timeFormatter;
 @property (nonatomic, strong) UILabel *catchupBadge;
 
+// [新增] 用于视频画面整体磨玻璃化处理的背景视图
+@property (nonatomic, strong) UIView *videoBlurView;
+
 // 新增：保存原始文本以便在横竖屏切换时重新排版
 @property (nonatomic, copy) NSString *rawCurrentProgram;
 @property (nonatomic, copy) NSString *rawNextProgram;
@@ -119,15 +122,6 @@
 
 - (void)setupUI {
     BOOL isIOS7 = [[[UIDevice currentDevice] systemVersion] floatValue] >= 7.0;
-    
-    self.statusLabel = [[UILabel alloc] initWithFrame:CGRectMake(0, 0, 280, 100)];
-    self.statusLabel.textAlignment = NSTextAlignmentCenter;
-    self.statusLabel.textColor = [UIColor whiteColor];
-    self.statusLabel.font = [UIFont boldSystemFontOfSize:16];
-    self.statusLabel.numberOfLines = 0;
-    self.statusLabel.backgroundColor = [UIColor clearColor];
-    self.statusLabel.hidden = YES;
-    [self addSubview:self.statusLabel];
     
     // 仅作为横屏下的背景色块
     self.epgOverlayView = [[UIView alloc] initWithFrame:CGRectZero];
@@ -173,6 +167,35 @@
     self.catchupBadge.clipsToBounds = YES;
     self.catchupBadge.hidden = YES;
     [self addSubview:self.catchupBadge];
+    
+    // [优化] 将磨玻璃背景和状态提示语放在最后添加，使其位于视图层级的最顶层，彻底盖住所有挂件和画面
+    self.videoBlurView = [[UIView alloc] initWithFrame:self.bounds];
+    self.videoBlurView.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+    self.videoBlurView.alpha = 0.0; // 初始全透明
+    self.videoBlurView.hidden = YES;
+    
+    if (isIOS7) {
+        self.videoBlurView.backgroundColor = [UIColor clearColor];
+        UIToolbar *blurToolbar = [[UIToolbar alloc] initWithFrame:self.bounds];
+        blurToolbar.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+        blurToolbar.barStyle = UIBarStyleBlack;
+        blurToolbar.translucent = YES;
+        [self.videoBlurView addSubview:blurToolbar];
+    } else {
+        self.videoBlurView.backgroundColor = [UIColor colorWithWhite:0.0 alpha:0.6];
+    }
+    [self addSubview:self.videoBlurView];
+    
+    // [优化] 增加高度以容纳多行，并默认设置 alpha 为 0，等待动画淡入
+    self.statusLabel = [[UILabel alloc] initWithFrame:CGRectMake(0, 0, 280, 120)];
+    self.statusLabel.textAlignment = NSTextAlignmentCenter;
+    self.statusLabel.textColor = [UIColor whiteColor];
+    self.statusLabel.font = [UIFont boldSystemFontOfSize:16];
+    self.statusLabel.numberOfLines = 0; // 支持多行
+    self.statusLabel.backgroundColor = [UIColor clearColor];
+    self.statusLabel.alpha = 0.0;
+    self.statusLabel.hidden = YES;
+    [self addSubview:self.statusLabel];
 }
 
 - (void)updateLayoutForFullscreen:(BOOL)isFullscreen parentSize:(CGSize)size {
@@ -298,8 +321,31 @@
     self.timeLabel.text = [self.timeFormatter stringFromDate:[NSDate date]];
 }
 
-- (void)showStatusMessage:(NSString *)message { self.statusLabel.text = message; self.statusLabel.hidden = NO; }
-- (void)hideStatusMessage { self.statusLabel.hidden = YES; }
+- (void)showStatusMessage:(NSString *)message {
+    self.statusLabel.text = message;
+    // [优化] 为提示语添加淡入动画，并显示磨玻璃背景
+    if (self.statusLabel.hidden || self.statusLabel.alpha == 0.0) {
+        self.statusLabel.hidden = NO;
+        self.videoBlurView.hidden = NO;
+        [UIView animateWithDuration:0.3 animations:^{
+            self.statusLabel.alpha = 1.0;
+            self.videoBlurView.alpha = 1.0;
+        }];
+    }
+}
+
+- (void)hideStatusMessage {
+    // [优化] 为提示语添加淡出动画，并隐藏磨玻璃背景，让画面恢复清晰
+    if (!self.statusLabel.hidden && self.statusLabel.alpha > 0.0) {
+        [UIView animateWithDuration:0.3 animations:^{
+            self.statusLabel.alpha = 0.0;
+            self.videoBlurView.alpha = 0.0;
+        } completion:^(BOOL finished) {
+            self.statusLabel.hidden = YES;
+            self.videoBlurView.hidden = YES;
+        }];
+    }
+}
 
 - (void)setOverlaysHidden:(BOOL)hidden {
     self.epgOverlayView.alpha = hidden ? 0.0 : 1.0;
