@@ -19,6 +19,7 @@
 
 @property (nonatomic, assign) BOOL isLocked;
 @property (nonatomic, assign) BOOL isControlsHidden;
+@property (nonatomic, assign) BOOL isFullscreen; // [新增] 用于内部同步记录全屏状态，以统一组件常显判断
 @property (nonatomic, strong) NSTimer *autoHideTimer;
 
 @end
@@ -80,6 +81,8 @@
         [self.lockBtn setImage:[UIImage dynamicLockIconWithState:NO] forState:UIControlStateNormal];
     }
     
+    self.isFullscreen = isFullscreen; // [新增] 记录全屏状态
+    
     self.gestureCatcherView.frame = videoFrame;
     self.widgetsView.frame = videoFrame;
     self.bottomBar.frame = CGRectMake(0, CGRectGetMaxY(videoFrame) - 50, self.bounds.size.width, 50);
@@ -137,13 +140,14 @@
         if (self.isLocked) {
             self.bottomBar.alpha = 0.0;
             self.lockBtn.alpha = hidden ? 0.0 : 0.6;
+            // [修复] 锁屏状态下，挂件应当和底部播放控件一样彻底隐藏，防止单击闪烁
+            [self.widgetsView setOverlaysHidden:YES];
         } else {
             self.bottomBar.alpha = hidden ? 0.0 : 1.0;
             self.lockBtn.alpha = hidden ? 0.0 : 0.6;
+            // [修复] 非锁屏状态下，保证逻辑完全统一：全屏时跟随控件隐藏，非全屏时常驻显示
+            [self.widgetsView setOverlaysHidden:(self.isFullscreen ? hidden : NO)];
         }
-        
-        // 核心修复：不再粗暴改变整个 widgetsView 的透明度，而是调用专用方法仅隐藏次要组件，不阻隔提示语
-        [self.widgetsView setOverlaysHidden:hidden];
     }];
     
     self.bottomBar.userInteractionEnabled = !self.isLocked && !hidden;

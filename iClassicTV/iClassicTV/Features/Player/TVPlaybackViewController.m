@@ -539,18 +539,12 @@
     if (isLocked) {
         [self.navigationController setNavigationBarHidden:YES animated:YES];
         
-        // 锁屏状态下，强制隐藏所有的挂件（节目单、时间等）
-        [UIView animateWithDuration:0.25 animations:^{
-            [self.overlayView.widgetsView setOverlaysHidden:YES];
-        }];
+        // [优化] 锁屏状态下挂件的显隐逻辑已完全交由 OverlayView 统一管理，移除此处重复的动画调用防止闪烁冲突
     } else {
         BOOL shouldHideNav = self.isFullscreen ? isHidden : NO;
         [self.navigationController setNavigationBarHidden:shouldHideNav animated:YES];
         
-        // [修复] 非锁屏状态下，挂件显隐状态彻底与播放控件栏的显隐保持同步
-        [UIView animateWithDuration:0.25 animations:^{
-            [self.overlayView.widgetsView setOverlaysHidden:(self.isFullscreen ? isHidden : NO)];
-        }];
+        // [优化] 非锁屏状态下挂件的显隐逻辑已完全交由 OverlayView 统一管理，移除此处重复的动画调用防止闪烁冲突
         
         // 手动调整 iOS 6 下导航条出现时的 Y 轴偏移，防止被悬浮的半透明状态栏遮盖
         if (![[[UIDevice currentDevice] systemVersion] floatValue] >= 7.0 && !shouldHideNav) {
