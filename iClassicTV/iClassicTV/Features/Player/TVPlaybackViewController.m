@@ -28,7 +28,8 @@
 @property (nonatomic, strong) UIView *epgContainerView; // [新增] EPG 容器，用于承载边框和装饰
 
 @property (nonatomic, strong) NSTimer *timer;
-@property (nonatomic, assign) BOOL isFullscreen; // [说明] 这里的 isFullscreen 代表“全屏模式状态”，不再单纯等同于“是否横屏”
+@property (nonatomic, assign) BOOL isFullscreen; // [说明] 代表当前的“全屏模式状态”
+@property (nonatomic, assign) BOOL isManualFullscreen; // [新增] 记录当前全屏是否是由用户点击按钮“手动”触发的
 @property (nonatomic, assign) BOOL isControlsHidden;
 
 @property (nonatomic, strong) PlayerEPGView *epgView;
@@ -51,8 +52,9 @@
     [super viewDidLoad];
     self.view.backgroundColor = [UIColor blackColor];
     
-    // 初始化全屏状态（进入时若是横屏则直接开启全屏模式）
+    // 初始化全屏状态（进入时若是横屏则直接开启全屏模式，但默认不是手动触发）
     self.isFullscreen = UIInterfaceOrientationIsLandscape([UIApplication sharedApplication].statusBarOrientation);
+    self.isManualFullscreen = NO;
     
     if ([self respondsToSelector:@selector(setEdgesForExtendedLayout:)]) {
         self.edgesForExtendedLayout = UIRectEdgeNone;
@@ -426,8 +428,13 @@
 
 - (void)overlayDidTapFullscreen {
     if (self.isFullscreen) {
+        // [新增] 用户主动退出全屏时，清除“手动全屏”记忆标记
+        self.isManualFullscreen = NO;
+        
         // 如果当前是物理上的横屏，退出全屏必须将其旋转回竖屏
         if (UIInterfaceOrientationIsLandscape([UIApplication sharedApplication].statusBarOrientation)) {
+            // 先标记退出全屏，这样旋转动画开始时，UI 就会提前判定为退出全屏状态
+            self.isFullscreen = NO;
             [self forceRotateToOrientation:UIInterfaceOrientationPortrait];
         } else {
             // 如果是竖屏全屏模式，直接修改全屏标记并刷新UI即可
@@ -435,8 +442,10 @@
             [self updateFullscreenUIState];
         }
     } else {
-        // 准备进入全屏
+        // [新增] 准备进入全屏：只要是手动点击进入，就开启“手动全屏”记忆标记
         self.isFullscreen = YES;
+        self.isManualFullscreen = YES;
+        
         UIInterfaceOrientation target = [PlayerConfigManager preferredInterfaceOrientation];
         
         if (UIInterfaceOrientationIsLandscape(target)) {
@@ -583,12 +592,13 @@
     BOOL isIOS7 = [[[UIDevice currentDevice] systemVersion] floatValue] >= 7.0;
     if (!isIOS7) {
         BOOL isLandscape = UIInterfaceOrientationIsLandscape(toInterfaceOrientation);
-        // 如果物理旋转到横屏必定是进入全屏，旋转到竖屏必定退出全屏
-        BOOL isGoingFullscreen = isLandscape;
+        
+        // [修复] 旋转即将发生时，即将变成全屏的条件：要么转到横屏必然全屏，要么当前已经处于“手动全屏”且即将转到竖屏
+        BOOL isGoingFullscreen = isLandscape || self.isManualFullscreen;
         BOOL shouldHideStatusBar = isGoingFullscreen ? self.isControlsHidden : NO;
         
         [[UIApplication sharedApplication] setStatusBarHidden:shouldHideStatusBar withAnimation:UIStatusBarAnimationNone];
-        // [修复] 旋转前也确保如果即将变成全屏，则采用透明悬浮样式
+        // 旋转前确保如果即将变成全屏，则采用透明悬浮样式
         [[UIApplication sharedApplication] setStatusBarStyle:(isGoingFullscreen ? UIStatusBarStyleBlackTranslucent : UIStatusBarStyleBlackOpaque) animated:NO];
     }
 }
@@ -597,8 +607,15 @@
     [super willAnimateRotationToInterfaceOrientation:toInterfaceOrientation duration:duration];
     
     BOOL isLandscape = UIInterfaceOrientationIsLandscape(toInterfaceOrientation);
-    // 用户物理旋转了设备：转到横屏自动视为全屏，转回竖屏自动视为退出全屏
-    self.isFullscreen = isLandscape;
+    
+    // [修复] 用户物理旋转了设备核心逻辑：
+    // 如果转到横屏，必定是全屏。
+    // 如果转到竖屏，只有在用户开启了“手动全屏”记忆的状态下才保持全屏，否则自动退出全屏。
+    if (isLandscape) {
+        self.isFullscreen = YES;
+    } else {
+        self.isFullscreen = self.isManualFullscreen;
+    }
     
     if ([self respondsToSelector:@selector(setNeedsStatusBarAppearanceUpdate)]) {
         [self setNeedsStatusBarAppearanceUpdate];
@@ -607,7 +624,7 @@
     self.navigationController.navigationBar.barStyle = UIBarStyleBlack;
     BOOL isIOS7 = [[[UIDevice currentDevice] systemVersion] floatValue] >= 7.0;
     
-    // [修复] 导航栏的透明度跟随全屏状态（或在 iOS 7 及以上默认透明）
+    // 导航栏的透明度跟随最终确认的全屏状态
     self.navigationController.navigationBar.translucent = (self.isFullscreen || isIOS7) ? YES : NO;
     
     if (self.overlayView.isLocked) {
