@@ -28,7 +28,7 @@
 @property (nonatomic, strong) UIView *epgContainerView; // [新增] EPG 容器，用于承载边框和装饰
 
 @property (nonatomic, strong) NSTimer *timer;
-@property (nonatomic, assign) BOOL isFullscreen;
+@property (nonatomic, assign) BOOL isFullscreen; // [说明] 这里的 isFullscreen 代表“全屏模式状态”，不再单纯等同于“是否横屏”
 @property (nonatomic, assign) BOOL isControlsHidden;
 
 @property (nonatomic, strong) PlayerEPGView *epgView;
@@ -50,6 +50,9 @@
 - (void)viewDidLoad {
     [super viewDidLoad];
     self.view.backgroundColor = [UIColor blackColor];
+    
+    // 初始化全屏状态（进入时若是横屏则直接开启全屏模式）
+    self.isFullscreen = UIInterfaceOrientationIsLandscape([UIApplication sharedApplication].statusBarOrientation);
     
     if ([self respondsToSelector:@selector(setEdgesForExtendedLayout:)]) {
         self.edgesForExtendedLayout = UIRectEdgeNone;
@@ -159,12 +162,11 @@
     self.navigationController.navigationBar.translucent = (isLandscape || isIOS7) ? YES : NO;
     
     if (!isIOS7) {
-        // [修复] 竖屏强制显示状态栏，横屏时才根据控件显隐；并且横屏使用半透明样式防止挤压画面
-        BOOL shouldHideStatusBar = isLandscape ? self.isControlsHidden : NO;
+        BOOL shouldHideStatusBar = self.isFullscreen ? self.isControlsHidden : NO;
         [[UIApplication sharedApplication] setStatusBarHidden:shouldHideStatusBar withAnimation:UIStatusBarAnimationNone];
         [[UIApplication sharedApplication] setStatusBarStyle:(isLandscape ? UIStatusBarStyleBlackTranslucent : UIStatusBarStyleBlackOpaque) animated:animated];
         
-        // [修复] 统一校准导航栏坐标：竖屏或状态栏可见时，Y为20；仅在全屏且状态栏隐藏时，Y才为0
+        // 统一校准导航栏坐标：如果全屏且隐藏控件，Y为0；否则Y为20
         CGRect navFrame = self.navigationController.navigationBar.frame;
         CGFloat expectedY = shouldHideStatusBar ? 0.0 : 20.0;
         if (navFrame.origin.y != expectedY) {
@@ -173,11 +175,8 @@
         }
     }
     
-    if (isLandscape) {
-        [self.navigationController setNavigationBarHidden:self.isControlsHidden animated:animated];
-    } else {
-        [self.navigationController setNavigationBarHidden:NO animated:animated];
-    }
+    BOOL shouldHideNav = self.isFullscreen ? self.isControlsHidden : NO;
+    [self.navigationController setNavigationBarHidden:shouldHideNav animated:animated];
 }
 
 - (void)viewWillDisappear:(BOOL)animated {
@@ -228,15 +227,13 @@
 - (void)viewWillLayoutSubviews {
     [super viewWillLayoutSubviews];
     
-    UIInterfaceOrientation orientation = [UIApplication sharedApplication].statusBarOrientation;
-    self.isFullscreen = UIInterfaceOrientationIsLandscape(orientation);
-    
     [self.overlayView.bottomBar updateFullscreenButtonState:self.isFullscreen];
     
     CGRect videoFrame;
     BOOL isIOS7 = [[[UIDevice currentDevice] systemVersion] floatValue] >= 7.0;
     
     if (self.isFullscreen) {
+        // 全屏模式下，视频区域占满屏幕
         videoFrame = self.view.bounds;
         self.backgroundView.frame = self.view.bounds;
         self.backgroundView.backgroundColor = [UIColor blackColor];
@@ -245,6 +242,7 @@
         self.epgView.hidden = YES;
         
     } else {
+        // 非全屏模式下，视频固定在上方 16:9 比例
         videoFrame = CGRectMake(0, 0, self.view.bounds.size.width, self.view.bounds.size.width * 9.0 / 16.0);
         
         self.backgroundView.frame = self.view.bounds;
@@ -269,7 +267,7 @@
         self.epgView.backgroundColor = [UIColor whiteColor];
     }
     
-    // [修复] 统一在此处处理 iOS 6 导航栏坐标，不论从横屏还是竖屏进入或旋转，都能正确对齐状态栏
+    // 统一处理 iOS 6 导航栏坐标
     if (!isIOS7 && !self.navigationController.navigationBarHidden) {
         CGRect navFrame = self.navigationController.navigationBar.frame;
         BOOL shouldHideStatusBar = self.isFullscreen ? self.isControlsHidden : NO;
@@ -284,6 +282,33 @@
     [self.overlayView updateLayoutForFullscreen:self.isFullscreen videoFrame:videoFrame];
 }
 
+#pragma mark - 全屏辅助方法
+
+// 手动更新界面以适配全屏模式的展开或收起（不发生物理设备旋转时调用）
+- (void)updateFullscreenUIState {
+    if ([self respondsToSelector:@selector(setNeedsStatusBarAppearanceUpdate)]) {
+        [self setNeedsStatusBarAppearanceUpdate];
+    } else {
+        BOOL isIOS7 = [[[UIDevice currentDevice] systemVersion] floatValue] >= 7.0;
+        if (!isIOS7) {
+            BOOL shouldHideStatusBar = self.isFullscreen ? self.isControlsHidden : NO;
+            [[UIApplication sharedApplication] setStatusBarHidden:shouldHideStatusBar withAnimation:UIStatusBarAnimationFade];
+        }
+    }
+    
+    if (self.overlayView.isLocked) {
+        [self.navigationController setNavigationBarHidden:YES animated:YES];
+    } else {
+        BOOL shouldHideNav = self.isFullscreen ? self.isControlsHidden : NO;
+        [self.navigationController setNavigationBarHidden:shouldHideNav animated:YES];
+    }
+    
+    [UIView animateWithDuration:0.35 animations:^{
+        [self.view setNeedsLayout];
+        [self.view layoutIfNeeded];
+    }];
+}
+
 #pragma mark - PlayerEPGViewDelegate
 
 - (void)epgViewDidTapSettings:(PlayerEPGView *)epgView {
@@ -293,13 +318,11 @@
 }
 
 - (void)epgViewDidTapRefresh:(PlayerEPGView *)epgView {
-    // [修改] 将之前阻塞的加载动画改为在后台发起的静默 Toast 提示更新，并在成功后自动刷新列表
     [ToastHelper showToastWithMessage:LocalizedString(@"epg_updating_silently")];
     [[EPGManager sharedManager] fetchAndParseEPGDataWithCompletion:^(BOOL success, NSString *errorMsg) {
         dispatch_async(dispatch_get_main_queue(), ^{
             if (success) {
                 [ToastHelper showToastWithMessage:LocalizedString(@"epg_update_complete")];
-                // 成功后 EPGManager 内部已发出 EPGDataDidUpdateNotification，会自动走重载界面逻辑
             } else {
                 [ToastHelper showToastWithMessage:[NSString stringWithFormat:LocalizedString(@"epg_update_failed_msg"), errorMsg]];
             }
@@ -397,11 +420,31 @@
 }
 
 - (void)overlayDidTapFullscreen {
-    if (self.isFullscreen) [self forceRotateToOrientation:UIInterfaceOrientationPortrait];
-    else {
+    if (self.isFullscreen) {
+        // 如果当前是物理上的横屏，退出全屏必须将其旋转回竖屏
+        if (UIInterfaceOrientationIsLandscape([UIApplication sharedApplication].statusBarOrientation)) {
+            [self forceRotateToOrientation:UIInterfaceOrientationPortrait];
+        } else {
+            // 如果是竖屏全屏模式，直接修改全屏标记并刷新UI即可
+            self.isFullscreen = NO;
+            [self updateFullscreenUIState];
+        }
+    } else {
+        // 准备进入全屏
+        self.isFullscreen = YES;
         UIInterfaceOrientation target = [PlayerConfigManager preferredInterfaceOrientation];
-        if (!UIInterfaceOrientationIsLandscape(target)) target = UIInterfaceOrientationLandscapeRight;
-        [self forceRotateToOrientation:target];
+        
+        if (UIInterfaceOrientationIsLandscape(target)) {
+            // 设置项要求横屏：如果在竖屏则强制旋转，如果在横屏则直接刷新界面
+            if (!UIInterfaceOrientationIsLandscape([UIApplication sharedApplication].statusBarOrientation)) {
+                [self forceRotateToOrientation:target];
+            } else {
+                [self updateFullscreenUIState];
+            }
+        } else {
+            // 设置项要求竖屏，或者跟随系统：直接在当前方向上进入全屏界面模式（不强制旋转设备）
+            [self updateFullscreenUIState];
+        }
     }
 }
 
@@ -414,7 +457,7 @@
 - (void)overlayControlsHiddenDidChange:(BOOL)isHidden {
     self.isControlsHidden = isHidden;
     
-    // [修复] 竖屏时状态栏永远可见，全屏时才跟随控件一同隐藏
+    // 无论是竖向全屏还是横向全屏，只要是在全屏模式，控件显隐就决定状态栏的显隐
     BOOL shouldHideStatusBar = self.isFullscreen ? isHidden : NO;
     
     if ([self respondsToSelector:@selector(setNeedsStatusBarAppearanceUpdate)]) {
@@ -521,7 +564,7 @@
 }
 
 - (BOOL)prefersStatusBarHidden {
-    // [修复] 统一根据是否横屏来决定状态栏跟随隐藏，竖屏永远不隐藏
+    // 无论竖向全屏还是横向全屏，只要在全屏模式，就根据控件显隐来控制状态栏
     return self.isFullscreen ? self.isControlsHidden : NO;
 }
 
@@ -535,8 +578,10 @@
     BOOL isIOS7 = [[[UIDevice currentDevice] systemVersion] floatValue] >= 7.0;
     if (!isIOS7) {
         BOOL isLandscape = UIInterfaceOrientationIsLandscape(toInterfaceOrientation);
-        BOOL shouldHideStatusBar = isLandscape ? self.isControlsHidden : NO;
-        // 旋转时提前根据目标方向和控件状态设定状态栏
+        // 如果物理旋转到横屏必定是进入全屏，旋转到竖屏必定退出全屏
+        BOOL isGoingFullscreen = isLandscape;
+        BOOL shouldHideStatusBar = isGoingFullscreen ? self.isControlsHidden : NO;
+        
         [[UIApplication sharedApplication] setStatusBarHidden:shouldHideStatusBar withAnimation:UIStatusBarAnimationNone];
         [[UIApplication sharedApplication] setStatusBarStyle:(isLandscape ? UIStatusBarStyleBlackTranslucent : UIStatusBarStyleBlackOpaque) animated:NO];
     }
@@ -546,6 +591,7 @@
     [super willAnimateRotationToInterfaceOrientation:toInterfaceOrientation duration:duration];
     
     BOOL isLandscape = UIInterfaceOrientationIsLandscape(toInterfaceOrientation);
+    // 用户物理旋转了设备：转到横屏自动视为全屏，转回竖屏自动视为退出全屏
     self.isFullscreen = isLandscape;
     
     if ([self respondsToSelector:@selector(setNeedsStatusBarAppearanceUpdate)]) {
@@ -559,7 +605,7 @@
     if (self.overlayView.isLocked) {
         [self.navigationController setNavigationBarHidden:YES animated:YES];
     } else {
-        BOOL shouldHide = isLandscape ? self.isControlsHidden : NO;
+        BOOL shouldHide = self.isFullscreen ? self.isControlsHidden : NO;
         [self.navigationController setNavigationBarHidden:shouldHide animated:YES];
     }
     
