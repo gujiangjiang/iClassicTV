@@ -56,11 +56,12 @@
     self.isFullscreen = UIInterfaceOrientationIsLandscape([UIApplication sharedApplication].statusBarOrientation);
     self.isManualFullscreen = NO;
     
+    // [优化] 兼容 iOS 6/7：允许视图全屏延伸至状态栏和导航栏下方，防止控件显隐时挤压跳动画面
     if ([self respondsToSelector:@selector(setEdgesForExtendedLayout:)]) {
-        self.edgesForExtendedLayout = UIRectEdgeNone;
+        // 使用 UIRectEdgeAll 确保底层画布尺寸永远固定为全屏尺寸
+        self.edgesForExtendedLayout = UIRectEdgeAll;
     }
     
-    // [优化] 兼容 iOS 6：允许视图全屏延伸至状态栏和导航栏下方，防止状态栏显隐时挤压画面
     if ([self respondsToSelector:@selector(setWantsFullScreenLayout:)]) {
         self.wantsFullScreenLayout = YES;
     }
@@ -251,7 +252,7 @@
     BOOL isIOS7 = [[[UIDevice currentDevice] systemVersion] floatValue] >= 7.0;
     
     if (self.isFullscreen) {
-        // 全屏模式下，视频区域占满屏幕
+        // 全屏模式下，视频区域占满屏幕，无顶部偏移
         videoFrame = self.view.bounds;
         self.backgroundView.frame = self.view.bounds;
         self.backgroundView.backgroundColor = [UIColor blackColor];
@@ -260,8 +261,15 @@
         self.epgView.hidden = YES;
         
     } else {
-        // 非全屏模式下，视频固定在上方 16:9 比例
-        videoFrame = CGRectMake(0, 0, self.view.bounds.size.width, self.view.bounds.size.width * 9.0 / 16.0);
+        // [修复] 非全屏模式下，因为底层画布全屏延展，因此需要手动计算避让导航栏和状态栏的高度
+        CGFloat topOffset = 0;
+        if (isIOS7) {
+            topOffset = CGRectGetMaxY(self.navigationController.navigationBar.frame);
+            if (topOffset <= 0) topOffset = 64.0; // 兜底保护，防极端情况高度丢失
+        }
+        
+        // 非全屏模式下，视频固定在上方 16:9 比例，向下偏移 topOffset 避免被导航栏遮盖
+        videoFrame = CGRectMake(0, topOffset, self.view.bounds.size.width, self.view.bounds.size.width * 9.0 / 16.0);
         
         self.backgroundView.frame = self.view.bounds;
         // [优化] 使用经典的 iOS 6 浅灰纹理色作为底层，让纯白的 EPG 区域更有层次感
