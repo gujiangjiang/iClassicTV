@@ -93,6 +93,10 @@
 @property (nonatomic, strong) UILabel *timeLabel;
 @property (nonatomic, strong) NSDateFormatter *timeFormatter;
 @property (nonatomic, strong) UILabel *catchupBadge;
+
+// 新增：保存原始文本以便在横竖屏切换时重新排版
+@property (nonatomic, copy) NSString *rawCurrentProgram;
+@property (nonatomic, copy) NSString *rawNextProgram;
 @end
 
 @implementation TVPlaybackWidgetsView
@@ -125,6 +129,7 @@
     self.statusLabel.hidden = YES;
     [self addSubview:self.statusLabel];
     
+    // 仅作为横屏下的背景色块
     self.epgOverlayView = [[UIView alloc] initWithFrame:CGRectZero];
     self.epgOverlayView.backgroundColor = [UIColor colorWithWhite:0.0 alpha:0.6];
     self.epgOverlayView.layer.cornerRadius = 6;
@@ -132,17 +137,18 @@
     self.epgOverlayView.hidden = YES;
     [self addSubview:self.epgOverlayView];
     
+    // 优化：不再作为 epgOverlayView 的子视图，以便竖屏时移动到黑边区域
     self.currentProgramLabel = [[UILabel alloc] initWithFrame:CGRectZero];
     self.currentProgramLabel.textColor = isIOS7 ? [UIColor colorWithRed:0.0 green:0.478 blue:1.0 alpha:1.0] : [UIColor orangeColor];
     self.currentProgramLabel.font = [UIFont systemFontOfSize:15];
     self.currentProgramLabel.backgroundColor = [UIColor clearColor];
-    [self.epgOverlayView addSubview:self.currentProgramLabel];
+    [self addSubview:self.currentProgramLabel];
     
     self.nextProgramLabel = [[UILabel alloc] initWithFrame:CGRectZero];
     self.nextProgramLabel.textColor = [UIColor whiteColor];
     self.nextProgramLabel.font = [UIFont systemFontOfSize:15];
     self.nextProgramLabel.backgroundColor = [UIColor clearColor];
-    [self.epgOverlayView addSubview:self.nextProgramLabel];
+    [self addSubview:self.nextProgramLabel];
     
     self.timeFormatter = [[NSDateFormatter alloc] init];
     [self.timeFormatter setDateFormat:@"HH:mm"];
@@ -172,30 +178,132 @@
 - (void)updateLayoutForFullscreen:(BOOL)isFullscreen parentSize:(CGSize)size {
     self.statusLabel.center = CGPointMake(size.width / 2.0, size.height / 2.0);
     
+    BOOL isPortrait = (size.height > size.width);
+    
     if (isFullscreen) {
-        CGFloat overlayWidth = MIN(340, size.width - 140);
-        self.epgOverlayView.frame = CGRectMake((size.width - overlayWidth) / 2, size.height - 50 - 65, overlayWidth, 50);
-        self.currentProgramLabel.frame = CGRectMake(10, 5, overlayWidth - 20, 20);
-        self.nextProgramLabel.frame = CGRectMake(10, 25, overlayWidth - 20, 20);
-        self.epgOverlayView.hidden = (self.currentProgramLabel.text.length == 0);
+        if (isPortrait) {
+            // 竖向全屏模式
+            CGFloat videoHeight = size.width * 9.0 / 16.0;
+            CGFloat videoY = (size.height - videoHeight) / 2.0;
+            
+            // 隐藏横屏下的半透明背景框
+            self.epgOverlayView.hidden = YES;
+            
+            // 调整文本为居中多行
+            self.currentProgramLabel.numberOfLines = 2;
+            self.currentProgramLabel.textAlignment = NSTextAlignmentCenter;
+            self.nextProgramLabel.numberOfLines = 2;
+            self.nextProgramLabel.textAlignment = NSTextAlignmentCenter;
+            
+            CGFloat labelHeight = 50.0;
+            // 将第一个节目单居中放置于上方黑色盲区
+            self.currentProgramLabel.frame = CGRectMake(10, (videoY - labelHeight) / 2.0, size.width - 20, labelHeight);
+            // 将第二个节目单居中放置于下方黑色盲区
+            self.nextProgramLabel.frame = CGRectMake(10, videoY + videoHeight + (videoY - labelHeight) / 2.0, size.width - 20, labelHeight);
+            
+            self.currentProgramLabel.hidden = (self.rawCurrentProgram.length == 0);
+            self.nextProgramLabel.hidden = (self.rawNextProgram.length == 0);
+            
+            // 时间悬浮在视频画面的右上角（而不是屏幕右上角）
+            self.timeLabel.frame = CGRectMake(size.width - 80, videoY + 10, 60, 24);
+            self.timeLabel.hidden = ![PlayerConfigManager showTimeInFullscreen];
+            if (!self.timeLabel.hidden) [self updateSystemTime];
+            
+            // 回放角标悬浮在视频画面的左下角
+            self.catchupBadge.frame = CGRectMake(20, videoY + videoHeight - 30, 40, 20);
+            self.catchupBadge.hidden = !(self.isCatchupMode && [PlayerConfigManager showCatchupBadgeInFullscreen]);
+            
+        } else {
+            // 横向全屏模式
+            CGFloat overlayWidth = MIN(340, size.width - 140);
+            CGRect epgBgFrame = CGRectMake((size.width - overlayWidth) / 2, size.height - 50 - 65, overlayWidth, 50);
+            self.epgOverlayView.frame = epgBgFrame;
+            
+            self.currentProgramLabel.numberOfLines = 1;
+            self.currentProgramLabel.textAlignment = NSTextAlignmentLeft;
+            self.currentProgramLabel.frame = CGRectMake(epgBgFrame.origin.x + 10, epgBgFrame.origin.y + 5, overlayWidth - 20, 20);
+            
+            self.nextProgramLabel.numberOfLines = 1;
+            self.nextProgramLabel.textAlignment = NSTextAlignmentLeft;
+            self.nextProgramLabel.frame = CGRectMake(epgBgFrame.origin.x + 10, epgBgFrame.origin.y + 25, overlayWidth - 20, 20);
+            
+            BOOL hasProgram = (self.rawCurrentProgram.length > 0);
+            self.epgOverlayView.hidden = !hasProgram;
+            self.currentProgramLabel.hidden = !hasProgram;
+            self.nextProgramLabel.hidden = !hasProgram;
+            
+            self.timeLabel.frame = CGRectMake(size.width - 80, 60, 60, 24);
+            self.timeLabel.hidden = ![PlayerConfigManager showTimeInFullscreen];
+            if (!self.timeLabel.hidden) [self updateSystemTime];
+            
+            self.catchupBadge.frame = CGRectMake(20, size.height - 85, 40, 20);
+            self.catchupBadge.hidden = !(self.isCatchupMode && [PlayerConfigManager showCatchupBadgeInFullscreen]);
+        }
         
-        self.timeLabel.frame = CGRectMake(size.width - 80, 60, 60, 24);
-        self.timeLabel.hidden = ![PlayerConfigManager showTimeInFullscreen];
-        if (!self.timeLabel.hidden) [self updateSystemTime];
+        [self updateLabelsTextForCurrentLayout];
         
-        self.catchupBadge.frame = CGRectMake(20, size.height - 85, 40, 20);
-        self.catchupBadge.hidden = !(self.isCatchupMode && [PlayerConfigManager showCatchupBadgeInFullscreen]);
     } else {
+        // 非全屏模式下隐藏所有覆盖件
         self.epgOverlayView.hidden = YES;
+        self.currentProgramLabel.hidden = YES;
+        self.nextProgramLabel.hidden = YES;
         self.timeLabel.hidden = YES;
         self.catchupBadge.hidden = YES;
     }
 }
 
 - (void)updateCurrentProgram:(NSString *)current nextProgram:(NSString *)next {
-    self.currentProgramLabel.text = current;
-    self.nextProgramLabel.text = next;
-    self.epgOverlayView.hidden = (current.length == 0);
+    self.rawCurrentProgram = current;
+    self.rawNextProgram = next;
+    
+    [self updateLabelsTextForCurrentLayout];
+    
+    BOOL hasProgram = (current.length > 0);
+    BOOL isPortrait = (self.bounds.size.height > self.bounds.size.width);
+    
+    if (isPortrait) {
+        self.epgOverlayView.hidden = YES;
+        self.currentProgramLabel.hidden = !hasProgram;
+        self.nextProgramLabel.hidden = (next.length == 0);
+    } else {
+        self.epgOverlayView.hidden = !hasProgram;
+        self.currentProgramLabel.hidden = !hasProgram;
+        self.nextProgramLabel.hidden = !hasProgram;
+    }
+}
+
+// 核心优化：竖屏下智能截断文字换行
+- (void)updateLabelsTextForCurrentLayout {
+    BOOL isPortrait = (self.bounds.size.height > self.bounds.size.width);
+    if (isPortrait) {
+        self.currentProgramLabel.text = [self insertNewlineForPortrait:self.rawCurrentProgram];
+        self.nextProgramLabel.text = [self insertNewlineForPortrait:self.rawNextProgram];
+    } else {
+        self.currentProgramLabel.text = self.rawCurrentProgram;
+        self.nextProgramLabel.text = self.rawNextProgram;
+    }
+}
+
+// 通过查找冒号分隔符，将一行字符串智能切割为两行
+- (NSString *)insertNewlineForPortrait:(NSString *)text {
+    if (text.length == 0) return text;
+    
+    NSRange range = [text rangeOfString:@"："];
+    if (range.location != NSNotFound) {
+        return [text stringByReplacingCharactersInRange:range withString:@"：\n"];
+    }
+    
+    if (text.length > 5) {
+        // 避开时间（HH:mm）中的冒号，从第5个字符后开始寻找英文冒号
+        NSRange colonRange = [text rangeOfString:@":" options:0 range:NSMakeRange(5, text.length - 5)];
+        if (colonRange.location != NSNotFound) {
+            if (colonRange.location + 1 < text.length && [text characterAtIndex:colonRange.location + 1] == ' ') {
+                return [text stringByReplacingCharactersInRange:NSMakeRange(colonRange.location, 2) withString:@":\n"];
+            }
+            return [text stringByReplacingCharactersInRange:colonRange withString:@":\n"];
+        }
+    }
+    return text;
 }
 
 - (void)updateSystemTime {
@@ -207,6 +315,8 @@
 
 - (void)setOverlaysHidden:(BOOL)hidden {
     self.epgOverlayView.alpha = hidden ? 0.0 : 1.0;
+    self.currentProgramLabel.alpha = hidden ? 0.0 : 1.0;
+    self.nextProgramLabel.alpha = hidden ? 0.0 : 1.0;
     self.timeLabel.alpha = hidden ? 0.0 : 1.0;
 }
 
