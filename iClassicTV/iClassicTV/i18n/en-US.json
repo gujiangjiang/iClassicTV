@@ -133,6 +133,7 @@
     "playback_failed": "❌\n\nPlayback failed or video format not supported by device",
     "close": "Close",
     "error": "Error",
+    "retry": "Retry",
     "epg_timezone": "EPG Time Zone",
     "epg_timezone_system_default": "System Default Time Zone",
     "epg_timezone_system": "System Default",

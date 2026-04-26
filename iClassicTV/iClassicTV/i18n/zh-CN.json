@@ -133,6 +133,7 @@
     "playback_failed": "❌\n\n播放失败或设备不支持该视频格式",
     "close": "关闭",
     "error": "错误",
+    "retry": "重试",
     "epg_timezone": "EPG 时区",
     "epg_timezone_system_default": "跟随设备默认时区",
     "epg_timezone_system": "跟随设备默认",
