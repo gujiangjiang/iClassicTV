@@ -282,38 +282,16 @@
     }
 }
 
-// 核心优化：竖屏下智能截断文字换行
+// 核心优化：竖屏下通过 \t 截断文字换行，横屏下将 \t 替换为空格
 - (void)updateLabelsTextForCurrentLayout {
     BOOL isPortrait = (self.bounds.size.height > self.bounds.size.width);
     if (isPortrait) {
-        self.currentProgramLabel.text = [self insertNewlineForPortrait:self.rawCurrentProgram];
-        self.nextProgramLabel.text = [self insertNewlineForPortrait:self.rawNextProgram];
+        self.currentProgramLabel.text = self.rawCurrentProgram ? [self.rawCurrentProgram stringByReplacingOccurrencesOfString:@"\t" withString:@"\n"] : nil;
+        self.nextProgramLabel.text = self.rawNextProgram ? [self.rawNextProgram stringByReplacingOccurrencesOfString:@"\t" withString:@"\n"] : nil;
     } else {
-        self.currentProgramLabel.text = self.rawCurrentProgram;
-        self.nextProgramLabel.text = self.rawNextProgram;
+        self.currentProgramLabel.text = self.rawCurrentProgram ? [self.rawCurrentProgram stringByReplacingOccurrencesOfString:@"\t" withString:@" "] : nil;
+        self.nextProgramLabel.text = self.rawNextProgram ? [self.rawNextProgram stringByReplacingOccurrencesOfString:@"\t" withString:@" "] : nil;
     }
-}
-
-// 通过查找冒号分隔符，将一行字符串智能切割为两行
-- (NSString *)insertNewlineForPortrait:(NSString *)text {
-    if (text.length == 0) return text;
-    
-    NSRange range = [text rangeOfString:@"："];
-    if (range.location != NSNotFound) {
-        return [text stringByReplacingCharactersInRange:range withString:@"：\n"];
-    }
-    
-    if (text.length > 5) {
-        // 避开时间（HH:mm）中的冒号，从第5个字符后开始寻找英文冒号
-        NSRange colonRange = [text rangeOfString:@":" options:0 range:NSMakeRange(5, text.length - 5)];
-        if (colonRange.location != NSNotFound) {
-            if (colonRange.location + 1 < text.length && [text characterAtIndex:colonRange.location + 1] == ' ') {
-                return [text stringByReplacingCharactersInRange:NSMakeRange(colonRange.location, 2) withString:@":\n"];
-            }
-            return [text stringByReplacingCharactersInRange:colonRange withString:@":\n"];
-        }
-    }
-    return text;
 }
 
 - (void)updateSystemTime {
@@ -328,7 +306,6 @@
     self.currentProgramLabel.alpha = hidden ? 0.0 : 1.0;
     self.nextProgramLabel.alpha = hidden ? 0.0 : 1.0;
     self.timeLabel.alpha = hidden ? 0.0 : 1.0;
-    // [优化] 同时将回放角标纳入动画显隐控制范畴
     self.catchupBadge.alpha = hidden ? 0.0 : 1.0;
 }
 

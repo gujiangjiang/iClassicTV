@@ -421,6 +421,19 @@
     [self updateFullscreenEPGOverlay];
 }
 
+// [新增] 专门用于提取多语言前缀（如“正在播放：”）并强制按照 “状态 时间 \t 片名” 重组字符串，以实现自定义完美排版
+- (NSString *)generateProgramTextWithKey:(NSString *)key program:(EPGProgram *)program {
+    if (!program) return nil;
+    NSString *timeStr = [self.epgTimeFormatter stringFromDate:program.startTime];
+    NSString *format = LocalizedString(key);
+    // 通过传入空字符串，把 "%@ 正在播放：%@" 这样的多语言原文提取成 " 正在播放： "，再清理掉多余的空格
+    NSString *staticPart = [[NSString stringWithFormat:format, @"", @""] stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceCharacterSet]];
+    // 如果翻译是以全角冒号结尾的，后面就不额外加空格了，否则加一个空格更美观
+    NSString *space = [staticPart hasSuffix:@"："] ? @"" : @" ";
+    // \t 是关键标记，UI层会识别它来进行竖屏换行或横屏空格的替换
+    return [NSString stringWithFormat:@"%@%@%@\t%@", staticPart, space, timeStr, program.title];
+}
+
 - (void)updateFullscreenEPGOverlay {
     if (![EPGManager sharedManager].isEPGEnabled || !self.isFullscreen) {
         return;
@@ -429,8 +442,8 @@
     EPGProgram *current = [self.epgView currentPlayingProgram];
     
     if (self.replayingProgram) {
-        NSString *line1 = [NSString stringWithFormat:LocalizedString(@"replaying_colon_format"), [self.epgTimeFormatter stringFromDate:self.replayingProgram.startTime], self.replayingProgram.title];
-        NSString *line2 = current ? [NSString stringWithFormat:LocalizedString(@"live_colon_format"), [self.epgTimeFormatter stringFromDate:current.startTime], current.title] : LocalizedString(@"live_no_data");
+        NSString *line1 = [self generateProgramTextWithKey:@"replaying_colon_format" program:self.replayingProgram];
+        NSString *line2 = current ? [self generateProgramTextWithKey:@"live_colon_format" program:current] : LocalizedString(@"live_no_data");
         [self.overlayView.widgetsView updateCurrentProgram:line1 nextProgram:line2];
     } else {
         EPGProgram *next = [self.epgView nextPlayingProgram];
@@ -439,8 +452,8 @@
             return;
         }
         
-        NSString *currentStr = current ? [NSString stringWithFormat:LocalizedString(@"playing_colon_format"), [self.epgTimeFormatter stringFromDate:current.startTime], current.title] : LocalizedString(@"playing_no_data");
-        NSString *nextStr = next ? [NSString stringWithFormat:LocalizedString(@"next_colon_format"), [self.epgTimeFormatter stringFromDate:next.startTime], next.title] : LocalizedString(@"next_no_data");
+        NSString *currentStr = current ? [self generateProgramTextWithKey:@"playing_colon_format" program:current] : LocalizedString(@"playing_no_data");
+        NSString *nextStr = next ? [self generateProgramTextWithKey:@"next_colon_format" program:next] : LocalizedString(@"next_no_data");
         [self.overlayView.widgetsView updateCurrentProgram:currentStr nextProgram:nextStr];
     }
 }
