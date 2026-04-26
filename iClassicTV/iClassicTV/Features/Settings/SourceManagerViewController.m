@@ -15,7 +15,7 @@
 #import "UIViewController+ScrollToTop.h"
 #import "AlertHelper.h"
 #import "LanguageManager.h"
-#import "M3UValidator.h" // [新增] 引入独立的M3U格式校验器
+#import "M3UValidator.h"
 
 @interface SourceManagerViewController () <UIActionSheetDelegate, UIAlertViewDelegate>
 @property (nonatomic, strong) NSArray *scannedLocalFiles;
@@ -127,7 +127,9 @@
 
 #pragma mark - UIActionSheetDelegate
 
-- (void)actionSheet:(UIActionSheet *)actionSheet clickedButtonAtIndex:(NSInteger)buttonIndex {
+// [修改] 将 clickedButtonAtIndex 变更为 didDismissWithButtonIndex。
+// 确保在 ActionSheet 的临时废弃 Window 彻底消失后再执行逻辑，避免弹窗加错父视图被意外带走。
+- (void)actionSheet:(UIActionSheet *)actionSheet didDismissWithButtonIndex:(NSInteger)buttonIndex {
     if (buttonIndex == actionSheet.cancelButtonIndex) return;
     
     if (actionSheet.tag == 101) {
@@ -159,7 +161,6 @@
                                                   return;
                                               }
                                               
-                                              // [修改] 下载网路源时替换旧版的加载弹窗，使用全局悬浮窗
                                               [ToastHelper showGlobalProgressHUDWithTitle:LocalizedString(@"downloading")];
                                               [ToastHelper updateGlobalProgressHUD:0.5 text:LocalizedString(@"please_wait")];
                                               
@@ -168,20 +169,16 @@
                                                   
                                                   dispatch_async(dispatch_get_main_queue(), ^{
                                                       if (m3uData) {
-                                                          // [新增] 添加 M3U 格式校验
                                                           if ([M3UValidator isValidM3UString:m3uData]) {
                                                               [[AppDataManager sharedManager] addSourceWithName:nameStr content:m3uData url:urlStr];
-                                                              // [修改] 使用全局悬浮进度完成来展示
                                                               [ToastHelper dismissGlobalProgressHUDWithText:LocalizedString(@"source_saved") delay:3.0];
                                                               
                                                               weakSelf.sources = [[AppDataManager sharedManager] getAllSources];
                                                               [weakSelf.tableView reloadData];
                                                           } else {
-                                                              // [修改] 替换硬编码字符串为多语言宏
                                                               [ToastHelper dismissGlobalProgressHUDWithText:LocalizedString(@"m3u_format_invalid") delay:3.0];
                                                           }
                                                       } else {
-                                                          // [修改]
                                                           [ToastHelper dismissGlobalProgressHUDWithText:LocalizedString(@"download_failed") delay:3.0];
                                                       }
                                                   });
@@ -192,13 +189,11 @@
         } else if (buttonIndex == 1) {
             TextImportModalViewController *textVC = [[TextImportModalViewController alloc] init];
             textVC.completionHandler = ^(NSString *text) {
-                // [新增] 针对手动输入的文本进行 M3U 格式校验
                 if ([M3UValidator isValidM3UString:text]) {
                     self.tempM3UData = text;
                     self.tempURLString = @"";
                     [self showNamingAlertWithTag:204 presetName:nil];
                 } else {
-                    // [修改] 替换硬编码字符串为多语言宏
                     [ToastHelper showToastWithMessage:LocalizedString(@"input_m3u_invalid")];
                 }
             };
@@ -229,6 +224,27 @@
             fileSheet.cancelButtonIndex = fileSheet.numberOfButtons - 1;
             fileSheet.tag = 102;
             [fileSheet showInView:self.view];
+        }
+        return;
+    }
+    
+    if (actionSheet.tag == 102) {
+        NSString *fileName = self.scannedLocalFiles[buttonIndex];
+        NSString *docsPath = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES).firstObject;
+        NSString *filePath = [docsPath stringByAppendingPathComponent:fileName];
+        
+        NSString *content = [NSString stringWithContentsOfFileWithFallback:filePath];
+        
+        if (content && content.length > 0) {
+            if ([M3UValidator isValidM3UString:content]) {
+                self.tempM3UData = content;
+                self.tempURLString = @"";
+                [self showNamingAlertWithTag:204 presetName:[fileName stringByDeletingPathExtension]];
+            } else {
+                [ToastHelper showToastWithMessage:LocalizedString(@"file_content_m3u_invalid")];
+            }
+        } else {
+            [ToastHelper showToastWithMessage:LocalizedString(@"file_read_error")];
         }
         return;
     }
@@ -267,7 +283,8 @@
 
 #pragma mark - UIAlertViewDelegate
 
-- (void)alertView:(UIAlertView *)alertView clickedButtonAtIndex:(NSInteger)buttonIndex {
+// [修改] 将 clickedButtonAtIndex 变更为 didDismissWithButtonIndex，同理防幽灵窗。
+- (void)alertView:(UIAlertView *)alertView didDismissWithButtonIndex:(NSInteger)buttonIndex {
     if (buttonIndex == alertView.cancelButtonIndex) return;
     
     if (alertView.tag == 301) {
@@ -309,7 +326,6 @@
     [nameAlert show];
 }
 
-// [优化] 接入 AppDataManager 中统一提取好的同步功能模块
 - (void)refreshSource:(NSDictionary *)source atIndex:(NSInteger)index {
     NSString *sourceId = source[@"id"];
     if (!sourceId || [source[@"url"] length] == 0) return;

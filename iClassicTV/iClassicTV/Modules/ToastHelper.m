@@ -13,6 +13,8 @@
 static UIView *g_progressHUD = nil;
 static UILabel *g_progressLabel = nil;
 static UIProgressView *g_progressBar = nil;
+// [新增] 用于标记当前的请求批次，防止动画多线程错乱覆盖被误销毁
+static NSInteger g_hudRequestId = 0;
 
 @implementation ToastHelper
 
@@ -21,9 +23,11 @@ static UIProgressView *g_progressBar = nil;
     
     // 优化：确保 UI 操作在主线程执行，防止多线程调用时引发奔溃
     dispatch_async(dispatch_get_main_queue(), ^{
-        // 修复：获取当前显示的顶层视图，以保证 Toast 能够正确跟随屏幕旋转
-        UIWindow *window = [UIApplication sharedApplication].keyWindow;
+        // [修复] 强制获取真实的主窗口，避免抓取到 UIActionSheet 等临时废弃窗口
+        UIWindow *window = [[[UIApplication sharedApplication] delegate] window];
+        if (!window) window = [UIApplication sharedApplication].keyWindow;
         if (!window) window = [[UIApplication sharedApplication].windows firstObject];
+        
         UIView *targetView = window.rootViewController.view;
         if (!targetView) targetView = window;
         
@@ -75,8 +79,12 @@ static UIProgressView *g_progressBar = nil;
 // 新增：显示全局悬浮进度窗
 + (void)showGlobalProgressHUDWithTitle:(NSString *)title {
     dispatch_async(dispatch_get_main_queue(), ^{
+        g_hudRequestId++; // [修复] 每次重新呼出时增加标识ID
+        
         if (!g_progressHUD) {
-            UIWindow *window = [UIApplication sharedApplication].keyWindow;
+            // [修复] 强制获取真实的主窗口，避开弹窗层
+            UIWindow *window = [[[UIApplication sharedApplication] delegate] window];
+            if (!window) window = [UIApplication sharedApplication].keyWindow;
             if (!window) window = [[UIApplication sharedApplication].windows firstObject];
             
             CGFloat width = 160.0;
@@ -105,6 +113,9 @@ static UIProgressView *g_progressBar = nil;
             [g_progressHUD addSubview:g_progressBar];
             
             [window addSubview:g_progressHUD];
+        } else {
+            // [修复] 如果悬浮窗已经存在，强制移除正在执行的消失动画，防止被提前回收
+            [g_progressHUD.layer removeAllAnimations];
         }
         
         [g_progressHUD.superview bringSubviewToFront:g_progressHUD]; // 确保显示在最前面
@@ -131,15 +142,22 @@ static UIProgressView *g_progressBar = nil;
             if (text) g_progressLabel.text = text;
             [g_progressBar setProgress:1.0 animated:YES];
             
+            NSInteger currentRequestId = g_hudRequestId; // [修复] 记录派发任务时的标识 ID
+            
             dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(delay * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-                [UIView animateWithDuration:0.3 animations:^{
-                    g_progressHUD.alpha = 0.0;
-                } completion:^(BOOL finished) {
-                    [g_progressHUD removeFromSuperview];
-                    g_progressHUD = nil;
-                    g_progressLabel = nil;
-                    g_progressBar = nil;
-                }];
+                // [修复] 只有当标识 ID 未被新的显示请求篡改时，才执行销毁动画，避免错杀正在工作的新进度条
+                if (g_progressHUD && currentRequestId == g_hudRequestId) {
+                    [UIView animateWithDuration:0.3 animations:^{
+                        g_progressHUD.alpha = 0.0;
+                    } completion:^(BOOL finished) {
+                        if (currentRequestId == g_hudRequestId) { // 再次校验
+                            [g_progressHUD removeFromSuperview];
+                            g_progressHUD = nil;
+                            g_progressLabel = nil;
+                            g_progressBar = nil;
+                        }
+                    }];
+                }
             });
         }
     });
