@@ -156,15 +156,14 @@
     
     self.navigationController.navigationBar.barStyle = UIBarStyleBlack;
     
-    UIInterfaceOrientation orientation = [UIApplication sharedApplication].statusBarOrientation;
-    BOOL isLandscape = UIInterfaceOrientationIsLandscape(orientation);
-    
-    self.navigationController.navigationBar.translucent = (isLandscape || isIOS7) ? YES : NO;
+    // [修复] 导航栏的透明度取决于是否在全屏模式，确保全屏下是悬浮的不挤压画面
+    self.navigationController.navigationBar.translucent = (self.isFullscreen || isIOS7) ? YES : NO;
     
     if (!isIOS7) {
         BOOL shouldHideStatusBar = self.isFullscreen ? self.isControlsHidden : NO;
         [[UIApplication sharedApplication] setStatusBarHidden:shouldHideStatusBar withAnimation:UIStatusBarAnimationNone];
-        [[UIApplication sharedApplication] setStatusBarStyle:(isLandscape ? UIStatusBarStyleBlackTranslucent : UIStatusBarStyleBlackOpaque) animated:animated];
+        // [修复] 状态栏的样式取决于是否全屏模式（哪怕是竖屏全屏），全屏必定用悬浮透明的，防止推挤画面
+        [[UIApplication sharedApplication] setStatusBarStyle:(self.isFullscreen ? UIStatusBarStyleBlackTranslucent : UIStatusBarStyleBlackOpaque) animated:animated];
         
         // 统一校准导航栏坐标：如果全屏且隐藏控件，Y为0；否则Y为20
         CGRect navFrame = self.navigationController.navigationBar.frame;
@@ -286,13 +285,19 @@
 
 // 手动更新界面以适配全屏模式的展开或收起（不发生物理设备旋转时调用）
 - (void)updateFullscreenUIState {
+    BOOL isIOS7 = [[[UIDevice currentDevice] systemVersion] floatValue] >= 7.0;
+    
+    // [修复] 更新全屏状态时，实时将导航栏变为透明悬浮
+    self.navigationController.navigationBar.translucent = (self.isFullscreen || isIOS7) ? YES : NO;
+    
     if ([self respondsToSelector:@selector(setNeedsStatusBarAppearanceUpdate)]) {
         [self setNeedsStatusBarAppearanceUpdate];
     } else {
-        BOOL isIOS7 = [[[UIDevice currentDevice] systemVersion] floatValue] >= 7.0;
         if (!isIOS7) {
             BOOL shouldHideStatusBar = self.isFullscreen ? self.isControlsHidden : NO;
             [[UIApplication sharedApplication] setStatusBarHidden:shouldHideStatusBar withAnimation:UIStatusBarAnimationFade];
+            // [修复] 全屏状态一旦变化，立刻更新状态栏样式为透明悬浮
+            [[UIApplication sharedApplication] setStatusBarStyle:(self.isFullscreen ? UIStatusBarStyleBlackTranslucent : UIStatusBarStyleBlackOpaque) animated:YES];
         }
     }
     
@@ -583,7 +588,8 @@
         BOOL shouldHideStatusBar = isGoingFullscreen ? self.isControlsHidden : NO;
         
         [[UIApplication sharedApplication] setStatusBarHidden:shouldHideStatusBar withAnimation:UIStatusBarAnimationNone];
-        [[UIApplication sharedApplication] setStatusBarStyle:(isLandscape ? UIStatusBarStyleBlackTranslucent : UIStatusBarStyleBlackOpaque) animated:NO];
+        // [修复] 旋转前也确保如果即将变成全屏，则采用透明悬浮样式
+        [[UIApplication sharedApplication] setStatusBarStyle:(isGoingFullscreen ? UIStatusBarStyleBlackTranslucent : UIStatusBarStyleBlackOpaque) animated:NO];
     }
 }
 
@@ -600,7 +606,9 @@
     
     self.navigationController.navigationBar.barStyle = UIBarStyleBlack;
     BOOL isIOS7 = [[[UIDevice currentDevice] systemVersion] floatValue] >= 7.0;
-    self.navigationController.navigationBar.translucent = (isLandscape || isIOS7) ? YES : NO;
+    
+    // [修复] 导航栏的透明度跟随全屏状态（或在 iOS 7 及以上默认透明）
+    self.navigationController.navigationBar.translucent = (self.isFullscreen || isIOS7) ? YES : NO;
     
     if (self.overlayView.isLocked) {
         [self.navigationController setNavigationBarHidden:YES animated:YES];
