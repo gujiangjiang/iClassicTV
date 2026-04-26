@@ -196,10 +196,20 @@
             self.nextProgramLabel.textAlignment = NSTextAlignmentCenter;
             
             CGFloat labelHeight = 50.0;
-            // 将第一个节目单居中放置于上方黑色盲区
-            self.currentProgramLabel.frame = CGRectMake(10, (videoY - labelHeight) / 2.0, size.width - 20, labelHeight);
-            // 将第二个节目单居中放置于下方黑色盲区
-            self.nextProgramLabel.frame = CGRectMake(10, videoY + videoHeight + (videoY - labelHeight) / 2.0, size.width - 20, labelHeight);
+            
+            // [优化] 相对计算真实的视觉居中位置，避开顶部导航栏+状态栏（固定约 64pt）和底部控制栏（固定 50pt）
+            CGFloat topOccupied = 64.0;
+            CGFloat bottomOccupied = 50.0;
+            
+            // 顶部可用黑边区域的中心 Y 坐标：(占位结束处 + 视频开始处) / 2
+            CGFloat topCenterY = topOccupied + (videoY - topOccupied) / 2.0;
+            // 底部可用黑边区域的中心 Y 坐标：(视频结束处 + 底部占位开始处) / 2
+            CGFloat bottomCenterY = (videoY + videoHeight) + (size.height - bottomOccupied - (videoY + videoHeight)) / 2.0;
+            
+            // 将第一个节目单居中放置于上方视觉黑边中心
+            self.currentProgramLabel.frame = CGRectMake(10, topCenterY - labelHeight / 2.0, size.width - 20, labelHeight);
+            // 将第二个节目单居中放置于下方视觉黑边中心
+            self.nextProgramLabel.frame = CGRectMake(10, bottomCenterY - labelHeight / 2.0, size.width - 20, labelHeight);
             
             self.currentProgramLabel.hidden = (self.rawCurrentProgram.length == 0);
             self.nextProgramLabel.hidden = (self.rawNextProgram.length == 0);
