@@ -162,7 +162,8 @@
     self.navigationController.navigationBar.translucent = (self.isFullscreen || isIOS7) ? YES : NO;
     
     if (!isIOS7) {
-        BOOL shouldHideStatusBar = self.isFullscreen ? self.isControlsHidden : NO;
+        BOOL isLocked = self.overlayView.isLocked;
+        BOOL shouldHideStatusBar = self.isFullscreen ? (self.isControlsHidden || isLocked) : NO;
         [[UIApplication sharedApplication] setStatusBarHidden:shouldHideStatusBar withAnimation:UIStatusBarAnimationNone];
         // [修复] 状态栏的样式取决于是否全屏模式（哪怕是竖屏全屏），全屏必定用悬浮透明的，防止推挤画面
         [[UIApplication sharedApplication] setStatusBarStyle:(self.isFullscreen ? UIStatusBarStyleBlackTranslucent : UIStatusBarStyleBlackOpaque) animated:animated];
@@ -287,7 +288,8 @@
     // 统一处理 iOS 6 导航栏坐标
     if (!isIOS7 && !self.navigationController.navigationBarHidden) {
         CGRect navFrame = self.navigationController.navigationBar.frame;
-        BOOL shouldHideStatusBar = self.isFullscreen ? self.isControlsHidden : NO;
+        BOOL isLocked = self.overlayView.isLocked;
+        BOOL shouldHideStatusBar = self.isFullscreen ? (self.isControlsHidden || isLocked) : NO;
         CGFloat expectedY = shouldHideStatusBar ? 0.0 : 20.0;
         if (navFrame.origin.y != expectedY) {
             navFrame.origin.y = expectedY;
@@ -304,6 +306,7 @@
 // 手动更新界面以适配全屏模式的展开或收起（不发生物理设备旋转时调用）
 - (void)updateFullscreenUIState {
     BOOL isIOS7 = [[[UIDevice currentDevice] systemVersion] floatValue] >= 7.0;
+    BOOL isLocked = self.overlayView.isLocked;
     
     // [修复] 更新全屏状态时，实时将导航栏变为透明悬浮
     self.navigationController.navigationBar.translucent = (self.isFullscreen || isIOS7) ? YES : NO;
@@ -312,14 +315,14 @@
         [self setNeedsStatusBarAppearanceUpdate];
     } else {
         if (!isIOS7) {
-            BOOL shouldHideStatusBar = self.isFullscreen ? self.isControlsHidden : NO;
+            BOOL shouldHideStatusBar = self.isFullscreen ? (self.isControlsHidden || isLocked) : NO;
             [[UIApplication sharedApplication] setStatusBarHidden:shouldHideStatusBar withAnimation:UIStatusBarAnimationFade];
             // [修复] 全屏状态一旦变化，立刻更新状态栏样式为透明悬浮
             [[UIApplication sharedApplication] setStatusBarStyle:(self.isFullscreen ? UIStatusBarStyleBlackTranslucent : UIStatusBarStyleBlackOpaque) animated:YES];
         }
     }
     
-    if (self.overlayView.isLocked) {
+    if (isLocked) {
         [self.navigationController setNavigationBarHidden:YES animated:YES];
     } else {
         BOOL shouldHideNav = self.isFullscreen ? self.isControlsHidden : NO;
@@ -333,8 +336,8 @@
         [self.view setNeedsLayout];
         [self.view layoutIfNeeded];
     } completion:^(BOOL finished) {
-        // [优化] 动画彻底结束后，如果当前不需要隐藏控制栏，再通过动画平滑淡入这些文字挂件
-        if (!self.isControlsHidden) {
+        // [优化] 动画彻底结束后，如果当前未被锁屏，再通过动画平滑淡入这些文字挂件
+        if (!self.overlayView.isLocked) {
             [UIView animateWithDuration:0.25 animations:^{
                 [self.overlayView.widgetsView setOverlaysHidden:NO];
             }];
@@ -516,8 +519,10 @@
 - (void)overlayControlsHiddenDidChange:(BOOL)isHidden {
     self.isControlsHidden = isHidden;
     
-    // 无论是竖向全屏还是横向全屏，只要是在全屏模式，控件显隐就决定状态栏的显隐
-    BOOL shouldHideStatusBar = self.isFullscreen ? isHidden : NO;
+    BOOL isLocked = self.overlayView.isLocked;
+    
+    // 无论是竖向全屏还是横向全屏，只要是在全屏模式，控件显隐或锁定状态就决定状态栏的显隐
+    BOOL shouldHideStatusBar = self.isFullscreen ? (isHidden || isLocked) : NO;
     
     if ([self respondsToSelector:@selector(setNeedsStatusBarAppearanceUpdate)]) {
         [self setNeedsStatusBarAppearanceUpdate];
@@ -525,11 +530,21 @@
         [[UIApplication sharedApplication] setStatusBarHidden:shouldHideStatusBar withAnimation:UIStatusBarAnimationFade];
     }
     
-    if (self.overlayView.isLocked) {
+    if (isLocked) {
         [self.navigationController setNavigationBarHidden:YES animated:YES];
+        
+        // [优化] 锁屏状态下，强制隐藏所有的挂件（节目单、时间等）
+        [UIView animateWithDuration:0.25 animations:^{
+            [self.overlayView.widgetsView setOverlaysHidden:YES];
+        }];
     } else {
         BOOL shouldHideNav = self.isFullscreen ? isHidden : NO;
         [self.navigationController setNavigationBarHidden:shouldHideNav animated:YES];
+        
+        // [优化] 非锁屏状态下，恢复挂件常驻显示
+        [UIView animateWithDuration:0.25 animations:^{
+            [self.overlayView.widgetsView setOverlaysHidden:NO];
+        }];
         
         // 手动调整 iOS 6 下导航条出现时的 Y 轴偏移，防止被悬浮的半透明状态栏遮盖
         if (![[[UIDevice currentDevice] systemVersion] floatValue] >= 7.0 && !shouldHideNav) {
@@ -623,7 +638,8 @@
 }
 
 - (BOOL)prefersStatusBarHidden {
-    // 无论竖向全屏还是横向全屏，只要在全屏模式，就根据控件显隐来控制状态栏
+    // [修复] 锁屏状态下彻底强制隐藏状态栏
+    if (self.isFullscreen && self.overlayView.isLocked) return YES;
     return self.isFullscreen ? self.isControlsHidden : NO;
 }
 
@@ -638,9 +654,10 @@
     if (!isIOS7) {
         BOOL isLandscape = UIInterfaceOrientationIsLandscape(toInterfaceOrientation);
         
-        // [修复] 旋转即将发生时，即将变成全屏的条件：要么转到横屏必然全屏，要么当前已经处于“手动全屏”且即将转到竖屏
+        // 旋转即将发生时，即将变成全屏的条件：要么转到横屏必然全屏，要么当前已经处于“手动全屏”且即将转到竖屏
         BOOL isGoingFullscreen = isLandscape || self.isManualFullscreen;
-        BOOL shouldHideStatusBar = isGoingFullscreen ? self.isControlsHidden : NO;
+        BOOL isLocked = self.overlayView.isLocked;
+        BOOL shouldHideStatusBar = isGoingFullscreen ? (self.isControlsHidden || isLocked) : NO;
         
         [[UIApplication sharedApplication] setStatusBarHidden:shouldHideStatusBar withAnimation:UIStatusBarAnimationNone];
         // 旋转前确保如果即将变成全屏，则采用透明悬浮样式
@@ -653,7 +670,7 @@
     
     BOOL isLandscape = UIInterfaceOrientationIsLandscape(toInterfaceOrientation);
     
-    // [修复] 用户物理旋转了设备核心逻辑：
+    // 用户物理旋转了设备核心逻辑：
     // 如果转到横屏，必定是全屏。
     // 如果转到竖屏，只有在用户开启了“手动全屏”记忆的状态下才保持全屏，否则自动退出全屏。
     if (isLandscape) {
@@ -679,14 +696,14 @@
         [self.navigationController setNavigationBarHidden:shouldHide animated:YES];
     }
     
-    // [优化] 动画开始前先将全屏挂件彻底透明隐藏，避免过渡形变期间文字提前突兀出现导致错位
+    // 动画开始前先将全屏挂件彻底透明隐藏，避免过渡形变期间文字提前突兀出现导致错位
     [self.overlayView.widgetsView setOverlaysHidden:YES];
     
     [UIView animateWithDuration:duration delay:0.0 options:UIViewAnimationOptionCurveEaseInOut animations:^{
         [self.view layoutIfNeeded];
     } completion:^(BOOL finished) {
-        // [优化] 动画彻底结束后，如果当前不需要隐藏控制栏，再通过动画平滑淡入这些文字挂件
-        if (!self.isControlsHidden) {
+        // [优化] 动画彻底结束后，如果当前未被锁屏，再通过动画平滑淡入这些文字挂件
+        if (!self.overlayView.isLocked) {
             [UIView animateWithDuration:0.25 animations:^{
                 [self.overlayView.widgetsView setOverlaysHidden:NO];
             }];
