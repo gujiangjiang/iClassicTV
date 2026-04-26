@@ -37,6 +37,7 @@
 		48317BB22F9A78E9002489FE /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 48317B9F2F9A78E9002489FE /* Images.xcassets */; };
 		4843BC212F9BDFE3007A0595 /* en-US.json in Resources */ = {isa = PBXBuildFile; fileRef = 4843BC1F2F9BDFE3007A0595 /* en-US.json */; };
 		4843BC222F9BDFE3007A0595 /* zh-CN.json in Resources */ = {isa = PBXBuildFile; fileRef = 4843BC202F9BDFE3007A0595 /* zh-CN.json */; };
+		488143362F9E6D750098F995 /* EPGManager+Sources.m in Sources */ = {isa = PBXBuildFile; fileRef = 488143352F9E6D750098F995 /* EPGManager+Sources.m */; };
 		4887FE5F2F9CF96C00EA87E2 /* EPGProgramCell.m in Sources */ = {isa = PBXBuildFile; fileRef = 4887FE5E2F9CF96C00EA87E2 /* EPGProgramCell.m */; };
 		4887FE622F9CF98C00EA87E2 /* PlayerEPGEmptyView.m in Sources */ = {isa = PBXBuildFile; fileRef = 4887FE612F9CF98C00EA87E2 /* PlayerEPGEmptyView.m */; };
 		4887FE652F9CF9A900EA87E2 /* PlayerEPGDateBar.m in Sources */ = {isa = PBXBuildFile; fileRef = 4887FE642F9CF9A900EA87E2 /* PlayerEPGDateBar.m */; };
@@ -49,6 +50,9 @@
 		48B849592F9E635700DF4667 /* TVPlaybackViewController+UI.m in Sources */ = {isa = PBXBuildFile; fileRef = 48B849582F9E635700DF4667 /* TVPlaybackViewController+UI.m */; };
 		48B8495C2F9E637400DF4667 /* TVPlaybackViewController+Player.m in Sources */ = {isa = PBXBuildFile; fileRef = 48B8495B2F9E637400DF4667 /* TVPlaybackViewController+Player.m */; };
 		48B8495F2F9E639000DF4667 /* TVPlaybackViewController+EPG.m in Sources */ = {isa = PBXBuildFile; fileRef = 48B8495E2F9E639000DF4667 /* TVPlaybackViewController+EPG.m */; };
+		48B8E5842F9E6DA500668461 /* EPGManager+Cache.m in Sources */ = {isa = PBXBuildFile; fileRef = 48B8E5832F9E6DA500668461 /* EPGManager+Cache.m */; };
+		48B8E5872F9E6DBE00668461 /* EPGManager+Update.m in Sources */ = {isa = PBXBuildFile; fileRef = 48B8E5862F9E6DBE00668461 /* EPGManager+Update.m */; };
+		48B8E58A2F9E6DD700668461 /* EPGManager+Query.m in Sources */ = {isa = PBXBuildFile; fileRef = 48B8E5892F9E6DD700668461 /* EPGManager+Query.m */; };
 		48C2CB602F9BB73000A9379F /* UserAgentManager.m in Sources */ = {isa = PBXBuildFile; fileRef = 48C2CB5F2F9BB73000A9379F /* UserAgentManager.m */; };
 		48C2CB632F9BB76900A9379F /* UAManagerViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 48C2CB622F9BB76900A9379F /* UAManagerViewController.m */; };
 		48C2CB662F9BB9E200A9379F /* NetworkManager.m in Sources */ = {isa = PBXBuildFile; fileRef = 48C2CB652F9BB9E200A9379F /* NetworkManager.m */; };
@@ -134,6 +138,9 @@
 		48317B9F2F9A78E9002489FE /* Images.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Images.xcassets; sourceTree = "<group>"; };
 		4843BC1F2F9BDFE3007A0595 /* en-US.json */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.json; name = "en-US.json"; path = "i18n/en-US.json"; sourceTree = "<group>"; };
 		4843BC202F9BDFE3007A0595 /* zh-CN.json */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.json; name = "zh-CN.json"; path = "i18n/zh-CN.json"; sourceTree = "<group>"; };
+		488143332F9E6D560098F995 /* EPGManager+Internal.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "EPGManager+Internal.h"; sourceTree = "<group>"; };
+		488143342F9E6D750098F995 /* EPGManager+Sources.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "EPGManager+Sources.h"; sourceTree = "<group>"; };
+		488143352F9E6D750098F995 /* EPGManager+Sources.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = "EPGManager+Sources.m"; sourceTree = "<group>"; };
 		488228802F9E631000CA5ECA /* TVPlaybackViewController+Internal.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "TVPlaybackViewController+Internal.h"; sourceTree = "<group>"; };
 		4887FE5D2F9CF96C00EA87E2 /* EPGProgramCell.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = EPGProgramCell.h; sourceTree = "<group>"; };
 		4887FE5E2F9CF96C00EA87E2 /* EPGProgramCell.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = EPGProgramCell.m; sourceTree = "<group>"; };
@@ -158,6 +165,12 @@
 		48B8495B2F9E637400DF4667 /* TVPlaybackViewController+Player.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = "TVPlaybackViewController+Player.m"; sourceTree = "<group>"; };
 		48B8495D2F9E639000DF4667 /* TVPlaybackViewController+EPG.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "TVPlaybackViewController+EPG.h"; sourceTree = "<group>"; };
 		48B8495E2F9E639000DF4667 /* TVPlaybackViewController+EPG.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = "TVPlaybackViewController+EPG.m"; sourceTree = "<group>"; };
+		48B8E5822F9E6DA500668461 /* EPGManager+Cache.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "EPGManager+Cache.h"; sourceTree = "<group>"; };
+		48B8E5832F9E6DA500668461 /* EPGManager+Cache.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = "EPGManager+Cache.m"; sourceTree = "<group>"; };
+		48B8E5852F9E6DBE00668461 /* EPGManager+Update.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "EPGManager+Update.h"; sourceTree = "<group>"; };
+		48B8E5862F9E6DBE00668461 /* EPGManager+Update.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = "EPGManager+Update.m"; sourceTree = "<group>"; };
+		48B8E5882F9E6DD700668461 /* EPGManager+Query.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "EPGManager+Query.h"; sourceTree = "<group>"; };
+		48B8E5892F9E6DD700668461 /* EPGManager+Query.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = "EPGManager+Query.m"; sourceTree = "<group>"; };
 		48C2CB5E2F9BB73000A9379F /* UserAgentManager.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = UserAgentManager.h; path = ../Features/Settings/UserAgentManager.h; sourceTree = "<group>"; };
 		48C2CB5F2F9BB73000A9379F /* UserAgentManager.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = UserAgentManager.m; path = ../Features/Settings/UserAgentManager.m; sourceTree = "<group>"; };
 		48C2CB612F9BB76900A9379F /* UAManagerViewController.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = UAManagerViewController.h; sourceTree = "<group>"; };
@@ -211,6 +224,15 @@
 			children = (
 				4816D5432F9C813800D0A5AE /* EPGManager.h */,
 				4816D5442F9C813800D0A5AE /* EPGManager.m */,
+				488143332F9E6D560098F995 /* EPGManager+Internal.h */,
+				488143342F9E6D750098F995 /* EPGManager+Sources.h */,
+				488143352F9E6D750098F995 /* EPGManager+Sources.m */,
+				48B8E5822F9E6DA500668461 /* EPGManager+Cache.h */,
+				48B8E5832F9E6DA500668461 /* EPGManager+Cache.m */,
+				48B8E5852F9E6DBE00668461 /* EPGManager+Update.h */,
+				48B8E5862F9E6DBE00668461 /* EPGManager+Update.m */,
+				48B8E5882F9E6DD700668461 /* EPGManager+Query.h */,
+				48B8E5892F9E6DD700668461 /* EPGManager+Query.m */,
 				4816D5452F9C813800D0A5AE /* EPGParser.h */,
 				4816D5462F9C813800D0A5AE /* EPGParser.m */,
 				4816D5472F9C813800D0A5AE /* EPGProgram.h */,
@@ -557,6 +579,7 @@
 				489537562F9CBB69005D3CA3 /* TVPlaybackOverlayView.m in Sources */,
 				48FBEB1E2F9BD2D200DD08EE /* AlertHelper.m in Sources */,
 				481612762F9B900D00067C15 /* NSString+EncodingHelper.m in Sources */,
+				48B8E58A2F9E6DD700668461 /* EPGManager+Query.m in Sources */,
 				48317BAA2F9A78E9002489FE /* Channel.m in Sources */,
 				48317BA22F9A78E9002489FE /* M3UParser.m in Sources */,
 				48FBEB262F9BD59800DD08EE /* LanguageManager.m in Sources */,
@@ -577,12 +600,15 @@
 				4887FE5F2F9CF96C00EA87E2 /* EPGProgramCell.m in Sources */,
 				48317BA92F9A78E9002489FE /* TextImportModalViewController.m in Sources */,
 				48204B842F9E6A7C00966094 /* PlayerEPGView+Data.m in Sources */,
+				488143362F9E6D750098F995 /* EPGManager+Sources.m in Sources */,
 				482FAB212F9A857900B4F9D8 /* UIImage+DynamicIcon.m in Sources */,
 				48317BA82F9A78E9002489FE /* SourceManagerViewController.m in Sources */,
 				48317BAF2F9A78E9002489FE /* UIImage+LogoHelper.m in Sources */,
 				48317BAC2F9A78E9002489FE /* PlayerConfigManager.m in Sources */,
 				48317BA02F9A78E9002489FE /* AppDelegate.m in Sources */,
 				48204B872F9E6A9900966094 /* PlayerEPGView+Scroll.m in Sources */,
+				48B8E5842F9E6DA500668461 /* EPGManager+Cache.m in Sources */,
+				48B8E5872F9E6DBE00668461 /* EPGManager+Update.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

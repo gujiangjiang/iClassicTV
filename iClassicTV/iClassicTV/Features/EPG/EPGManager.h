@@ -46,39 +46,10 @@
 // 全部 EPG 源列表 (包含 name, url, type, isActive, linkedM3UId)
 @property (nonatomic, readonly, strong) NSArray *epgSources;
 
-// EPG 源管理方法 (支持普通源添加)
-- (void)addEPGSourceWithName:(NSString *)name url:(NSString *)url type:(NSString *)type;
-
-// 新增：添加带 M3U 绑定关系的专用内置 EPG 源
-- (void)addEPGSourceWithName:(NSString *)name url:(NSString *)url type:(NSString *)type linkedM3UId:(NSString *)linkedM3UId;
-
-// 删除/修改普通源
-- (void)removeEPGSourceAtIndex:(NSInteger)index;
-- (void)renameEPGSourceAtIndex:(NSInteger)index withName:(NSString *)name url:(NSString *)url type:(NSString *)type;
-- (void)setActiveEPGSourceAtIndex:(NSInteger)index;
-
-// 新增：自动管理绑定 M3U 的源 (由 AppDataManager 调用)
-- (void)removeEPGSourceByLinkedM3UId:(NSString *)m3uId;
-- (void)updateLinkedEPGSourceName:(NSString *)name forM3UId:(NSString *)m3uId;
-- (void)removeAllLinkedEPGSources;
-
-// --- XML 静态 EPG 管理 ---
-// 异步下载并解析 EPG 数据 (内部已支持多 URL 回退互补合并)
-- (void)fetchAndParseEPGDataWithCompletion:(void(^)(BOOL success, NSString *errorMsg))completion;
-
-// 后台静默检查并自动更新
-- (void)checkAndAutoUpdateEPG;
-
-// 清理本地 EPG 缓存
-- (void)clearEPGCache;
-
-// 获取某个频道的全部节目单（内部自带模糊匹配处理）
-- (NSArray *)programsForChannelName:(NSString *)channelName;
-
-// 获取某个频道正在播放的当前节目
-- (EPGProgram *)currentProgramForChannelName:(NSString *)channelName;
-
-// --- DIYP / EPGInfo 动态 EPG 管理 ---
-- (void)fetchDynamicProgramsForChannelName:(NSString *)channelName date:(NSDate *)date completion:(void(^)(NSArray *programs))completion;
-
 @end
+
+// 引入全部分类功能模块，保证外部引用 EPGManager.h 时可直接访问所有接口
+#import "EPGManager+Sources.h"
+#import "EPGManager+Cache.h"
+#import "EPGManager+Update.h"
+#import "EPGManager+Query.h"
