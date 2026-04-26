@@ -485,17 +485,23 @@
         self.isFullscreen = YES;
         self.isManualFullscreen = YES;
         
-        UIInterfaceOrientation target = [PlayerConfigManager preferredInterfaceOrientation];
+        // [优化] 直接读取设置中的枚举值，彻底修复“跟随系统”失效总是横屏的 Bug
+        NSInteger pref = [PlayerConfigManager preferredInterfaceOrientationPref];
         
-        if (UIInterfaceOrientationIsLandscape(target)) {
-            // 设置项要求横屏：如果在竖屏则强制旋转，如果在横屏则直接刷新界面
+        if (pref == 1) { // 设置项要求强制横屏
             if (!UIInterfaceOrientationIsLandscape([UIApplication sharedApplication].statusBarOrientation)) {
-                [self forceRotateToOrientation:target];
+                [self forceRotateToOrientation:UIInterfaceOrientationLandscapeRight];
             } else {
                 [self updateFullscreenUIState];
             }
-        } else {
-            // 设置项要求竖屏，或者跟随系统：直接在当前方向上进入全屏界面模式（不强制旋转设备）
+        } else if (pref == 2) { // 设置项要求强制竖屏
+            if (UIInterfaceOrientationIsLandscape([UIApplication sharedApplication].statusBarOrientation)) {
+                [self forceRotateToOrientation:UIInterfaceOrientationPortrait];
+            } else {
+                [self updateFullscreenUIState];
+            }
+        } else { // 设置项要求跟随系统 (0)
+            // 直接在当前方向上进入全屏界面模式（不强制旋转设备）
             [self updateFullscreenUIState];
         }
     }
