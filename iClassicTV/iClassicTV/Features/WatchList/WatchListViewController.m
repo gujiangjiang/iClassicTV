@@ -8,6 +8,8 @@
 
 #import "WatchListViewController.h"
 #import "LanguageManager.h"
+#import "PlayerConfigManager.h"
+#import "EPGManager.h"
 
 @interface WatchListViewController () <UITableViewDelegate, UITableViewDataSource>
 
@@ -18,6 +20,9 @@
 @property (nonatomic, strong) NSMutableArray *favoritesList;
 @property (nonatomic, strong) NSMutableArray *recentList;
 @property (nonatomic, strong) NSMutableArray *reminderList;
+
+// 记录当前活跃的Tab映射关系
+@property (nonatomic, strong) NSArray *activeTabs;
 
 @end
 
@@ -38,17 +43,18 @@
     // 3. 配置主体列表
     [self setupTableView];
     
-    // 监听全局语言切换通知，实时更新 UI
+    // 监听全局语言切换和功能可见性变更的通知
     [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(languageDidChange) name:@"LanguageDidChangeNotification" object:nil];
+    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(updateTabsAndVisibility) name:@"WatchListVisibilityDidChangeNotification" object:nil];
+    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(updateTabsAndVisibility) name:NSUserDefaultsDidChangeNotification object:nil];
+    
+    // 初始化配置
+    [self updateTabsAndVisibility];
 }
 
 - (void)setupSegmentedControl {
-    NSArray *items = @[LocalizedString(@"watchlist.favorites"),
-                       LocalizedString(@"watchlist.recent_play"),
-                       LocalizedString(@"watchlist.appointments")];
-    self.segmentedControl = [[UISegmentedControl alloc] initWithItems:items];
+    self.segmentedControl = [[UISegmentedControl alloc] init];
     self.segmentedControl.segmentedControlStyle = UISegmentedControlStyleBar;
-    self.segmentedControl.selectedSegmentIndex = 0; // 默认选中“收藏”
     
     // 设置文字属性，使其在 iOS 6 上显示更加紧凑和美观
     NSDictionary *attributes = @{UITextAttributeFont: [UIFont boldSystemFontOfSize:12.0f]};
@@ -58,6 +64,51 @@
     
     // 将分段选择器作为 NavigationBar 的 TitleView
     self.navigationItem.titleView = self.segmentedControl;
+}
+
+- (void)updateTabsAndVisibility {
+    NSMutableArray *items = [NSMutableArray array];
+    NSMutableArray *tabs = [NSMutableArray array];
+    
+    // 根据设置动态生成存在的Tab项，数字代表数据源类型（0:收藏，1:最近播放，2:预约）
+    if ([PlayerConfigManager enableFavoritesTab]) {
+        [items addObject:LocalizedString(@"watchlist.favorites")];
+        [tabs addObject:@(0)];
+    }
+    
+    if ([PlayerConfigManager enableRecentPlayTab]) {
+        [items addObject:LocalizedString(@"watchlist.recent_play")];
+        [tabs addObject:@(1)];
+    }
+    
+    // 仅在 EPG 数据不为空的情况下才显示预约板块
+    if ([EPGManager sharedManager].epgSources.count > 0) {
+        [items addObject:LocalizedString(@"watchlist.appointments")];
+        [tabs addObject:@(2)];
+    }
+    
+    self.activeTabs = tabs;
+    
+    // 重绘 SegmentedControl
+    [self.segmentedControl removeAllSegments];
+    for (NSUInteger i = 0; i < items.count; i++) {
+        [self.segmentedControl insertSegmentWithTitle:items[i] atIndex:i animated:NO];
+    }
+    
+    // 关键修复：在 iOS 6 中，titleView 的宽度通常不会自动随子视图内容变化而调整
+    // 通过 sizeToFit 重新计算尺寸，并显式重新设置 titleView 以触发导航栏布局
+    [self.segmentedControl sizeToFit];
+    self.navigationItem.titleView = nil;
+    self.navigationItem.titleView = self.segmentedControl;
+    
+    // 防错处理和选中逻辑回正
+    if (self.activeTabs.count > 0) {
+        if (self.segmentedControl.selectedSegmentIndex == UISegmentedControlNoSegment || self.segmentedControl.selectedSegmentIndex >= self.activeTabs.count) {
+            self.segmentedControl.selectedSegmentIndex = 0;
+        }
+    }
+    
+    [self.tableView reloadData];
 }
 
 - (void)setupTableView {
@@ -79,17 +130,17 @@
 }
 
 - (void)languageDidChange {
-    // 同步刷新分段选择器的多语言文字
-    [self.segmentedControl setTitle:LocalizedString(@"watchlist.favorites") forSegmentAtIndex:0];
-    [self.segmentedControl setTitle:LocalizedString(@"watchlist.recent_play") forSegmentAtIndex:1];
-    [self.segmentedControl setTitle:LocalizedString(@"watchlist.appointments") forSegmentAtIndex:2];
-    [self.tableView reloadData];
+    // 同步刷新
+    [self updateTabsAndVisibility];
 }
 
 #pragma mark - UITableViewDataSource & Delegate
 
 - (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section {
-    switch (self.segmentedControl.selectedSegmentIndex) {
+    if (self.activeTabs.count == 0) return 0;
+    
+    NSInteger currentTab = [self.activeTabs[self.segmentedControl.selectedSegmentIndex] integerValue];
+    switch (currentTab) {
         case 0: return self.favoritesList.count;
         case 1: return self.recentList.count;
         case 2: return self.reminderList.count;

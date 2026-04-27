@@ -48,4 +48,14 @@
 // 设置全屏状态下是否显示实时网速
 + (void)setShowNetworkSpeedInFullscreen:(BOOL)show;
 
+// [新增] 获取是否启用收藏功能 (默认 YES)
++ (BOOL)enableFavoritesTab;
+// [新增] 设置是否启用收藏功能
++ (void)setEnableFavoritesTab:(BOOL)enable;
+
+// [新增] 获取是否启用最近播放功能 (默认 YES)
++ (BOOL)enableRecentPlayTab;
+// [新增] 设置是否启用最近播放功能
++ (void)setEnableRecentPlayTab:(BOOL)enable;
+
 @end

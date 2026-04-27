@@ -16,6 +16,12 @@
 #import "NSString+EncodingHelper.h"
 #import "UIViewController+ScrollToTop.h"
 #import "LanguageManager.h"
+#import "PlayerConfigManager.h"
+#import "EPGManager.h"
+
+@interface AppDelegate () <UITabBarControllerDelegate>
+@property (nonatomic, strong) UINavigationController *navWatchList; // 保留实例以备动态添加
+@end
 
 @implementation AppDelegate
 
@@ -31,19 +37,18 @@
     UINavigationController *nav1 = [[UINavigationController alloc] initWithRootViewController:groupVC];
     nav1.tabBarItem = [[UITabBarItem alloc] initWithTitle:LocalizedString(@"channel_list") image:[UIImage dynamicPlayTabBarIcon] tag:0];
     
-    // 新增：注入建立的“我的电视”功能 Tab，并插入到中间
     WatchListViewController *watchListVC = [[WatchListViewController alloc] init];
     UINavigationController *nav2 = [[UINavigationController alloc] initWithRootViewController:watchListVC];
-    // 优化：应用新绘制的“我的电视”图标
     nav2.tabBarItem = [[UITabBarItem alloc] initWithTitle:LocalizedString(@"watchlist.my_tv") image:[UIImage dynamicWatchListTabBarIcon] tag:1];
+    self.navWatchList = nav2;
     
     SettingsViewController *settingsVC = [[SettingsViewController alloc] init];
     UINavigationController *nav3 = [[UINavigationController alloc] initWithRootViewController:settingsVC];
     nav3.tabBarItem = [[UITabBarItem alloc] initWithTitle:LocalizedString(@"settings") image:[UIImage dynamicSettingsTabBarIcon] tag:2];
     
     self.tabBarController = [[UITabBarController alloc] init];
-    // 注册三个控制器到导航栏
-    self.tabBarController.viewControllers = @[nav1, nav2, nav3];
+    // 初始化时先注册必须展现的两个控制器
+    self.tabBarController.viewControllers = @[nav1, nav3];
     self.tabBarController.delegate = self;
     
     self.window.rootViewController = self.tabBarController;
@@ -51,21 +56,57 @@
     [self.window makeKeyAndVisible];
     
     [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(languageDidChange) name:@"LanguageDidChangeNotification" object:nil];
+    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(updateWatchListTabVisibility) name:@"WatchListVisibilityDidChangeNotification" object:nil];
+    // 监听全局保存操作以感知可能发生的 EPG 数据或配置变动
+    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(updateWatchListTabVisibility) name:NSUserDefaultsDidChangeNotification object:nil];
+    
+    // 触发判断是否展现“我的电视”Tab
+    [self updateWatchListTabVisibility];
     
     return YES;
 }
 
-- (void)languageDidChange {
-    if (self.tabBarController.viewControllers.count >= 3) {
-        UIViewController *nav1 = self.tabBarController.viewControllers[0];
-        nav1.tabBarItem.title = LocalizedString(@"channel_list");
-        
-        UIViewController *nav2 = self.tabBarController.viewControllers[1];
-        nav2.tabBarItem.title = LocalizedString(@"watchlist.my_tv");
-        
-        UIViewController *nav3 = self.tabBarController.viewControllers[2];
-        nav3.tabBarItem.title = LocalizedString(@"settings");
+- (void)updateWatchListTabVisibility {
+    BOOL showFavorites = [PlayerConfigManager enableFavoritesTab];
+    BOOL showRecent = [PlayerConfigManager enableRecentPlayTab];
+    BOOL showReminder = ([EPGManager sharedManager].epgSources.count > 0);
+    
+    // 三个条件满足一个就显示主 Tab
+    BOOL shouldShowWatchList = showFavorites || showRecent || showReminder;
+    
+    NSMutableArray *vcs = [self.tabBarController.viewControllers mutableCopy];
+    if (!vcs) return;
+    
+    BOOL isCurrentlyShowing = [vcs containsObject:self.navWatchList];
+    
+    if (shouldShowWatchList && !isCurrentlyShowing) {
+        if (vcs.count >= 1) {
+            [vcs insertObject:self.navWatchList atIndex:1];
+        } else {
+            [vcs addObject:self.navWatchList];
+        }
+        self.tabBarController.viewControllers = vcs;
+    } else if (!shouldShowWatchList && isCurrentlyShowing) {
+        [vcs removeObject:self.navWatchList];
+        self.tabBarController.viewControllers = vcs;
     }
+}
+
+- (void)languageDidChange {
+    // 动态遍历查找对应的 ViewController 进行多语言更新，防止因隐藏了Tab导致获取崩溃越界
+    for (UIViewController *vc in self.tabBarController.viewControllers) {
+        if ([vc isKindOfClass:[UINavigationController class]]) {
+            UINavigationController *nav = (UINavigationController *)vc;
+            if ([nav.topViewController isKindOfClass:[GroupListViewController class]]) {
+                nav.tabBarItem.title = LocalizedString(@"channel_list");
+            } else if ([nav.topViewController isKindOfClass:[SettingsViewController class]]) {
+                nav.tabBarItem.title = LocalizedString(@"settings");
+            }
+        }
+    }
+    
+    // 直接更新已持有的实例引用
+    self.navWatchList.tabBarItem.title = LocalizedString(@"watchlist.my_tv");
 }
 
 #pragma mark - UITabBarControllerDelegate
@@ -101,7 +142,6 @@
                 
                 return YES;
             } else {
-                // 优化：使用了合并后的 file_read_error 错误提示键
                 UIAlertView *alert = [[UIAlertView alloc] initWithTitle:LocalizedString(@"import_failed") message:LocalizedString(@"file_read_error") delegate:nil cancelButtonTitle:LocalizedString(@"confirm") otherButtonTitles:nil];
                 [alert show];
             }

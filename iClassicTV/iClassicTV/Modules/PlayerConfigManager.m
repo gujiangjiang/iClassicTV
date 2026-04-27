@@ -101,4 +101,30 @@
     [[NSUserDefaults standardUserDefaults] synchronize];
 }
 
++ (BOOL)enableFavoritesTab {
+    NSUserDefaults *defs = [NSUserDefaults standardUserDefaults];
+    if ([defs objectForKey:@"EnableFavoritesTabPref"] == nil) {
+        return YES; // 默认开启
+    }
+    return [defs boolForKey:@"EnableFavoritesTabPref"];
+}
+
++ (void)setEnableFavoritesTab:(BOOL)enable {
+    [[NSUserDefaults standardUserDefaults] setBool:enable forKey:@"EnableFavoritesTabPref"];
+    [[NSUserDefaults standardUserDefaults] synchronize];
+}
+
++ (BOOL)enableRecentPlayTab {
+    NSUserDefaults *defs = [NSUserDefaults standardUserDefaults];
+    if ([defs objectForKey:@"EnableRecentPlayTabPref"] == nil) {
+        return YES; // 默认开启
+    }
+    return [defs boolForKey:@"EnableRecentPlayTabPref"];
+}
+
++ (void)setEnableRecentPlayTab:(BOOL)enable {
+    [[NSUserDefaults standardUserDefaults] setBool:enable forKey:@"EnableRecentPlayTabPref"];
+    [[NSUserDefaults standardUserDefaults] synchronize];
+}
+
 @end
