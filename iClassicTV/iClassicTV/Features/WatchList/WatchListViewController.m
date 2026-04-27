@@ -105,6 +105,9 @@
         return;
     }
     
+    // [修复] 记录刷新前的当前选中分类，防止因为 NSUserDefaults 变更触发 UI 刷新时丢失当前 tab 状态
+    NSInteger currentTabType = [self currentSelectedTabType];
+    
     NSMutableArray *items = [NSMutableArray array];
     NSMutableArray *tabs = [NSMutableArray array];
     
@@ -144,8 +147,11 @@
         // 显式恢复底部 Tab 的标题，防止丢失
         self.navigationController.tabBarItem.title = LocalizedString(@"watchlist.my_tv");
         
-        // 选中逻辑回正
-        if (self.segmentedControl.selectedSegmentIndex == UISegmentedControlNoSegment || self.segmentedControl.selectedSegmentIndex >= self.activeTabs.count) {
+        // [修复] 恢复之前的选中状态，而不是生硬地归零
+        NSUInteger targetIndex = [self.activeTabs indexOfObject:@(currentTabType)];
+        if (targetIndex != NSNotFound) {
+            self.segmentedControl.selectedSegmentIndex = targetIndex;
+        } else {
             self.segmentedControl.selectedSegmentIndex = 0;
         }
     } else {
