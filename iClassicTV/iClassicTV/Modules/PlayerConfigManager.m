@@ -75,4 +75,18 @@
     [[NSUserDefaults standardUserDefaults] synchronize];
 }
 
+// [新增] 存储全屏是否显示实时网速的偏好
++ (BOOL)showNetworkSpeedInFullscreen {
+    NSUserDefaults *defs = [NSUserDefaults standardUserDefaults];
+    if ([defs objectForKey:@"ShowNetworkSpeedInFullscreenPref"] == nil) {
+        return NO; // 默认关闭，减少画面遮挡
+    }
+    return [defs boolForKey:@"ShowNetworkSpeedInFullscreenPref"];
+}
+
++ (void)setShowNetworkSpeedInFullscreen:(BOOL)show {
+    [[NSUserDefaults standardUserDefaults] setBool:show forKey:@"ShowNetworkSpeedInFullscreenPref"];
+    [[NSUserDefaults standardUserDefaults] synchronize];
+}
+
 @end

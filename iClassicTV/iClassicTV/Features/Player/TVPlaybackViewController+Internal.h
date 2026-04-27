@@ -39,4 +39,6 @@
 @property (nonatomic, assign) UIStatusBarStyle originalStatusBarStyle;
 @property (nonatomic, assign) BOOL hasSavedOriginalNavState;
 
+@property (nonatomic, assign) long long lastNetworkBytes; // [新增] 用于存储上一次获取到的网络总流量以计算当前网速
+
 @end

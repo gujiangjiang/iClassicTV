@@ -13,6 +13,11 @@
 #import "LanguageManager.h"
 #import "PlayerConfigManager.h"
 
+// [新增] 引入网络流量计算所需底层 C 语言库
+#include <ifaddrs.h>
+#include <net/if.h>
+#include <sys/socket.h>
+
 @implementation TVPlaybackViewController (Player)
 
 - (void)remoteControlReceivedWithEvent:(UIEvent *)event {
@@ -72,6 +77,26 @@
     self.timer = [NSTimer scheduledTimerWithTimeInterval:1.0 target:self selector:@selector(updateProgress) userInfo:nil repeats:YES];
 }
 
+// [新增] 获取系统所有网卡当前的总下行字节数
+- (long long)getInterfaceBytes {
+    struct ifaddrs *ifa_list = 0, *ifa;
+    if (getifaddrs(&ifa_list) == -1) return 0;
+    long long ibytes = 0;
+    for (ifa = ifa_list; ifa; ifa = ifa->ifa_next) {
+        if (AF_LINK != ifa->ifa_addr->sa_family) continue;
+        if (!(ifa->ifa_flags & IFF_UP) && !(ifa->ifa_flags & IFF_RUNNING)) continue;
+        if (ifa->ifa_data == 0) continue;
+        
+        // 排除本地回环网卡(lo0)产生的数据，确保仅计算外网流量
+        if (strncmp(ifa->ifa_name, "lo", 2) == 0) continue;
+        
+        struct if_data *if_data = (struct if_data *)ifa->ifa_data;
+        ibytes += if_data->ifi_ibytes;
+    }
+    freeifaddrs(ifa_list);
+    return ibytes;
+}
+
 - (void)updateProgress {
     if (self.player.duration > 0 && !isnan(self.player.duration)) {
         [self.overlayView.bottomBar updateProgressWithValue:(self.player.currentPlaybackTime / self.player.duration)];
@@ -79,6 +104,29 @@
     [self.epgView updateTimeTick];
     [self updateFullscreenEPGOverlay];
     [self.overlayView.widgetsView updateSystemTime];
+    
+    // [新增] 动态网速计算逻辑（仅当配置开启且处于全屏时计算并更新 UI）
+    if ([PlayerConfigManager showNetworkSpeedInFullscreen] && self.isFullscreen) {
+        long long currentBytes = [self getInterfaceBytes];
+        if (self.lastNetworkBytes > 0) {
+            long long diff = currentBytes - self.lastNetworkBytes;
+            if (diff < 0) diff = 0; // 防护：处理网络切换等极端情况导致差值为负
+            
+            NSString *speedStr = @"";
+            if (diff < 1024) {
+                speedStr = [NSString stringWithFormat:@"%lld B/s", diff];
+            } else if (diff < 1024 * 1024) {
+                speedStr = [NSString stringWithFormat:@"%.1f KB/s", (double)diff / 1024.0];
+            } else {
+                speedStr = [NSString stringWithFormat:@"%.2f MB/s", (double)diff / (1024.0 * 1024.0)];
+            }
+            [self.overlayView.widgetsView updateNetworkSpeed:speedStr];
+        }
+        self.lastNetworkBytes = currentBytes;
+    } else {
+        // [新增] 不满足展示条件时清空数据并隐藏 UI
+        [self.overlayView.widgetsView updateNetworkSpeed:nil];
+    }
 }
 
 #pragma mark - TVPlaybackOverlayDelegate

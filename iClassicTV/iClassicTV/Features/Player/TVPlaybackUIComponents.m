@@ -94,6 +94,7 @@
 @property (nonatomic, strong) UILabel *timeLabel;
 @property (nonatomic, strong) NSDateFormatter *timeFormatter;
 @property (nonatomic, strong) UILabel *catchupBadge;
+@property (nonatomic, strong) UILabel *networkSpeedLabel; // [新增] 网速显示标签
 
 // [新增] 用于视频画面整体磨玻璃化处理的背景视图
 @property (nonatomic, strong) UIView *videoBlurView;
@@ -168,6 +169,17 @@
     self.catchupBadge.clipsToBounds = YES;
     self.catchupBadge.hidden = YES;
     [self addSubview:self.catchupBadge];
+    
+    // [新增] 网速标签初始化
+    self.networkSpeedLabel = [[UILabel alloc] initWithFrame:CGRectZero];
+    self.networkSpeedLabel.textColor = [UIColor whiteColor];
+    self.networkSpeedLabel.font = [UIFont systemFontOfSize:12];
+    self.networkSpeedLabel.textAlignment = NSTextAlignmentRight;
+    self.networkSpeedLabel.backgroundColor = [UIColor clearColor];
+    self.networkSpeedLabel.shadowColor = [UIColor colorWithWhite:0.0 alpha:0.5];
+    self.networkSpeedLabel.shadowOffset = CGSizeMake(1, 1);
+    self.networkSpeedLabel.hidden = YES;
+    [self addSubview:self.networkSpeedLabel];
     
     // [优化] 将磨玻璃背景和状态提示语放在最后添加，使其位于视图层级的最顶层，彻底盖住所有挂件和画面
     self.videoBlurView = [[UIView alloc] initWithFrame:self.bounds];
@@ -247,6 +259,9 @@
             self.catchupBadge.frame = CGRectMake(20, videoY + videoHeight - 30, 40, 20);
             self.catchupBadge.hidden = !(self.isCatchupMode && [PlayerConfigManager showCatchupBadgeInFullscreen]);
             
+            // [新增] 网速悬浮在视频画面的右下角，高度对齐回放角标
+            self.networkSpeedLabel.frame = CGRectMake(size.width - 100, videoY + videoHeight - 30, 80, 20);
+            
         } else {
             // 横向全屏模式
             CGFloat overlayWidth = MIN(340, size.width - 140);
@@ -272,6 +287,9 @@
             
             self.catchupBadge.frame = CGRectMake(20, size.height - 85, 40, 20);
             self.catchupBadge.hidden = !(self.isCatchupMode && [PlayerConfigManager showCatchupBadgeInFullscreen]);
+            
+            // [新增] 网速悬浮在横屏画面的右下角（控制栏上方）
+            self.networkSpeedLabel.frame = CGRectMake(size.width - 100, size.height - 85, 80, 20);
         }
         
         [self updateLabelsTextForCurrentLayout];
@@ -283,6 +301,7 @@
         self.nextProgramLabel.hidden = YES;
         self.timeLabel.hidden = YES;
         self.catchupBadge.hidden = YES;
+        self.networkSpeedLabel.hidden = YES; // [新增]
     }
 }
 
@@ -324,6 +343,16 @@
     self.timeLabel.text = [self.timeFormatter stringFromDate:[NSDate date]];
 }
 
+// [新增] 动态更新网速数值展示
+- (void)updateNetworkSpeed:(NSString *)speedStr {
+    if (speedStr.length > 0 && [PlayerConfigManager showNetworkSpeedInFullscreen]) {
+        self.networkSpeedLabel.text = speedStr;
+        self.networkSpeedLabel.hidden = NO;
+    } else {
+        self.networkSpeedLabel.hidden = YES;
+    }
+}
+
 - (void)showStatusMessage:(NSString *)message {
     self.statusLabel.text = message;
     // [优化] 为提示语添加淡入动画，并显示磨玻璃背景
@@ -356,6 +385,7 @@
     self.nextProgramLabel.alpha = hidden ? 0.0 : 1.0;
     self.timeLabel.alpha = hidden ? 0.0 : 1.0;
     self.catchupBadge.alpha = hidden ? 0.0 : 1.0;
+    self.networkSpeedLabel.alpha = hidden ? 0.0 : 1.0; // [新增]
 }
 
 @end

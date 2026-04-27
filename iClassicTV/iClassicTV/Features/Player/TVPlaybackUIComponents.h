@@ -43,6 +43,9 @@
 // 刷新系统时间
 - (void)updateSystemTime;
 
+// [新增] 刷新实时网速
+- (void)updateNetworkSpeed:(NSString *)speedStr;
+
 // 屏幕中央状态提示
 - (void)showStatusMessage:(NSString *)message;
 - (void)hideStatusMessage;

@@ -38,4 +38,9 @@
 // [新增] 设置全屏状态下是否显示回放标识
 + (void)setShowCatchupBadgeInFullscreen:(BOOL)show;
 
+// [新增] 获取全屏状态下是否显示实时网速 (默认 NO)
++ (BOOL)showNetworkSpeedInFullscreen;
+// [新增] 设置全屏状态下是否显示实时网速
++ (void)setShowNetworkSpeedInFullscreen:(BOOL)show;
+
 @end

@@ -36,8 +36,8 @@
 
 - (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section {
     if (section == 0) return 1;
-    // 分区1（仅自定义播放器显示）：包含 1个点击选择单元格(全屏逻辑) + 3个开关单元格
-    if (section == 1) return 4;
+    // 分区1（仅自定义播放器显示）：包含 1个点击选择单元格(全屏逻辑) + 4个开关单元格 [修改]
+    if (section == 1) return 5;
     return 0;
 }
 
@@ -88,7 +88,7 @@
             
             return cell;
         } else {
-            // 后三行：全屏显示小部件的开关
+            // 后四行：全屏显示小部件的开关
             static NSString *SwitchCellId = @"SwitchCell";
             UITableViewCell *cell = [tableView dequeueReusableCellWithIdentifier:SwitchCellId];
             if (!cell) {
@@ -112,6 +112,10 @@
                 cell.textLabel.text = LocalizedString(@"show_catchup_badge_in_fullscreen");
                 [switchView setOn:[PlayerConfigManager showCatchupBadgeInFullscreen] animated:NO];
                 [switchView addTarget:self action:@selector(catchupBadgeSwitchChanged:) forControlEvents:UIControlEventValueChanged];
+            } else if (indexPath.row == 4) { // [新增]
+                cell.textLabel.text = LocalizedString(@"show_network_speed_in_fullscreen");
+                [switchView setOn:[PlayerConfigManager showNetworkSpeedInFullscreen] animated:NO];
+                [switchView addTarget:self action:@selector(networkSpeedSwitchChanged:) forControlEvents:UIControlEventValueChanged];
             }
             cell.accessoryView = switchView;
             
@@ -174,6 +178,11 @@
 
 - (void)catchupBadgeSwitchChanged:(UISwitch *)sender {
     [PlayerConfigManager setShowCatchupBadgeInFullscreen:sender.isOn];
+}
+
+// [新增]
+- (void)networkSpeedSwitchChanged:(UISwitch *)sender {
+    [PlayerConfigManager setShowNetworkSpeedInFullscreen:sender.isOn];
 }
 
 @end
