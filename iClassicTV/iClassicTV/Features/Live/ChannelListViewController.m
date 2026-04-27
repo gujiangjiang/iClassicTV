@@ -313,4 +313,24 @@
     }
 }
 
+#pragma mark - Scroll To Top Override
+
+// [优化] 重写从分类继承的滚动到顶部方法，处理搜索框隐藏与状态重置
+- (void)scrollToTopAnimated:(BOOL)animated {
+    // 1. 如果搜索框处于激活状态，先退出搜索
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+    if (self.searchManager.searchController.isActive) {
+        self.searchManager.searchController.active = NO;
+    }
+#pragma clang diagnostic pop
+    
+    // 2. 滚动到顶部并隐藏搜索框
+    if (self.tableView) {
+        CGFloat searchBarHeight = CGRectGetHeight(self.searchManager.searchBar.bounds);
+        CGPoint offset = CGPointMake(0, searchBarHeight - self.tableView.contentInset.top);
+        [self.tableView setContentOffset:offset animated:animated];
+    }
+}
+
 @end
