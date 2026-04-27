@@ -10,6 +10,7 @@
 #import "WatchListDataManager.h"
 #import "TVPlaybackViewController.h"
 #import "LanguageManager.h"
+#import "PlayerConfigManager.h" // [新增] 引入配置管理器
 
 @interface WatchListRecentViewController () <UITableViewDelegate, UITableViewDataSource>
 
@@ -44,6 +45,12 @@
     [self loadData];
 }
 
+- (void)viewWillAppear:(BOOL)animated {
+    [super viewWillAppear:animated];
+    // 确保切换模式后重新显示时能刷新UI隐藏或显示URL
+    [self.tableView reloadData];
+}
+
 - (void)loadData {
     self.dataList = [[WatchListDataManager sharedManager] getRecentPlays];
     [self.tableView reloadData];
@@ -68,7 +75,14 @@
     if (indexPath.row < self.dataList.count) {
         NSDictionary *info = self.dataList[indexPath.row];
         cell.textLabel.text = info[@"name"];
-        cell.detailTextLabel.text = info[@"url"];
+        
+        // [优化] 根据记录模式判断是否显示特定的URL
+        NSInteger mode = [PlayerConfigManager watchListRecordMode];
+        if (mode == 1) { // 按特定播放源链接
+            cell.detailTextLabel.text = info[@"url"];
+        } else { // 按频道名称
+            cell.detailTextLabel.text = nil;
+        }
     }
     
     return cell;
