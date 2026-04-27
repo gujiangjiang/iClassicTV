@@ -14,6 +14,9 @@
 // 显示普通的中部悬浮文字提示 (短暂显示后消失)
 + (void)showToastWithMessage:(NSString *)message;
 
+// [新增] 在指定视图中显示悬浮文字提示 (短暂显示后消失)
++ (void)showToast:(NSString *)message inView:(UIView *)view;
+
 // [修改] 带唯一任务标识 (Key) 的全局悬浮进度窗，支持多开队列和向上顶出的自动堆叠动画
 + (void)showGlobalProgressHUDWithKey:(NSString *)key title:(NSString *)title;
 

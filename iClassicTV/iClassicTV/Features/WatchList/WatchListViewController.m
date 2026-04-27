@@ -10,18 +10,20 @@
 #import "LanguageManager.h"
 #import "PlayerConfigManager.h"
 #import "EPGManager.h"
-#import "WatchListDataManager.h" // 引入数据管理模块
-#import "TVPlaybackViewController.h" // 引入播放器，实现点击播放
 
-@interface WatchListViewController () <UITableViewDelegate, UITableViewDataSource>
+// [重构] 引入解耦后的三个独立子控制器
+#import "WatchListFavoritesViewController.h"
+#import "WatchListRecentViewController.h"
+#import "WatchListReminderViewController.h"
+
+@interface WatchListViewController ()
 
 @property (nonatomic, strong) UISegmentedControl *segmentedControl;
-@property (nonatomic, strong) UITableView *tableView;
 
-// 三个功能数据源
-@property (nonatomic, strong) NSMutableArray *favoritesList;
-@property (nonatomic, strong) NSMutableArray *recentList;
-@property (nonatomic, strong) NSMutableArray *reminderList;
+// [重构] 独立维护三个子页面
+@property (nonatomic, strong) WatchListFavoritesViewController *favVC;
+@property (nonatomic, strong) WatchListRecentViewController *recentVC;
+@property (nonatomic, strong) WatchListReminderViewController *reminderVC;
 
 // 记录当前活跃的Tab映射关系
 @property (nonatomic, strong) NSArray *activeTabs;
@@ -34,36 +36,42 @@
     [super viewDidLoad];
     self.view.backgroundColor = [UIColor whiteColor];
     
-    // 初始化空数据源
-    self.favoritesList = [NSMutableArray array];
-    self.recentList = [NSMutableArray array];
-    self.reminderList = [NSMutableArray array];
+    // [重构] 初始化并挂载子控制器，将列表逻辑完全剥离出去
+    [self setupChildViewControllers];
     
     // 配置顶部分段选择器
     [self setupSegmentedControl];
-    
-    // 配置主体列表
-    [self setupTableView];
     
     // 监听全局语言切换和功能可见性变更的通知
     [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(languageDidChange) name:@"LanguageDidChangeNotification" object:nil];
     [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(updateTabsAndVisibility) name:@"WatchListVisibilityDidChangeNotification" object:nil];
     [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(updateTabsAndVisibility) name:NSUserDefaultsDidChangeNotification object:nil];
     
-    // [新增] 监听本地数据变化的通知，并自动刷新
-    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(loadWatchListData) name:@"WatchListDataDidChangeNotification" object:nil];
-    
-    // 初始化配置和加载数据
+    // 初始化配置和加载页面展示
     [self updateTabsAndVisibility];
-    [self loadWatchListData];
 }
 
-// [新增] 统一加载数据方法
-- (void)loadWatchListData {
-    self.recentList = [[[WatchListDataManager sharedManager] getRecentPlays] mutableCopy];
-    // 待后续功能完善时在此处继续补充 favoritesList 和 reminderList 的加载逻辑
+// [重构] 将列表页面作为子层级挂载
+- (void)setupChildViewControllers {
+    self.favVC = [[WatchListFavoritesViewController alloc] init];
+    self.recentVC = [[WatchListRecentViewController alloc] init];
+    self.reminderVC = [[WatchListReminderViewController alloc] init];
     
-    [self.tableView reloadData];
+    [self addChildViewController:self.favVC];
+    [self addChildViewController:self.recentVC];
+    [self addChildViewController:self.reminderVC];
+    
+    self.favVC.view.frame = self.view.bounds;
+    self.recentVC.view.frame = self.view.bounds;
+    self.reminderVC.view.frame = self.view.bounds;
+    
+    self.favVC.view.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+    self.recentVC.view.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+    self.reminderVC.view.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+    
+    [self.view addSubview:self.favVC.view];
+    [self.view addSubview:self.recentVC.view];
+    [self.view addSubview:self.reminderVC.view];
 }
 
 - (void)setupSegmentedControl {
@@ -134,25 +142,13 @@
         }
     }
     
-    [self.tableView reloadData];
-}
-
-- (void)setupTableView {
-    // 使用纯列表风格，最符合平铺展示的数据源
-    self.tableView = [[UITableView alloc] initWithFrame:self.view.bounds style:UITableViewStylePlain];
-    self.tableView.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
-    self.tableView.delegate = self;
-    self.tableView.dataSource = self;
-    
-    // 隐藏空数据情况下的多余底部横线
-    self.tableView.tableFooterView = [[UIView alloc] init];
-    
-    [self.view addSubview:self.tableView];
+    // [重构] 触发页面切换展示逻辑
+    [self showCurrentSelectedVC];
 }
 
 - (void)segmentChanged:(UISegmentedControl *)sender {
-    // 切换不同分类时，直接让表格重载数据即可
-    [self.tableView reloadData];
+    // [重构] 切换不同分类时，让对应的子页面层级浮现
+    [self showCurrentSelectedVC];
 }
 
 - (void)languageDidChange {
@@ -176,90 +172,23 @@
     return [self.activeTabs[safeIndex] integerValue];
 }
 
-#pragma mark - UITableViewDataSource & Delegate
-
-- (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section {
+// [重构] 控制视图显示与隐藏
+- (void)showCurrentSelectedVC {
     NSInteger currentTab = [self currentSelectedTabType];
     
-    switch (currentTab) {
-        case 0: return self.favoritesList.count;
-        case 1: return self.recentList.count;
-        case 2: return self.reminderList.count;
-        default: return 0;
-    }
-}
-
-- (UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath {
-    static NSString *cellID = @"WatchListCellIdentifier";
-    UITableViewCell *cell = [tableView dequeueReusableCellWithIdentifier:cellID];
-    if (!cell) {
-        // [修改] 使用 Subtitle 样式，可以显示频道的 URL
-        cell = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleSubtitle reuseIdentifier:cellID];
-        cell.textLabel.font = [UIFont boldSystemFontOfSize:16.0f];
-        cell.detailTextLabel.textColor = [UIColor grayColor];
-        cell.detailTextLabel.font = [UIFont systemFontOfSize:12.0f];
-    }
+    self.favVC.view.hidden = YES;
+    self.recentVC.view.hidden = YES;
+    self.reminderVC.view.hidden = YES;
     
-    NSInteger currentTab = [self currentSelectedTabType];
-    
-    if (currentTab == 1) { // 最近播放渲染
-        if (indexPath.row < self.recentList.count) {
-            NSDictionary *info = self.recentList[indexPath.row];
-            cell.textLabel.text = info[@"name"];
-            cell.detailTextLabel.text = info[@"url"];
-        }
-    } else {
-        cell.textLabel.text = @"";
-        cell.detailTextLabel.text = @"";
-    }
-    
-    return cell;
-}
-
-// [新增] 开启滑动删除支持
-- (BOOL)tableView:(UITableView *)tableView canEditRowAtIndexPath:(NSIndexPath *)indexPath {
-    return YES;
-}
-
-// [新增] 实现左滑删除功能逻辑
-- (void)tableView:(UITableView *)tableView commitEditingStyle:(UITableViewCellEditingStyle)editingStyle forRowAtIndexPath:(NSIndexPath *)indexPath {
-    if (editingStyle == UITableViewCellEditingStyleDelete) {
-        NSInteger currentTab = [self currentSelectedTabType];
-        
-        if (currentTab == 1) { // 删除最近播放项
-            // 1. 先操作本地内存数组并触发平滑的删除动画
-            [self.recentList removeObjectAtIndex:indexPath.row];
-            [tableView deleteRowsAtIndexPaths:@[indexPath] withRowAnimation:UITableViewRowAnimationAutomatic];
-            // 2. 调用后台方法进行真正的持久化存储（此方法不派发全局变更通知，保护前面的动画）
-            [[WatchListDataManager sharedManager] removeRecentPlayAtIndex:indexPath.row];
-        }
-    }
-}
-
-// [新增] 滑动删除按钮显示多语言文字
-- (NSString *)tableView:(UITableView *)tableView titleForDeleteConfirmationButtonForRowAtIndexPath:(NSIndexPath *)indexPath {
-    return LocalizedString(@"delete");
-}
-
-// [新增] 处理点击跳转播放器
-- (void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath {
-    [tableView deselectRowAtIndexPath:indexPath animated:YES];
-    
-    NSInteger currentTab = [self currentSelectedTabType];
-    if (currentTab == 1) {
-        if (indexPath.row < self.recentList.count) {
-            NSDictionary *info = self.recentList[indexPath.row];
-            
-            TVPlaybackViewController *playerVC = [[TVPlaybackViewController alloc] init];
-            playerVC.videoURLString = info[@"url"];
-            playerVC.channelTitle = info[@"name"];
-            playerVC.tvgName = info[@"tvgName"];
-            playerVC.catchupSource = info[@"catchupSource"];
-            
-            // push 过去进行视频播放
-            playerVC.hidesBottomBarWhenPushed = YES;
-            [self.navigationController pushViewController:playerVC animated:YES];
-        }
+    if (currentTab == 0) {
+        self.favVC.view.hidden = NO;
+        [self.view bringSubviewToFront:self.favVC.view];
+    } else if (currentTab == 1) {
+        self.recentVC.view.hidden = NO;
+        [self.view bringSubviewToFront:self.recentVC.view];
+    } else if (currentTab == 2) {
+        self.reminderVC.view.hidden = NO;
+        [self.view bringSubviewToFront:self.reminderVC.view];
     }
 }
 

@@ -276,6 +276,8 @@
         "confirm_clear_recent_msg": "Are you sure you want to clear all recent plays?",
         "confirm_clear_appointments_msg": "Are you sure you want to clear all appointments?",
         "enter_limit_1_to_50": "Please enter a number between 1 and 50",
-        "invalid_limit_msg": "Invalid input. Limit must be between 1 and 50."
+        "invalid_limit_msg": "Invalid input. Limit must be between 1 and 50.",
+        "add_favorite_success": "Added to favorites",
+        "remove_favorite_success": "Removed from favorites"
     }
 }

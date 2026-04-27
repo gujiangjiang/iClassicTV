@@ -276,6 +276,8 @@
         "confirm_clear_recent_msg": "确定要清空所有最近播放记录吗？",
         "confirm_clear_appointments_msg": "确定要清空所有预约记录吗？",
         "enter_limit_1_to_50": "请输入1到50之间的数字",
-        "invalid_limit_msg": "输入无效，数量限制必须在1到50之间"
+        "invalid_limit_msg": "输入无效，数量限制必须在1到50之间",
+        "add_favorite_success": "已加入收藏",
+        "remove_favorite_success": "已取消收藏"
     }
 }

@@ -15,8 +15,9 @@
 #import "EPGManager.h"
 #import "NSString+EncodingHelper.h"
 #import <QuartzCore/QuartzCore.h>
-#import "WatchListDataManager.h" // [新增] 引入数据管理模块
-#import "PlayerConfigManager.h"  // [新增] 判断开关状态
+#import "WatchListDataManager.h" // 引入数据管理模块
+#import "PlayerConfigManager.h"  // 判断开关状态
+#import "ToastHelper.h"          // [新增] 引入Toast模块用于收藏提示
 
 @implementation TVPlaybackViewController
 
@@ -38,7 +39,7 @@
     
     self.title = self.channelTitle ?: LocalizedString(@"unknown_channel");
     
-    // [新增] 进入播放器时，将当前频道数据存入最近播放历史 (底层管理器会进行限制检查)
+    // 进入播放器时，将当前频道数据存入最近播放历史 (底层管理器会进行限制检查)
     NSDictionary *recentInfo = @{
                                  @"name": self.channelTitle ?: @"",
                                  @"url": self.videoURLString ?: @"",
@@ -46,6 +47,9 @@
                                  @"catchupSource": self.catchupSource ?: @""
                                  };
     [[WatchListDataManager sharedManager] addRecentPlay:recentInfo];
+    
+    // [新增] 渲染右侧收藏爱心按钮
+    [self setupFavoriteButton];
     
     self.epgTimeFormatter = [[NSDateFormatter alloc] init];
     [self.epgTimeFormatter setTimeZone:[EPGManager sharedManager].epgTimeZone];
@@ -109,6 +113,56 @@
     dispatch_async(dispatch_get_main_queue(), ^{
         [self.epgView scrollToCurrentProgram];
     });
+}
+
+// [新增] 初始化收藏按钮
+- (void)setupFavoriteButton {
+    UIButton *favBtn = [UIButton buttonWithType:UIButtonTypeCustom];
+    favBtn.frame = CGRectMake(0, 0, 40, 40);
+    favBtn.titleLabel.font = [UIFont systemFontOfSize:22];
+    [favBtn addTarget:self action:@selector(toggleFavorite) forControlEvents:UIControlEventTouchUpInside];
+    
+    UIBarButtonItem *item = [[UIBarButtonItem alloc] initWithCustomView:favBtn];
+    self.navigationItem.rightBarButtonItem = item;
+    
+    [self updateFavoriteButtonUI];
+}
+
+// [新增] 更新收藏按钮的状态图标
+- (void)updateFavoriteButtonUI {
+    UIButton *favBtn = (UIButton *)self.navigationItem.rightBarButtonItem.customView;
+    BOOL isFav = [[WatchListDataManager sharedManager] isFavorited:self.videoURLString];
+    
+    if (isFav) {
+        // 已收藏：实心红心
+        [favBtn setTitle:@"♥" forState:UIControlStateNormal];
+        [favBtn setTitleColor:[UIColor redColor] forState:UIControlStateNormal];
+    } else {
+        // 未收藏：空心白心
+        [favBtn setTitle:@"♡" forState:UIControlStateNormal];
+        [favBtn setTitleColor:[UIColor whiteColor] forState:UIControlStateNormal];
+    }
+}
+
+// [新增] 切换收藏状态回调
+- (void)toggleFavorite {
+    BOOL isFav = [[WatchListDataManager sharedManager] isFavorited:self.videoURLString];
+    
+    if (isFav) {
+        [[WatchListDataManager sharedManager] removeFavoriteWithURL:self.videoURLString];
+        [ToastHelper showToast:LocalizedString(@"watchlist.remove_favorite_success") inView:self.view];
+    } else {
+        NSDictionary *info = @{
+                               @"name": self.channelTitle ?: @"",
+                               @"url": self.videoURLString ?: @"",
+                               @"tvgName": self.tvgName ?: @"",
+                               @"catchupSource": self.catchupSource ?: @""
+                               };
+        [[WatchListDataManager sharedManager] addFavorite:info];
+        [ToastHelper showToast:LocalizedString(@"watchlist.add_favorite_success") inView:self.view];
+    }
+    
+    [self updateFavoriteButtonUI];
 }
 
 - (void)viewWillAppear:(BOOL)animated {

@@ -109,6 +109,51 @@ static NSMutableArray *g_activeHUDs = nil;
     });
 }
 
+// [新增] 实现指定视图内的 Toast 显示逻辑
++ (void)showToast:(NSString *)message inView:(UIView *)view {
+    if (!message || message.length == 0 || !view) return;
+    
+    dispatch_async(dispatch_get_main_queue(), ^{
+        CGFloat maxWidth = view.bounds.size.width - 60;
+        // 动态获取字体
+        UIFont *font = [UIStyleHelper isIOS7OrLater] ? [UIFont systemFontOfSize:15] : [UIFont boldSystemFontOfSize:15];
+        
+        CGSize expectedSize = [message sizeWithFont:font constrainedToSize:CGSizeMake(maxWidth - 30, 9999) lineBreakMode:NSLineBreakByWordWrapping];
+        
+        UIView *toastView = [[UIView alloc] initWithFrame:CGRectMake(0, 0, expectedSize.width + 30, expectedSize.height + 20)];
+        toastView.center = CGPointMake(view.bounds.size.width / 2, view.bounds.size.height / 2);
+        toastView.autoresizingMask = UIViewAutoresizingFlexibleTopMargin | UIViewAutoresizingFlexibleBottomMargin | UIViewAutoresizingFlexibleLeftMargin | UIViewAutoresizingFlexibleRightMargin;
+        
+        // [优化] 使用统一模块应用背景样式
+        [UIStyleHelper applyGlobalStyleToView:toastView];
+        
+        UILabel *textLabel = [[UILabel alloc] initWithFrame:CGRectMake(15, 10, expectedSize.width, expectedSize.height)];
+        textLabel.backgroundColor = [UIColor clearColor];
+        textLabel.textColor = [UIColor whiteColor];
+        textLabel.textAlignment = NSTextAlignmentCenter;
+        textLabel.text = message;
+        textLabel.numberOfLines = 0;
+        textLabel.lineBreakMode = NSLineBreakByWordWrapping;
+        
+        // [优化] 使用统一模块应用文字样式
+        [UIStyleHelper applyTextStyleToLabel:textLabel isBold:YES fontSize:15.0];
+        
+        [toastView addSubview:textLabel];
+        [view addSubview:toastView];
+        
+        toastView.alpha = 0.0;
+        [UIView animateWithDuration:0.25 animations:^{
+            toastView.alpha = 1.0;
+        } completion:^(BOOL finished) {
+            [UIView animateWithDuration:0.25 delay:1.5 options:UIViewAnimationOptionCurveEaseOut animations:^{
+                toastView.alpha = 0.0;
+            } completion:^(BOOL finished) {
+                [toastView removeFromSuperview];
+            }];
+        }];
+    });
+}
+
 + (ToastProgressHUDView *)hudForKey:(NSString *)key {
     if (!g_activeHUDs) return nil;
     for (ToastProgressHUDView *hud in g_activeHUDs) {

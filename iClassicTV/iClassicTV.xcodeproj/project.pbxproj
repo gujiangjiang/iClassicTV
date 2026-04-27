@@ -59,6 +59,9 @@
 		48C2CB602F9BB73000A9379F /* UserAgentManager.m in Sources */ = {isa = PBXBuildFile; fileRef = 48C2CB5F2F9BB73000A9379F /* UserAgentManager.m */; };
 		48C2CB632F9BB76900A9379F /* UAManagerViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 48C2CB622F9BB76900A9379F /* UAManagerViewController.m */; };
 		48C2CB662F9BB9E200A9379F /* NetworkManager.m in Sources */ = {isa = PBXBuildFile; fileRef = 48C2CB652F9BB9E200A9379F /* NetworkManager.m */; };
+		48C6202C2F9F8FE900A4F484 /* WatchListFavoritesViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 48C6202B2F9F8FE900A4F484 /* WatchListFavoritesViewController.m */; };
+		48C6202F2F9F900900A4F484 /* WatchListRecentViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 48C6202E2F9F900900A4F484 /* WatchListRecentViewController.m */; };
+		48C620322F9F902500A4F484 /* WatchListReminderViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 48C620312F9F902500A4F484 /* WatchListReminderViewController.m */; };
 		48D63F292F97DE1F002AD06E /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 48D63F282F97DE1F002AD06E /* Foundation.framework */; };
 		48D63F2B2F97DE1F002AD06E /* CoreGraphics.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 48D63F2A2F97DE1F002AD06E /* CoreGraphics.framework */; };
 		48D63F2D2F97DE1F002AD06E /* UIKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 48D63F2C2F97DE1F002AD06E /* UIKit.framework */; };
@@ -189,6 +192,12 @@
 		48C2CB622F9BB76900A9379F /* UAManagerViewController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = UAManagerViewController.m; sourceTree = "<group>"; };
 		48C2CB642F9BB9E200A9379F /* NetworkManager.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = NetworkManager.h; sourceTree = "<group>"; };
 		48C2CB652F9BB9E200A9379F /* NetworkManager.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = NetworkManager.m; sourceTree = "<group>"; };
+		48C6202A2F9F8FE900A4F484 /* WatchListFavoritesViewController.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = WatchListFavoritesViewController.h; path = WatchList/WatchListFavoritesViewController.h; sourceTree = "<group>"; };
+		48C6202B2F9F8FE900A4F484 /* WatchListFavoritesViewController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = WatchListFavoritesViewController.m; path = WatchList/WatchListFavoritesViewController.m; sourceTree = "<group>"; };
+		48C6202D2F9F900900A4F484 /* WatchListRecentViewController.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = WatchListRecentViewController.h; path = WatchList/WatchListRecentViewController.h; sourceTree = "<group>"; };
+		48C6202E2F9F900900A4F484 /* WatchListRecentViewController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = WatchListRecentViewController.m; path = WatchList/WatchListRecentViewController.m; sourceTree = "<group>"; };
+		48C620302F9F902500A4F484 /* WatchListReminderViewController.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = WatchListReminderViewController.h; path = WatchList/WatchListReminderViewController.h; sourceTree = "<group>"; };
+		48C620312F9F902500A4F484 /* WatchListReminderViewController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = WatchListReminderViewController.m; path = WatchList/WatchListReminderViewController.m; sourceTree = "<group>"; };
 		48D63F252F97DE1F002AD06E /* iClassicTV.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = iClassicTV.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		48D63F282F97DE1F002AD06E /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = System/Library/Frameworks/Foundation.framework; sourceTree = SDKROOT; };
 		48D63F2A2F97DE1F002AD06E /* CoreGraphics.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreGraphics.framework; path = System/Library/Frameworks/CoreGraphics.framework; sourceTree = SDKROOT; };
@@ -490,6 +499,12 @@
 				48DB71392F9F8A2D00190F20 /* WatchListDataManager.m */,
 				48FB1F822F9F6B7100876245 /* WatchListViewController.h */,
 				48FB1F832F9F6B7100876245 /* WatchListViewController.m */,
+				48C6202A2F9F8FE900A4F484 /* WatchListFavoritesViewController.h */,
+				48C6202B2F9F8FE900A4F484 /* WatchListFavoritesViewController.m */,
+				48C6202D2F9F900900A4F484 /* WatchListRecentViewController.h */,
+				48C6202E2F9F900900A4F484 /* WatchListRecentViewController.m */,
+				48C620302F9F902500A4F484 /* WatchListReminderViewController.h */,
+				48C620312F9F902500A4F484 /* WatchListReminderViewController.m */,
 			);
 			name = WatchList;
 			sourceTree = "<group>";
@@ -646,10 +661,13 @@
 				488143362F9E6D750098F995 /* EPGManager+Sources.m in Sources */,
 				482FAB212F9A857900B4F9D8 /* UIImage+DynamicIcon.m in Sources */,
 				48317BA82F9A78E9002489FE /* SourceManagerViewController.m in Sources */,
+				48C6202F2F9F900900A4F484 /* WatchListRecentViewController.m in Sources */,
 				48317BAF2F9A78E9002489FE /* UIImage+LogoHelper.m in Sources */,
 				481EC5772F9F825700673EAB /* FeatureSettingsViewController.m in Sources */,
 				48317BAC2F9A78E9002489FE /* PlayerConfigManager.m in Sources */,
 				48317BA02F9A78E9002489FE /* AppDelegate.m in Sources */,
+				48C6202C2F9F8FE900A4F484 /* WatchListFavoritesViewController.m in Sources */,
+				48C620322F9F902500A4F484 /* WatchListReminderViewController.m in Sources */,
 				48204B872F9E6A9900966094 /* PlayerEPGView+Scroll.m in Sources */,
 				48B8E5842F9E6DA500668461 /* EPGManager+Cache.m in Sources */,
 				48B8E5872F9E6DBE00668461 /* EPGManager+Update.m in Sources */,
