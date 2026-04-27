@@ -163,6 +163,8 @@
     "enable_epg": "Enable EPG",
     "epg_source_management": "EPG Source Management",
     "not_set": "Not Set",
+    "search": "Search",
+    "no_results": "No Results",
     "auto_update_on_launch": "Auto update on launch",
     "unknown_error": "Unknown error",
     "epg_no_data": "No data returned from source",

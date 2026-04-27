@@ -163,6 +163,8 @@
     "enable_epg": "启用 EPG 功能",
     "epg_source_management": "EPG 源管理",
     "not_set": "未设置",
+    "search": "搜索",
+    "no_results": "无结果",
     "auto_update_on_launch": "打开软件自动更新",
     "unknown_error": "未知错误",
     "epg_no_data": "接口未返回任何数据",

@@ -66,6 +66,7 @@
 		48D63F442F97DE1F002AD06E /* UIKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 48D63F2C2F97DE1F002AD06E /* UIKit.framework */; };
 		48D63F4C2F97DE1F002AD06E /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = 48D63F4A2F97DE1F002AD06E /* InfoPlist.strings */; };
 		48D63F4E2F97DE1F002AD06E /* iClassicTVTests.m in Sources */ = {isa = PBXBuildFile; fileRef = 48D63F4D2F97DE1F002AD06E /* iClassicTVTests.m */; };
+		48FB1F802F9F5F5700876245 /* TVSearchManager.m in Sources */ = {isa = PBXBuildFile; fileRef = 48FB1F7F2F9F5F5700876245 /* TVSearchManager.m */; };
 		48FBEB1B2F9BCCA300DD08EE /* DataManagementViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 48FBEB1A2F9BCCA300DD08EE /* DataManagementViewController.m */; };
 		48FBEB1E2F9BD2D200DD08EE /* AlertHelper.m in Sources */ = {isa = PBXBuildFile; fileRef = 48FBEB1D2F9BD2D200DD08EE /* AlertHelper.m */; };
 		48FBEB262F9BD59800DD08EE /* LanguageManager.m in Sources */ = {isa = PBXBuildFile; fileRef = 48FBEB252F9BD59800DD08EE /* LanguageManager.m */; };
@@ -192,6 +193,8 @@
 		48D63F492F97DE1F002AD06E /* iClassicTVTests-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "iClassicTVTests-Info.plist"; sourceTree = "<group>"; };
 		48D63F4B2F97DE1F002AD06E /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 		48D63F4D2F97DE1F002AD06E /* iClassicTVTests.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = iClassicTVTests.m; sourceTree = "<group>"; };
+		48FB1F7E2F9F5F5700876245 /* TVSearchManager.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = TVSearchManager.h; sourceTree = "<group>"; };
+		48FB1F7F2F9F5F5700876245 /* TVSearchManager.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = TVSearchManager.m; sourceTree = "<group>"; };
 		48FBEB192F9BCCA300DD08EE /* DataManagementViewController.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = DataManagementViewController.h; sourceTree = "<group>"; };
 		48FBEB1A2F9BCCA300DD08EE /* DataManagementViewController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = DataManagementViewController.m; sourceTree = "<group>"; };
 		48FBEB1C2F9BD2D200DD08EE /* AlertHelper.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = AlertHelper.h; sourceTree = "<group>"; };
@@ -402,6 +405,8 @@
 				48FBEB1D2F9BD2D200DD08EE /* AlertHelper.m */,
 				487972402F9E82EB00BF7DD9 /* UIStyleHelper.h */,
 				487972412F9E82EB00BF7DD9 /* UIStyleHelper.m */,
+				48FB1F7E2F9F5F5700876245 /* TVSearchManager.h */,
+				48FB1F7F2F9F5F5700876245 /* TVSearchManager.m */,
 			);
 			path = Modules;
 			sourceTree = "<group>";
@@ -593,6 +598,7 @@
 				48317BAA2F9A78E9002489FE /* Channel.m in Sources */,
 				48317BA22F9A78E9002489FE /* M3UParser.m in Sources */,
 				48FBEB262F9BD59800DD08EE /* LanguageManager.m in Sources */,
+				48FB1F802F9F5F5700876245 /* TVSearchManager.m in Sources */,
 				4816D54A2F9C813800D0A5AE /* EPGParser.m in Sources */,
 				4816127C2F9BA82300067C15 /* UIViewController+ScrollToTop.m in Sources */,
 				48317BA72F9A78E9002489FE /* SettingsViewController.m in Sources */,

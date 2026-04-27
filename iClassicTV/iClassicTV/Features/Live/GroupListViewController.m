@@ -15,7 +15,71 @@
 #import "NetworkManager.h"
 #import "UIViewController+ScrollToTop.h"
 #import "LanguageManager.h"
-#import "ToastHelper.h" // 新增：引入 ToastHelper 用于刷新状态提示
+#import "ToastHelper.h"
+
+// [新增] 引入搜索模块及播放器依赖，以便通过分组列表直接搜索并触发播放
+#import "TVSearchManager.h"
+#import <MediaPlayer/MediaPlayer.h>
+#import "TVPlaybackViewController.h"
+#import "PlayerConfigManager.h"
+
+// [新增] 内部复用原生播放器，与频道列表逻辑保持一致
+@interface GroupNativePlayerViewController : MPMoviePlayerViewController
+@end
+
+@implementation GroupNativePlayerViewController
+- (void)viewDidLoad {
+    [super viewDidLoad];
+    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(localizeSystemDoneButton) name:MPMoviePlayerNowPlayingMovieDidChangeNotification object:nil];
+    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(localizeSystemDoneButton) name:MPMoviePlayerPlaybackStateDidChangeNotification object:nil];
+}
+- (void)dealloc { [[NSNotificationCenter defaultCenter] removeObserver:self]; }
+- (void)viewDidAppear:(BOOL)animated { [super viewDidAppear:animated]; [self localizeSystemDoneButton]; }
+
+- (void)localizeSystemDoneButton {
+    dispatch_async(dispatch_get_main_queue(), ^{
+        [self traverseAndUpdateDoneButtonInView:self.view];
+    });
+}
+- (void)traverseAndUpdateDoneButtonInView:(UIView *)view {
+    if ([view isKindOfClass:[UINavigationBar class]]) {
+        UINavigationBar *navBar = (UINavigationBar *)view;
+        for (UINavigationItem *item in navBar.items) {
+            NSString *leftTitle = item.leftBarButtonItem.title;
+            if (leftTitle && ([leftTitle caseInsensitiveCompare:@"Done"] == NSOrderedSame || [leftTitle caseInsensitiveCompare:@"Back"] == NSOrderedSame)) { item.leftBarButtonItem.title = LocalizedString(@"back"); }
+            NSString *rightTitle = item.rightBarButtonItem.title;
+            if (rightTitle && ([rightTitle caseInsensitiveCompare:@"Done"] == NSOrderedSame || [rightTitle caseInsensitiveCompare:@"Back"] == NSOrderedSame)) { item.rightBarButtonItem.title = LocalizedString(@"back"); }
+        }
+    }
+    for (UIView *subview in view.subviews) {
+        if ([subview isKindOfClass:[UIButton class]]) {
+            UIButton *btn = (UIButton *)subview;
+            NSString *currentTitle = [btn currentTitle];
+            NSString *normalTitle = [btn titleForState:UIControlStateNormal];
+            BOOL isDoneOrBack = NO;
+            if (currentTitle && ([currentTitle caseInsensitiveCompare:@"Done"] == NSOrderedSame || [currentTitle caseInsensitiveCompare:@"Back"] == NSOrderedSame)) isDoneOrBack = YES;
+            else if (normalTitle && ([normalTitle caseInsensitiveCompare:@"Done"] == NSOrderedSame || [normalTitle caseInsensitiveCompare:@"Back"] == NSOrderedSame)) isDoneOrBack = YES;
+            if (isDoneOrBack) {
+                [btn setTitle:LocalizedString(@"back") forState:UIControlStateNormal];
+                [btn setTitle:LocalizedString(@"back") forState:UIControlStateHighlighted];
+            }
+        }
+        [self traverseAndUpdateDoneButtonInView:subview];
+    }
+}
+- (BOOL)shouldAutorotate { return YES; }
+- (NSUInteger)supportedInterfaceOrientations {
+    NSInteger pref = [[NSUserDefaults standardUserDefaults] integerForKey:@"PlayerOrientationPref"];
+    if (pref == 1) return UIInterfaceOrientationMaskLandscape;
+    else if (pref == 2) return UIInterfaceOrientationMaskPortrait;
+    return UIInterfaceOrientationMaskAllButUpsideDown;
+}
+@end
+
+@interface GroupListViewController () <TVSearchManagerDelegate, UIActionSheetDelegate>
+@property (nonatomic, strong) TVSearchManager *searchManager; // [新增]
+@property (nonatomic, strong) Channel *selectedChannel; // [新增] 供搜索层切换线路用
+@end
 
 @implementation GroupListViewController
 
@@ -28,6 +92,14 @@
     // 监听数据与多语言的更新
     [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(handleLanguageChange) name:@"LanguageDidChangeNotification" object:nil];
     [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(loadDataFromUserDefaults) name:@"M3UDataUpdated" object:nil];
+    
+    // [新增] 初始化独立搜索模块
+    self.searchManager = [[TVSearchManager alloc] initWithContentsController:self];
+    self.searchManager.delegate = self;
+    self.tableView.tableHeaderView = self.searchManager.searchBar;
+    
+    // [新增] 默认隐藏搜索框
+    self.tableView.contentOffset = CGPointMake(0, CGRectGetHeight(self.searchManager.searchBar.bounds));
     
     // 手动触发一次初始化界面文本
     [self handleLanguageChange];
@@ -86,6 +158,9 @@
             weakSelf.allChannels = parsedChannels;
             weakSelf.groupedChannels = dict;
             weakSelf.groupNames = orderedGroupNames;
+            
+            // [新增] 数据解析完成后，将全量数据灌入搜索池
+            weakSelf.searchManager.sourceChannels = parsedChannels;
             
             [weakSelf.tableView reloadData];
             [[UIApplication sharedApplication] setNetworkActivityIndicatorVisible:NO];
@@ -161,6 +236,87 @@
     channelVC.title = groupName;
     
     [self.navigationController pushViewController:channelVC animated:YES];
+}
+
+#pragma mark - TVSearchManagerDelegate (从分组列表搜到频道直接触发)
+
+- (void)searchManager:(id)manager didSelectChannel:(Channel *)channel {
+    NSInteger savedIndex = [[NSUserDefaults standardUserDefaults] integerForKey:[channel persistenceKey]];
+    
+    if (savedIndex >= channel.urls.count) {
+        [ToastHelper showToastWithMessage:[NSString stringWithFormat:LocalizedString(@"line_invalid_fallback"), (long)savedIndex + 1]];
+        savedIndex = 0;
+        [[NSUserDefaults standardUserDefaults] setInteger:0 forKey:[channel persistenceKey]];
+    }
+    
+    UIImage *cachedLogo = [self.searchManager cachedImageForChannel:channel];
+    [self playVideoWithURL:channel.urls[savedIndex] title:channel.name logo:cachedLogo channel:channel];
+}
+
+- (void)searchManager:(id)manager accessoryButtonTappedForChannel:(Channel *)channel {
+    self.selectedChannel = channel;
+    UIActionSheet *sheet = [[UIActionSheet alloc] initWithTitle:LocalizedString(@"switch_playback_line") delegate:self cancelButtonTitle:LocalizedString(@"cancel") destructiveButtonTitle:nil otherButtonTitles:nil];
+    NSInteger currentIndex = [[NSUserDefaults standardUserDefaults] integerForKey:[self.selectedChannel persistenceKey]];
+    
+    for (int i = 0; i < self.selectedChannel.urls.count; i++) {
+        NSString *title = (i == currentIndex) ? [NSString stringWithFormat:LocalizedString(@"line_current_format"), i+1] : [NSString stringWithFormat:LocalizedString(@"line_format"), i+1];
+        [sheet addButtonWithTitle:title];
+    }
+    [sheet showInView:self.view];
+}
+
+#pragma mark - Action Sheet Delegate (响应搜索模式下属的线路切换)
+
+- (void)actionSheet:(UIActionSheet *)actionSheet clickedButtonAtIndex:(NSInteger)buttonIndex {
+    if (buttonIndex == actionSheet.cancelButtonIndex) return;
+    NSInteger sourceIndex = buttonIndex - 1;
+    
+    if (sourceIndex < 0 || sourceIndex >= self.selectedChannel.urls.count) return;
+    
+    [[NSUserDefaults standardUserDefaults] setInteger:sourceIndex forKey:[self.selectedChannel persistenceKey]];
+    [[NSUserDefaults standardUserDefaults] synchronize];
+    
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+    if (self.searchManager.searchController.isActive) {
+        [self.searchManager reloadSearchResults];
+    }
+#pragma clang diagnostic pop
+    
+    UIImage *cachedLogo = [self.searchManager cachedImageForChannel:self.selectedChannel];
+    [self playVideoWithURL:self.selectedChannel.urls[sourceIndex] title:self.selectedChannel.name logo:cachedLogo channel:self.selectedChannel];
+}
+
+#pragma mark - Video Playback (复用频道列表的播放下发引擎)
+
+- (void)playVideoWithURL:(NSString *)urlString title:(NSString *)title logo:(UIImage *)logo channel:(Channel *)channel {
+    NSInteger playerPref = [PlayerConfigManager preferredPlayerType];
+    
+    if (playerPref == 1) {
+        NSURL *url = [urlString toSafeURL];
+        
+        GroupNativePlayerViewController *playerVC = [[GroupNativePlayerViewController alloc] initWithContentURL:url];
+        
+        NSInteger orientationPref = [[NSUserDefaults standardUserDefaults] integerForKey:@"PlayerOrientationPref"];
+        if (orientationPref == 1) {
+            [[UIDevice currentDevice] setValue:[NSNumber numberWithInteger:UIInterfaceOrientationLandscapeRight] forKey:@"orientation"];
+        } else if (orientationPref == 2) {
+            [[UIDevice currentDevice] setValue:[NSNumber numberWithInteger:UIInterfaceOrientationPortrait] forKey:@"orientation"];
+        }
+        
+        [self presentMoviePlayerViewControllerAnimated:playerVC];
+        [playerVC.moviePlayer play];
+    } else {
+        TVPlaybackViewController *playerVC = [[TVPlaybackViewController alloc] init];
+        playerVC.videoURLString = urlString;
+        playerVC.channelTitle = title;
+        playerVC.channelLogo = logo;
+        playerVC.tvgName = channel.tvgName;
+        playerVC.catchupSource = channel.catchupSource;
+        
+        playerVC.hidesBottomBarWhenPushed = YES;
+        [self.navigationController pushViewController:playerVC animated:YES];
+    }
 }
 
 - (void)dealloc {

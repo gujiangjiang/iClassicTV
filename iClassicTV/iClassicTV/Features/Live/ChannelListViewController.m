@@ -17,6 +17,7 @@
 #import "UIViewController+ScrollToTop.h"
 #import "LanguageManager.h"
 #import "NSString+EncodingHelper.h" // [优化] 引入编码助手以使用 toSafeURL
+#import "TVSearchManager.h"         // [新增] 引入独立的搜索模块
 
 @interface CustomNativePlayerViewController : MPMoviePlayerViewController
 @end
@@ -100,16 +101,11 @@
 
 @end
 
-// [新增] 遵守 UISearchBarDelegate 和 UISearchDisplayDelegate 协议
-@interface ChannelListViewController () <UIActionSheetDelegate, UISearchBarDelegate, UISearchDisplayDelegate>
+// [优化] 接入独立搜索模块的代理协议
+@interface ChannelListViewController () <UIActionSheetDelegate, TVSearchManagerDelegate>
 @property (nonatomic, strong) Channel *selectedChannel;
 @property (nonatomic, strong) NSCache *imageCache;
-
-// [新增] 搜索功能相关属性
-@property (nonatomic, strong) UISearchBar *searchBar;
-@property (nonatomic, strong) UISearchDisplayController *searchController;
-@property (nonatomic, strong) NSArray *filteredChannels;
-
+@property (nonatomic, strong) TVSearchManager *searchManager; // [新增]
 @end
 
 @implementation ChannelListViewController
@@ -120,33 +116,17 @@
     self.imageCache = [[NSCache alloc] init];
     [self enableNavigationBarDoubleTapToScrollTop];
     
-    // [新增] 初始化原生搜索框
-    self.searchBar = [[UISearchBar alloc] initWithFrame:CGRectMake(0, 0, self.view.bounds.size.width, 44)];
-    self.searchBar.placeholder = LocalizedString(@"search");
-    self.searchBar.delegate = self;
-    self.tableView.tableHeaderView = self.searchBar;
+    // [新增] 接入独立搜索模块
+    self.searchManager = [[TVSearchManager alloc] initWithContentsController:self];
+    self.searchManager.delegate = self;
+    self.searchManager.sourceChannels = self.channels;
+    self.tableView.tableHeaderView = self.searchManager.searchBar;
     
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-    // [新增] 初始化搜索控制器 (兼容 iOS 6 的原生方案)
-    self.searchController = [[UISearchDisplayController alloc] initWithSearchBar:self.searchBar contentsController:self];
-    self.searchController.delegate = self;
-    self.searchController.searchResultsDataSource = self;
-    self.searchController.searchResultsDelegate = self;
-#pragma clang diagnostic pop
-    
-    // [新增] 默认隐藏搜索框，将偏移量推出版面，实现必须下拉才显示的效果
-    self.tableView.contentOffset = CGPointMake(0, CGRectGetHeight(self.searchBar.bounds));
+    // [新增] 默认隐藏搜索框，下拉显示
+    self.tableView.contentOffset = CGPointMake(0, CGRectGetHeight(self.searchManager.searchBar.bounds));
 }
 
 - (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section {
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-    // [新增] 判断当前是否处于搜索状态
-    if (tableView == self.searchDisplayController.searchResultsTableView) {
-        return self.filteredChannels.count;
-    }
-#pragma clang diagnostic pop
     return self.channels.count;
 }
 
@@ -157,11 +137,7 @@
         cell = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleDefault reuseIdentifier:CellId];
     }
     
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-    // [新增] 根据是否为搜索结果表来提取对应的频道数据
-    Channel *ch = (tableView == self.searchDisplayController.searchResultsTableView) ? self.filteredChannels[indexPath.row] : self.channels[indexPath.row];
-#pragma clang diagnostic pop
+    Channel *ch = self.channels[indexPath.row];
     
     cell.textLabel.text = ch.name;
     cell.accessoryType = UITableViewCellAccessoryDetailDisclosureButton;
@@ -194,22 +170,14 @@
                             UIImage *resizedImage = [downloadedImage resizeAndPadToSize:CGSizeMake(40, 40)];
                             [weakSelf.imageCache setObject:resizedImage forKey:logoKey];
                             dispatch_async(dispatch_get_main_queue(), ^{
-                                // [新增] 更新图片前再次校验数据源，避免搜索过程中数组变化导致越界崩溃
-                                if (weakSelf) {
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-                                    NSArray *currentSource = (tableView == weakSelf.searchDisplayController.searchResultsTableView) ? weakSelf.filteredChannels : weakSelf.channels;
-#pragma clang diagnostic pop
-                                    
-                                    if (indexPath.row < currentSource.count) {
-                                        Channel *currentChannel = currentSource[indexPath.row];
-                                        NSString *currentLogoKey = [currentChannel logoIdentifier];
-                                        if ([currentLogoKey isEqualToString:logoKey]) {
-                                            UITableViewCell *updateCell = [tableView cellForRowAtIndexPath:indexPath];
-                                            if (updateCell) {
-                                                updateCell.imageView.image = resizedImage;
-                                                [updateCell setNeedsLayout];
-                                            }
+                                if (weakSelf && indexPath.row < weakSelf.channels.count) {
+                                    Channel *currentChannel = weakSelf.channels[indexPath.row];
+                                    NSString *currentLogoKey = [currentChannel logoIdentifier];
+                                    if ([currentLogoKey isEqualToString:logoKey]) {
+                                        UITableViewCell *updateCell = [tableView cellForRowAtIndexPath:indexPath];
+                                        if (updateCell) {
+                                            updateCell.imageView.image = resizedImage;
+                                            [updateCell setNeedsLayout];
                                         }
                                     }
                                 }
@@ -228,12 +196,7 @@
 - (void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath {
     [tableView deselectRowAtIndexPath:indexPath animated:YES];
     
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-    // [新增] 提取正确的频道源
-    Channel *ch = (tableView == self.searchDisplayController.searchResultsTableView) ? self.filteredChannels[indexPath.row] : self.channels[indexPath.row];
-#pragma clang diagnostic pop
-    
+    Channel *ch = self.channels[indexPath.row];
     NSInteger savedIndex = [[NSUserDefaults standardUserDefaults] integerForKey:[ch persistenceKey]];
     
     if (savedIndex >= ch.urls.count) {
@@ -250,11 +213,7 @@
 }
 
 - (void)tableView:(UITableView *)tableView accessoryButtonTappedForRowWithIndexPath:(NSIndexPath *)indexPath {
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-    // [新增] 处理搜索结果中的独立线路切换
-    self.selectedChannel = (tableView == self.searchDisplayController.searchResultsTableView) ? self.filteredChannels[indexPath.row] : self.channels[indexPath.row];
-#pragma clang diagnostic pop
+    self.selectedChannel = self.channels[indexPath.row];
     
     UIActionSheet *sheet = [[UIActionSheet alloc] initWithTitle:LocalizedString(@"switch_playback_line") delegate:self cancelButtonTitle:LocalizedString(@"cancel") destructiveButtonTitle:nil otherButtonTitles:nil];
     NSInteger currentIndex = [[NSUserDefaults standardUserDefaults] integerForKey:[self.selectedChannel persistenceKey]];
@@ -265,6 +224,35 @@
     }
     [sheet showInView:self.view];
 }
+
+#pragma mark - TVSearchManagerDelegate (对接搜索回调)
+
+- (void)searchManager:(id)manager didSelectChannel:(Channel *)channel {
+    NSInteger savedIndex = [[NSUserDefaults standardUserDefaults] integerForKey:[channel persistenceKey]];
+    
+    if (savedIndex >= channel.urls.count) {
+        [ToastHelper showToastWithMessage:[NSString stringWithFormat:LocalizedString(@"line_invalid_fallback"), (long)savedIndex + 1]];
+        savedIndex = 0;
+        [[NSUserDefaults standardUserDefaults] setInteger:0 forKey:[channel persistenceKey]];
+    }
+    
+    UIImage *cachedLogo = [self.searchManager cachedImageForChannel:channel];
+    [self playVideoWithURL:channel.urls[savedIndex] title:channel.name logo:cachedLogo channel:channel];
+}
+
+- (void)searchManager:(id)manager accessoryButtonTappedForChannel:(Channel *)channel {
+    self.selectedChannel = channel;
+    UIActionSheet *sheet = [[UIActionSheet alloc] initWithTitle:LocalizedString(@"switch_playback_line") delegate:self cancelButtonTitle:LocalizedString(@"cancel") destructiveButtonTitle:nil otherButtonTitles:nil];
+    NSInteger currentIndex = [[NSUserDefaults standardUserDefaults] integerForKey:[self.selectedChannel persistenceKey]];
+    
+    for (int i = 0; i < self.selectedChannel.urls.count; i++) {
+        NSString *title = (i == currentIndex) ? [NSString stringWithFormat:LocalizedString(@"line_current_format"), i+1] : [NSString stringWithFormat:LocalizedString(@"line_format"), i+1];
+        [sheet addButtonWithTitle:title];
+    }
+    [sheet showInView:self.view];
+}
+
+#pragma mark - Action Sheet Delegate
 
 - (void)actionSheet:(UIActionSheet *)actionSheet clickedButtonAtIndex:(NSInteger)buttonIndex {
     if (buttonIndex == actionSheet.cancelButtonIndex) return;
@@ -278,9 +266,9 @@
     
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
-    // [新增] 动态判断需要刷新的表格视图
-    if (self.searchController.isActive) {
-        [self.searchController.searchResultsTableView reloadData];
+    // [优化] 动态判断需刷新的列表视图
+    if (self.searchManager.searchController.isActive) {
+        [self.searchManager reloadSearchResults];
     } else {
         [self.tableView reloadData];
     }
@@ -324,24 +312,5 @@
         [self.navigationController pushViewController:playerVC animated:YES];
     }
 }
-
-#pragma mark - Search Display Delegate
-
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-
-- (void)searchDisplayController:(UISearchDisplayController *)controller didLoadSearchResultsTableView:(UITableView *)tableView {
-    // [新增] 确保搜索结果列表的行高与主列表一致
-    tableView.rowHeight = 55.0;
-}
-
-- (BOOL)searchDisplayController:(UISearchDisplayController *)controller shouldReloadTableForSearchString:(NSString *)searchString {
-    // [新增] 支持大小写不敏感和音调不敏感的模糊匹配
-    NSPredicate *predicate = [NSPredicate predicateWithFormat:@"name CONTAINS[cd] %@", searchString];
-    self.filteredChannels = [self.channels filteredArrayUsingPredicate:predicate];
-    return YES;
-}
-
-#pragma clang diagnostic pop
 
 @end
