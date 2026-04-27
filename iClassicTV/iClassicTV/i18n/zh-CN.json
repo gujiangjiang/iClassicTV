@@ -207,7 +207,7 @@
         "last_update_time_label": "上次更新时间",
         "no_update_record": "暂无更新记录",
         "reserve_program_title": "预约节目",
-        "reserve_program_msg": "是否预约该节目？将在开播前5分钟提醒您。",
+        "reserve_program_msg_format": "频道：%@\n时间：%@\n节目：%@\n\n将在开播前5分钟为您发送提醒。",
         "reserve_confirm": "确认预约",
         "reserve_cancel": "取消",
         "reserve_success": "预约成功",

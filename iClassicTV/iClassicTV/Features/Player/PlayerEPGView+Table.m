@@ -156,7 +156,14 @@
             UIAlertView *alert = [[UIAlertView alloc] initWithTitle:LocalizedString(@"tips") message:LocalizedString(@"reserve_already_exists") delegate:nil cancelButtonTitle:LocalizedString(@"confirm") otherButtonTitles:nil];
             [alert show];
         } else {
-            UIAlertView *alert = [[UIAlertView alloc] initWithTitle:LocalizedString(@"reserve_program_title") message:LocalizedString(@"reserve_program_msg") delegate:self cancelButtonTitle:LocalizedString(@"reserve_cancel") otherButtonTitles:LocalizedString(@"reserve_confirm"), nil];
+            // [优化] 格式化具体的日期时间和弹窗消息
+            NSDateFormatter *df = [[NSDateFormatter alloc] init];
+            [df setDateFormat:@"MM-dd HH:mm"];
+            NSString *timeStr = [df stringFromDate:program.startTime];
+            
+            NSString *msg = [NSString stringWithFormat:LocalizedString(@"reserve_program_msg_format"), channelName, timeStr, program.title];
+            
+            UIAlertView *alert = [[UIAlertView alloc] initWithTitle:LocalizedString(@"reserve_program_title") message:msg delegate:self cancelButtonTitle:LocalizedString(@"reserve_cancel") otherButtonTitles:LocalizedString(@"reserve_confirm"), nil];
             // 绑定数据到 UIAlertView，用于回调时提取
             objc_setAssociatedObject(alert, "EPGProgramKey", program, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
             objc_setAssociatedObject(alert, "ChannelNameKey", channelName, OBJC_ASSOCIATION_RETAIN_NONATOMIC);

@@ -207,7 +207,7 @@
         "last_update_time_label": "Last Updated",
         "no_update_record": "No update record",
         "reserve_program_title": "Reserve Program",
-        "reserve_program_msg": "Do you want to reserve this program? You will be reminded 5 minutes before it starts.",
+        "reserve_program_msg_format": "Channel: %@\nTime: %@\nProgram: %@\n\nYou will be reminded 5 minutes before it starts.",
         "reserve_confirm": "Reserve",
         "reserve_cancel": "Cancel",
         "reserve_success": "Reservation Successful",
