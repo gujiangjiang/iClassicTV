@@ -13,6 +13,7 @@
 #import "ToastHelper.h"
 #import "LanguageManager.h"
 #import <zlib.h>
+#import "NetworkManager.h" // [优化] 引入统一下载管理器
 
 @implementation EPGManager (Update)
 
@@ -197,15 +198,11 @@
                 NSURL *url = [NSURL URLWithString:[urlStr stringByAddingPercentEscapesUsingEncoding:NSUTF8StringEncoding]];
                 if (!url) continue;
                 
-                NSMutableURLRequest *request = [NSMutableURLRequest requestWithURL:url cachePolicy:NSURLRequestReloadIgnoringLocalCacheData timeoutInterval:30.0];
-                [request setValue:@"Mozilla/5.0 (iPhone; CPU iPhone OS 6_1_3 like Mac OS X) AppleWebKit/536.26 (KHTML, like Gecko) Mobile/10B329 iClassicTV" forHTTPHeaderField:@"User-Agent"];
+                // [优化] 移除硬编码的 User-Agent 和冗余的原生请求代码，统一调用 NetworkManager 进行同步下载
+                NSData *xmlData = [[NetworkManager sharedManager] downloadDataSyncFromURL:url];
                 
-                NSURLResponse *response = nil;
-                NSError *error = nil;
-                NSData *xmlData = [NSURLConnection sendSynchronousRequest:request returningResponse:&response error:&error];
-                
-                if (error || !xmlData || xmlData.length == 0) {
-                    lastErrorMsg = error ? error.localizedDescription : LocalizedString(@"epg_no_data");
+                if (!xmlData || xmlData.length == 0) {
+                    lastErrorMsg = LocalizedString(@"epg_no_data");
                     continue;
                 }
                 
