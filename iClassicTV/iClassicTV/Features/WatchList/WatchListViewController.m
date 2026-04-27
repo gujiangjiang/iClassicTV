@@ -61,9 +61,6 @@
     [self.segmentedControl setTitleTextAttributes:attributes forState:UIControlStateNormal];
     
     [self.segmentedControl addTarget:self action:@selector(segmentChanged:) forControlEvents:UIControlEventValueChanged];
-    
-    // 将分段选择器作为 NavigationBar 的 TitleView
-    self.navigationItem.titleView = self.segmentedControl;
 }
 
 - (void)updateTabsAndVisibility {
@@ -89,22 +86,32 @@
     
     self.activeTabs = tabs;
     
-    // 重绘 SegmentedControl
+    // 先清空所有分段，防止旧数据残留
     [self.segmentedControl removeAllSegments];
-    for (NSUInteger i = 0; i < items.count; i++) {
-        [self.segmentedControl insertSegmentWithTitle:items[i] atIndex:i animated:NO];
-    }
     
-    // 关键修复：在 iOS 6 中，titleView 的宽度通常不会自动随子视图内容变化而调整
-    // 通过 sizeToFit 重新计算尺寸，并显式重新设置 titleView 以触发导航栏布局
-    [self.segmentedControl sizeToFit];
-    self.navigationItem.titleView = nil;
-    self.navigationItem.titleView = self.segmentedControl;
-    
-    // 防错处理和选中逻辑回正
-    if (self.activeTabs.count > 0) {
+    // [优化] 当有超过一个选项时，显示分段选择器；否则隐藏并显示纯文本标题
+    if (self.activeTabs.count > 1) {
+        for (NSUInteger i = 0; i < items.count; i++) {
+            [self.segmentedControl insertSegmentWithTitle:items[i] atIndex:i animated:NO];
+        }
+        
+        [self.segmentedControl sizeToFit];
+        self.navigationItem.titleView = nil; // 先置空，确保重新赋值能触发导航栏重绘
+        self.navigationItem.titleView = self.segmentedControl;
+        self.title = nil; // 清空主标题文字，避免在部分机型上与 titleView 重叠
+        
+        // 选中逻辑回正
         if (self.segmentedControl.selectedSegmentIndex == UISegmentedControlNoSegment || self.segmentedControl.selectedSegmentIndex >= self.activeTabs.count) {
             self.segmentedControl.selectedSegmentIndex = 0;
+        }
+    } else {
+        // 只有一个或没有选项时，隐藏分段选择器，直接显示标题
+        self.navigationItem.titleView = nil;
+        if (self.activeTabs.count == 1) {
+            self.title = items[0];
+        } else {
+            // 虽然 AppDelegate 理论上会隐藏整个 Tab，但此处作为兜底显示默认名称
+            self.title = LocalizedString(@"watchlist.my_tv");
         }
     }
     
@@ -134,12 +141,27 @@
     [self updateTabsAndVisibility];
 }
 
+#pragma mark - Helper
+
+- (NSInteger)currentSelectedTabType {
+    if (self.activeTabs.count == 0) {
+        return -1;
+    }
+    
+    NSInteger safeIndex = self.segmentedControl.selectedSegmentIndex;
+    // 关键修复：当分段选择器被清空时，其索引是 UISegmentedControlNoSegment，强制归 0
+    if (safeIndex == UISegmentedControlNoSegment || safeIndex >= self.activeTabs.count) {
+        safeIndex = 0;
+    }
+    
+    return [self.activeTabs[safeIndex] integerValue];
+}
+
 #pragma mark - UITableViewDataSource & Delegate
 
 - (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section {
-    if (self.activeTabs.count == 0) return 0;
+    NSInteger currentTab = [self currentSelectedTabType];
     
-    NSInteger currentTab = [self.activeTabs[self.segmentedControl.selectedSegmentIndex] integerValue];
     switch (currentTab) {
         case 0: return self.favoritesList.count;
         case 1: return self.recentList.count;
