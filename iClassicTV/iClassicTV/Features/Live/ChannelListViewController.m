@@ -48,10 +48,17 @@
     if ([view isKindOfClass:[UINavigationBar class]]) {
         UINavigationBar *navBar = (UINavigationBar *)view;
         for (UINavigationItem *item in navBar.items) {
-            if ([item.leftBarButtonItem.title isEqualToString:@"Done"]) {
+            // [优化] 识别系统原生按钮标识符 "Done" 或 "Back"，并统一替换为语言包中的 "back" 字段文案
+            // 彻底移除硬编码的中文字符串匹配，确保代码符合多语言规范
+            NSString *leftTitle = item.leftBarButtonItem.title;
+            if (leftTitle && ([leftTitle caseInsensitiveCompare:@"Done"] == NSOrderedSame ||
+                              [leftTitle caseInsensitiveCompare:@"Back"] == NSOrderedSame)) {
                 item.leftBarButtonItem.title = LocalizedString(@"back");
             }
-            if ([item.rightBarButtonItem.title isEqualToString:@"Done"]) {
+            
+            NSString *rightTitle = item.rightBarButtonItem.title;
+            if (rightTitle && ([rightTitle caseInsensitiveCompare:@"Done"] == NSOrderedSame ||
+                               [rightTitle caseInsensitiveCompare:@"Back"] == NSOrderedSame)) {
                 item.rightBarButtonItem.title = LocalizedString(@"back");
             }
         }
@@ -60,7 +67,20 @@
     for (UIView *subview in view.subviews) {
         if ([subview isKindOfClass:[UIButton class]]) {
             UIButton *btn = (UIButton *)subview;
-            if ([[btn currentTitle] isEqualToString:@"Done"] || [[btn titleForState:UIControlStateNormal] isEqualToString:@"Done"]) {
+            NSString *currentTitle = [btn currentTitle];
+            NSString *normalTitle = [btn titleForState:UIControlStateNormal];
+            
+            // 检查按钮文案是否为系统预设的退出标识符
+            BOOL isDoneOrBack = NO;
+            if (currentTitle && ([currentTitle caseInsensitiveCompare:@"Done"] == NSOrderedSame ||
+                                 [currentTitle caseInsensitiveCompare:@"Back"] == NSOrderedSame)) {
+                isDoneOrBack = YES;
+            } else if (normalTitle && ([normalTitle caseInsensitiveCompare:@"Done"] == NSOrderedSame ||
+                                       [normalTitle caseInsensitiveCompare:@"Back"] == NSOrderedSame)) {
+                isDoneOrBack = YES;
+            }
+            
+            if (isDoneOrBack) {
                 [btn setTitle:LocalizedString(@"back") forState:UIControlStateNormal];
                 [btn setTitle:LocalizedString(@"back") forState:UIControlStateHighlighted];
             }
@@ -129,7 +149,7 @@
                 NSURL *url = [cleanURLStr toSafeURL];
                 
                 if (url) {
-                    // [优化] 提取冗余的网络请求逻辑，直接复用 NetworkManager 的同步下载方法，内部已封装好 SSL、UA 和 超时处理
+                    // [优化] 提取冗余的网络请求逻辑，直接复用 NetworkManager 的同步下载方法
                     NSData *data = [[NetworkManager sharedManager] downloadDataSyncFromURL:url];
                     if (data) {
                         UIImage *downloadedImage = [UIImage imageWithData:data];
@@ -235,7 +255,7 @@
         playerVC.tvgName = channel.tvgName;
         playerVC.catchupSource = channel.catchupSource;
         
-        // [优化] 弃用模态弹出，改为推入独立页面的方式展示，从底层规避 iOS6 状态栏布局错乱问题
+        // [优化] 弃用模态弹出，改为推入独立页面的方式展示
         playerVC.hidesBottomBarWhenPushed = YES;
         [self.navigationController pushViewController:playerVC animated:YES];
     }
