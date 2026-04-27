@@ -187,6 +187,7 @@
         "now_playing": "正在播放",
         "already_played": "已播放",
         "not_played": "未播放",
+        "already_reserved": "已预约",
         "now_replaying": "正在回放",
         "catchup_badge": "回放",
         "now_live": "正在直播",

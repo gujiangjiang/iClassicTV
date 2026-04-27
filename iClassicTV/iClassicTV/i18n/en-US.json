@@ -187,6 +187,7 @@
         "now_playing": "Now Playing",
         "already_played": "Played",
         "not_played": "Upcoming",
+        "already_reserved": "Reserved",
         "now_replaying": "Replaying",
         "catchup_badge": "Catchup",
         "now_live": "Live",

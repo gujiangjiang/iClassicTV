@@ -104,17 +104,35 @@
         cell.titleMarqueeLabel.font = normalFont;
         cell.statusLabel.font = statusNormalFont;
     } else {
-        UIColor *normalColor = [UIColor blackColor];
-        cell.timeLabel.textColor = normalColor;
-        cell.titleMarqueeLabel.textColor = normalColor;
-        cell.statusLabel.textColor = normalColor;
-        cell.statusLabel.text = LocalizedString(@"not_played");
+        // [优化] 未来未播放的节目，先判断是否已经处于预约状态
+        NSString *channelName = LocalizedString(@"unknown_channel");
+        NSArray *recentPlays = [[WatchListDataManager sharedManager] getRecentPlays];
+        if (recentPlays.count > 0) {
+            channelName = recentPlays.firstObject[@"name"] ?: recentPlays.firstObject[@"title"];
+            if (!channelName) channelName = LocalizedString(@"unknown_channel");
+        }
+        
+        if ([[WatchListDataManager sharedManager] isAppointed:channelName startTime:program.startTime]) {
+            // 已预约的颜色稍微做个区分（例如使用主题色来提示活跃状态），或者也可以用默认黑色
+            UIColor *themeColor = self.isIOS7 ? [UIColor colorWithRed:0.0 green:0.478 blue:1.0 alpha:1.0] : [UIColor orangeColor];
+            cell.timeLabel.textColor = themeColor;
+            cell.titleMarqueeLabel.textColor = themeColor;
+            cell.statusLabel.textColor = themeColor;
+            cell.statusLabel.text = LocalizedString(@"already_reserved");
+        } else {
+            UIColor *normalColor = [UIColor blackColor];
+            cell.timeLabel.textColor = normalColor;
+            cell.titleMarqueeLabel.textColor = normalColor;
+            cell.statusLabel.textColor = normalColor;
+            cell.statusLabel.text = LocalizedString(@"not_played");
+        }
+        
         cell.timeLabel.font = normalFont;
         cell.titleMarqueeLabel.font = normalFont;
         cell.statusLabel.font = statusNormalFont;
     }
     
-    // [优化] 未来的节目也允许点击，用来触发预约操作
+    // 未来的节目也允许点击，用来触发预约操作
     if ((self.supportsCatchup && ([now compare:program.startTime] != NSOrderedAscending)) || ([now compare:program.startTime] == NSOrderedAscending)) {
         cell.selectionStyle = UITableViewCellSelectionStyleBlue;
     } else {
@@ -135,16 +153,15 @@
     NSDate *now = [NSDate date];
     
     if ([now compare:program.startTime] != NSOrderedAscending) {
-        // [原有逻辑] 播放支持回放的过去节目
+        // 播放支持回放的过去节目
         if (!self.supportsCatchup) return;
         if ([self.delegate respondsToSelector:@selector(epgView:didSelectProgram:)]) {
             [self.delegate epgView:self didSelectProgram:program];
         }
         [self startAutoScrollTimer];
     } else {
-        // [新增逻辑] 触发未来节目的预约功能
+        // 触发未来节目的预约功能
         NSString *channelName = LocalizedString(@"unknown_channel");
-        // 从最近播放记录里获取当前正在播放的频道名称，作为预约的归属频道
         NSArray *recentPlays = [[WatchListDataManager sharedManager] getRecentPlays];
         if (recentPlays.count > 0) {
             channelName = recentPlays.firstObject[@"name"] ?: recentPlays.firstObject[@"title"];
@@ -156,7 +173,7 @@
             UIAlertView *alert = [[UIAlertView alloc] initWithTitle:LocalizedString(@"tips") message:LocalizedString(@"reserve_already_exists") delegate:nil cancelButtonTitle:LocalizedString(@"confirm") otherButtonTitles:nil];
             [alert show];
         } else {
-            // [优化] 格式化具体的日期时间和弹窗消息
+            // 格式化具体的日期时间和弹窗消息
             NSDateFormatter *df = [[NSDateFormatter alloc] init];
             [df setDateFormat:@"MM-dd HH:mm"];
             NSString *timeStr = [df stringFromDate:program.startTime];
@@ -190,6 +207,14 @@
             // 提示预约成功
             UIAlertView *successAlert = [[UIAlertView alloc] initWithTitle:LocalizedString(@"tips") message:LocalizedString(@"reserve_success") delegate:nil cancelButtonTitle:LocalizedString(@"confirm") otherButtonTitles:nil];
             [successAlert show];
+            
+            // [新增] 刷新当前表格，使刚才点击的节目立刻显示为“已预约”
+            if ([self respondsToSelector:@selector(tableView)]) {
+                UITableView *tv = [self performSelector:@selector(tableView)];
+                if (tv) {
+                    [tv reloadData];
+                }
+            }
         }
     }
 }
