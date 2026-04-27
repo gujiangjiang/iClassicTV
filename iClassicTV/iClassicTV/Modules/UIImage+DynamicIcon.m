@@ -28,6 +28,42 @@
     return image;
 }
 
+// [新增] 绘制“我的电视”图标 (经典电视机样式)，用于 TabBar
++ (UIImage *)dynamicWatchListTabBarIcon {
+    CGSize size = CGSizeMake(30, 30);
+    UIGraphicsBeginImageContextWithOptions(size, NO, 0.0);
+    
+    [[UIColor blackColor] setStroke];
+    [[UIColor blackColor] setFill];
+    
+    // 电视机主体屏幕外框
+    UIBezierPath *tvBox = [UIBezierPath bezierPathWithRoundedRect:CGRectMake(4, 10, 22, 14) cornerRadius:3];
+    tvBox.lineWidth = 2.0;
+    [tvBox stroke];
+    
+    // 电视机底座
+    UIBezierPath *stand = [UIBezierPath bezierPath];
+    [stand moveToPoint:CGPointMake(10, 24)];
+    [stand addLineToPoint:CGPointMake(20, 24)];
+    [stand addLineToPoint:CGPointMake(18, 27)];
+    [stand addLineToPoint:CGPointMake(12, 27)];
+    [stand closePath];
+    [stand fill];
+    
+    // 电视机天线
+    UIBezierPath *antenna = [UIBezierPath bezierPath];
+    [antenna moveToPoint:CGPointMake(15, 10)];
+    [antenna addLineToPoint:CGPointMake(9, 4)];
+    [antenna moveToPoint:CGPointMake(15, 10)];
+    [antenna addLineToPoint:CGPointMake(21, 4)];
+    antenna.lineWidth = 1.5;
+    [antenna stroke];
+    
+    UIImage *image = UIGraphicsGetImageFromCurrentImageContext();
+    UIGraphicsEndImageContext();
+    return image;
+}
+
 + (UIImage *)dynamicSettingsTabBarIcon {
     CGSize size = CGSizeMake(30, 30);
     UIGraphicsBeginImageContextWithOptions(size, NO, 0.0);
@@ -161,7 +197,7 @@
     return img;
 }
 
-// [新增] 动态绘制播放器画面中央的大型圆形播放图标
+// 动态绘制播放器画面中央的大型圆形播放图标
 + (UIImage *)dynamicLargeCenterPlayIcon {
     CGSize size = CGSizeMake(80, 80);
     UIGraphicsBeginImageContextWithOptions(size, NO, 0.0);

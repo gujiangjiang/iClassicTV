@@ -14,6 +14,9 @@
 // 绘制“播放”图标 (经典播放三角形)，用于 TabBar
 + (UIImage *)dynamicPlayTabBarIcon;
 
+// [新增] 绘制“我的电视”图标 (经典电视机样式)，用于 TabBar
++ (UIImage *)dynamicWatchListTabBarIcon;
+
 // 绘制“设置”图标 (经典调节控制条样式)，用于 TabBar
 + (UIImage *)dynamicSettingsTabBarIcon;
 
@@ -26,7 +29,7 @@
 // 动态绘制播放器底部的“全屏/退出全屏”状态图标
 + (UIImage *)dynamicFullscreenIconWithState:(BOOL)isFullscreen;
 
-// [新增] 动态绘制播放器画面中央的大型圆形播放图标
+// 动态绘制播放器画面中央的大型圆形播放图标
 + (UIImage *)dynamicLargeCenterPlayIcon;
 
 @end

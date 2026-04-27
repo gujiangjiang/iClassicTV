@@ -34,8 +34,8 @@
     // 新增：注入建立的“我的电视”功能 Tab，并插入到中间
     WatchListViewController *watchListVC = [[WatchListViewController alloc] init];
     UINavigationController *nav2 = [[UINavigationController alloc] initWithRootViewController:watchListVC];
-    // 提示：如果您在 UIImage+DynamicIcon 里画了新的图标，可以在这里替换 nil
-    nav2.tabBarItem = [[UITabBarItem alloc] initWithTitle:LocalizedString(@"watchlist.my_tv") image:nil tag:1];
+    // 优化：应用新绘制的“我的电视”图标
+    nav2.tabBarItem = [[UITabBarItem alloc] initWithTitle:LocalizedString(@"watchlist.my_tv") image:[UIImage dynamicWatchListTabBarIcon] tag:1];
     
     SettingsViewController *settingsVC = [[SettingsViewController alloc] init];
     UINavigationController *nav3 = [[UINavigationController alloc] initWithRootViewController:settingsVC];
