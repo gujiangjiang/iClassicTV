@@ -161,7 +161,7 @@
         }
         [self startAutoScrollTimer];
     } else {
-        // 触发未来节目的预约功能
+        // 触发未来节目的预约/取消预约功能
         NSString *channelName = LocalizedString(@"unknown_channel");
         NSArray *recentPlays = [[WatchListDataManager sharedManager] getRecentPlays];
         if (recentPlays.count > 0) {
@@ -171,7 +171,18 @@
         
         // 检查是否已经预约
         if ([[WatchListDataManager sharedManager] isAppointed:channelName startTime:program.startTime]) {
-            UIAlertView *alert = [[UIAlertView alloc] initWithTitle:LocalizedString(@"tips") message:LocalizedString(@"reserve_already_exists") delegate:nil cancelButtonTitle:LocalizedString(@"confirm") otherButtonTitles:nil];
+            // [修改] 已预约的情况下，弹出取消预约确认框
+            NSDateFormatter *df = [[NSDateFormatter alloc] init];
+            [df setDateFormat:@"MM-dd HH:mm"];
+            NSString *timeStr = [df stringFromDate:program.startTime];
+            
+            NSString *msg = [NSString stringWithFormat:LocalizedString(@"cancel_reserve_msg_format"), channelName, timeStr, program.title];
+            
+            UIAlertView *alert = [[UIAlertView alloc] initWithTitle:LocalizedString(@"cancel_reserve_title") message:msg delegate:self cancelButtonTitle:LocalizedString(@"reserve_cancel") otherButtonTitles:LocalizedString(@"cancel_reserve_confirm"), nil];
+            alert.tag = 2; // 标识为取消预约
+            // 绑定数据到 UIAlertView，用于回调时提取
+            objc_setAssociatedObject(alert, "EPGProgramKey", program, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+            objc_setAssociatedObject(alert, "ChannelNameKey", channelName, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
             [alert show];
         } else {
             // 格式化具体的日期时间和弹窗消息
@@ -182,6 +193,7 @@
             NSString *msg = [NSString stringWithFormat:LocalizedString(@"reserve_program_msg_format"), channelName, timeStr, program.title];
             
             UIAlertView *alert = [[UIAlertView alloc] initWithTitle:LocalizedString(@"reserve_program_title") message:msg delegate:self cancelButtonTitle:LocalizedString(@"reserve_cancel") otherButtonTitles:LocalizedString(@"reserve_confirm"), nil];
+            alert.tag = 1; // 标识为新增预约
             // 绑定数据到 UIAlertView，用于回调时提取
             objc_setAssociatedObject(alert, "EPGProgramKey", program, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
             objc_setAssociatedObject(alert, "ChannelNameKey", channelName, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
@@ -193,26 +205,38 @@
 #pragma mark - UIAlertViewDelegate
 
 - (void)alertView:(UIAlertView *)alertView clickedButtonAtIndex:(NSInteger)buttonIndex {
-    if (buttonIndex == 1) { // 点击了确认预约
+    if (buttonIndex == 1) { // 点击了确认按钮（包括确认预约或确认取消预约）
         EPGProgram *program = objc_getAssociatedObject(alertView, "EPGProgramKey");
         NSString *channelName = objc_getAssociatedObject(alertView, "ChannelNameKey");
         if (program && channelName) {
-            // [修复] 补充完整的链接参数，确保特定URL记录模式能够正常跳转
-            NSDictionary *appointmentInfo = @{
-                                              @"channelName": channelName,
-                                              @"url": self.videoURLString ?: @"",
-                                              @"tvgName": self.tvgName ?: @"",
-                                              @"catchupSource": self.catchupSource ?: @"",
-                                              @"title": program.title,
-                                              @"startTime": program.startTime,
-                                              @"endTime": program.endTime
-                                              };
-            [[WatchListDataManager sharedManager] addAppointment:appointmentInfo];
+            if (alertView.tag == 2) {
+                // [新增] 取消预约逻辑
+                NSDictionary *appointmentInfo = @{
+                                                  @"channelName": channelName,
+                                                  @"startTime": program.startTime
+                                                  };
+                [[WatchListDataManager sharedManager] removeAppointment:appointmentInfo];
+                
+                [ToastHelper showToastWithMessage:LocalizedString(@"cancel_reserve_success")];
+            } else {
+                // [原有] 新增预约逻辑
+                // [修复] 补充完整的链接参数，确保特定URL记录模式能够正常跳转
+                NSDictionary *appointmentInfo = @{
+                                                  @"channelName": channelName,
+                                                  @"url": self.videoURLString ?: @"",
+                                                  @"tvgName": self.tvgName ?: @"",
+                                                  @"catchupSource": self.catchupSource ?: @"",
+                                                  @"title": program.title,
+                                                  @"startTime": program.startTime,
+                                                  @"endTime": program.endTime
+                                                  };
+                [[WatchListDataManager sharedManager] addAppointment:appointmentInfo];
+                
+                // [优化] 将成功弹窗替换为 Toast 提示，提升用户体验
+                [ToastHelper showToastWithMessage:LocalizedString(@"reserve_success")];
+            }
             
-            // [优化] 将成功弹窗替换为 Toast 提示，提升用户体验
-            [ToastHelper showToastWithMessage:LocalizedString(@"reserve_success")];
-            
-            // 刷新当前表格，使刚才点击的节目立刻显示为“已预约”
+            // 刷新当前表格，使刚才点击的节目立刻显示最新状态
             if ([self respondsToSelector:@selector(tableView)]) {
                 UITableView *tv = [self performSelector:@selector(tableView)];
                 if (tv) {
