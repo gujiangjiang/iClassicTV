@@ -97,6 +97,14 @@
 }
 
 - (void)updateTabsAndVisibility {
+    // [核心修复] 拦截子线程的调用，强制切回主线程进行 UI 更新，防止出现控件消失、界面假死等未定义行为
+    if (![NSThread isMainThread]) {
+        dispatch_async(dispatch_get_main_queue(), ^{
+            [self updateTabsAndVisibility];
+        });
+        return;
+    }
+    
     NSMutableArray *items = [NSMutableArray array];
     NSMutableArray *tabs = [NSMutableArray array];
     
