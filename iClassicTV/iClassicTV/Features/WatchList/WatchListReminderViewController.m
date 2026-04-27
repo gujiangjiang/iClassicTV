@@ -7,10 +7,14 @@
 //
 
 #import "WatchListReminderViewController.h"
+#import "WatchListDataManager.h"
+#import "LanguageManager.h"
 
 @interface WatchListReminderViewController () <UITableViewDelegate, UITableViewDataSource>
 
 @property (nonatomic, strong) UITableView *tableView;
+@property (nonatomic, strong) NSMutableArray *groupedKeys;      // 存储分组依据：ChannelName
+@property (nonatomic, strong) NSMutableDictionary *groupedData; // 存储各分组对应的预约记录数组
 
 @end
 
@@ -20,7 +24,7 @@
     [super viewDidLoad];
     self.view.backgroundColor = [UIColor whiteColor];
     
-    // [修复] 适配 iOS 7+ 视图布局
+    // 适配 iOS 7+ 视图布局
     if ([self respondsToSelector:@selector(setEdgesForExtendedLayout:)]) {
         self.edgesForExtendedLayout = UIRectEdgeNone;
     }
@@ -35,17 +39,105 @@
     self.tableView.tableFooterView = [[UIView alloc] init];
     [self.view addSubview:self.tableView];
     
-    // 预约功能暂未完全实现，此处预留空白表格逻辑以兼容之前的行为
+    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(loadData) name:@"WatchListDataDidChangeNotification" object:nil];
+}
+
+- (void)viewWillAppear:(BOOL)animated {
+    [super viewWillAppear:animated];
+    [self loadData];
+}
+
+- (void)dealloc {
+    [[NSNotificationCenter defaultCenter] removeObserver:self];
+}
+
+// [新增] 加载、过滤并按频道对数据进行分组
+- (void)loadData {
+    // 每次显示前都清理一波已过期的历史预约
+    [[WatchListDataManager sharedManager] filterExpiredAppointments];
+    
+    NSArray *arr = [[WatchListDataManager sharedManager] getAppointments];
+    self.groupedKeys = [NSMutableArray array];
+    self.groupedData = [NSMutableDictionary dictionary];
+    
+    for (NSDictionary *info in arr) {
+        NSString *channel = info[@"channelName"];
+        if (!channel || channel.length == 0) channel = LocalizedString(@"unknown_channel");
+        
+        NSMutableArray *list = self.groupedData[channel];
+        if (!list) {
+            list = [NSMutableArray array];
+            self.groupedData[channel] = list;
+            [self.groupedKeys addObject:channel]; // 记录频道的出现顺序
+        }
+        [list addObject:info];
+    }
+    
+    [self.tableView reloadData];
 }
 
 #pragma mark - UITableViewDataSource & Delegate
 
+- (NSInteger)numberOfSectionsInTableView:(UITableView *)tableView {
+    return self.groupedKeys.count;
+}
+
+- (NSString *)tableView:(UITableView *)tableView titleForHeaderInSection:(NSInteger)section {
+    return self.groupedKeys[section];
+}
+
 - (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section {
-    return 0; // 暂无数据
+    NSString *channel = self.groupedKeys[section];
+    NSArray *list = self.groupedData[channel];
+    return list.count;
 }
 
 - (UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath {
-    return [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleDefault reuseIdentifier:@"ReminderCell"];
+    static NSString *cellId = @"ReminderCell";
+    UITableViewCell *cell = [tableView dequeueReusableCellWithIdentifier:cellId];
+    if (!cell) {
+        cell = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleDefault reuseIdentifier:cellId];
+        cell.selectionStyle = UITableViewCellSelectionStyleNone;
+        cell.textLabel.font = [UIFont systemFontOfSize:15];
+    }
+    
+    NSString *channel = self.groupedKeys[indexPath.section];
+    NSArray *list = self.groupedData[channel];
+    NSDictionary *info = list[indexPath.row];
+    
+    NSDate *startTime = info[@"startTime"];
+    NSDateFormatter *df = [[NSDateFormatter alloc] init];
+    [df setDateFormat:@"MM-dd HH:mm"];
+    NSString *timeStr = [df stringFromDate:startTime];
+    
+    cell.textLabel.text = [NSString stringWithFormat:@"%@  %@", timeStr, info[@"title"]];
+    
+    return cell;
+}
+
+- (void)tableView:(UITableView *)tableView commitEditingStyle:(UITableViewCellEditingStyle)editingStyle forRowAtIndexPath:(NSIndexPath *)indexPath {
+    if (editingStyle == UITableViewCellEditingStyleDelete) {
+        NSString *channel = self.groupedKeys[indexPath.section];
+        NSMutableArray *list = self.groupedData[channel];
+        NSDictionary *info = list[indexPath.row];
+        
+        // 1. 删除底层数据
+        [[WatchListDataManager sharedManager] removeAppointment:info];
+        
+        // 2. 更新分组数据源并执行动画
+        [list removeObjectAtIndex:indexPath.row];
+        if (list.count == 0) {
+            [self.groupedKeys removeObjectAtIndex:indexPath.section];
+            [self.groupedData removeObjectForKey:channel];
+            [tableView deleteSections:[NSIndexSet indexSetWithIndex:indexPath.section] withRowAnimation:UITableViewRowAnimationFade];
+        } else {
+            [tableView deleteRowsAtIndexPaths:@[indexPath] withRowAnimation:UITableViewRowAnimationFade];
+        }
+    }
+}
+
+- (NSString *)tableView:(UITableView *)tableView titleForDeleteConfirmationButtonForRowAtIndexPath:(NSIndexPath *)indexPath {
+    return LocalizedString(@"delete");
 }
 
 @end

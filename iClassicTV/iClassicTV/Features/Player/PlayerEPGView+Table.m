@@ -12,6 +12,8 @@
 #import "EPGProgramCell.h"
 #import "EPGProgram.h"
 #import "LanguageManager.h"
+#import <objc/runtime.h>
+#import "WatchListDataManager.h"
 
 @implementation PlayerEPGView (Table)
 
@@ -112,7 +114,8 @@
         cell.statusLabel.font = statusNormalFont;
     }
     
-    if (self.supportsCatchup && ([now compare:program.startTime] != NSOrderedAscending)) {
+    // [优化] 未来的节目也允许点击，用来触发预约操作
+    if ((self.supportsCatchup && ([now compare:program.startTime] != NSOrderedAscending)) || ([now compare:program.startTime] == NSOrderedAscending)) {
         cell.selectionStyle = UITableViewCellSelectionStyleBlue;
     } else {
         cell.selectionStyle = UITableViewCellSelectionStyleNone;
@@ -127,15 +130,60 @@
 
 - (void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath {
     [tableView deselectRowAtIndexPath:indexPath animated:YES];
-    if (!self.supportsCatchup) return;
     
     EPGProgram *program = self.displayPrograms[indexPath.row];
     NSDate *now = [NSDate date];
+    
     if ([now compare:program.startTime] != NSOrderedAscending) {
+        // [原有逻辑] 播放支持回放的过去节目
+        if (!self.supportsCatchup) return;
         if ([self.delegate respondsToSelector:@selector(epgView:didSelectProgram:)]) {
             [self.delegate epgView:self didSelectProgram:program];
         }
         [self startAutoScrollTimer];
+    } else {
+        // [新增逻辑] 触发未来节目的预约功能
+        NSString *channelName = LocalizedString(@"unknown_channel");
+        // 从最近播放记录里获取当前正在播放的频道名称，作为预约的归属频道
+        NSArray *recentPlays = [[WatchListDataManager sharedManager] getRecentPlays];
+        if (recentPlays.count > 0) {
+            channelName = recentPlays.firstObject[@"name"] ?: recentPlays.firstObject[@"title"];
+            if (!channelName) channelName = LocalizedString(@"unknown_channel");
+        }
+        
+        // 检查是否已经预约
+        if ([[WatchListDataManager sharedManager] isAppointed:channelName startTime:program.startTime]) {
+            UIAlertView *alert = [[UIAlertView alloc] initWithTitle:LocalizedString(@"tips") message:LocalizedString(@"reserve_already_exists") delegate:nil cancelButtonTitle:LocalizedString(@"confirm") otherButtonTitles:nil];
+            [alert show];
+        } else {
+            UIAlertView *alert = [[UIAlertView alloc] initWithTitle:LocalizedString(@"reserve_program_title") message:LocalizedString(@"reserve_program_msg") delegate:self cancelButtonTitle:LocalizedString(@"reserve_cancel") otherButtonTitles:LocalizedString(@"reserve_confirm"), nil];
+            // 绑定数据到 UIAlertView，用于回调时提取
+            objc_setAssociatedObject(alert, "EPGProgramKey", program, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+            objc_setAssociatedObject(alert, "ChannelNameKey", channelName, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+            [alert show];
+        }
+    }
+}
+
+#pragma mark - UIAlertViewDelegate
+
+- (void)alertView:(UIAlertView *)alertView clickedButtonAtIndex:(NSInteger)buttonIndex {
+    if (buttonIndex == 1) { // 点击了确认预约
+        EPGProgram *program = objc_getAssociatedObject(alertView, "EPGProgramKey");
+        NSString *channelName = objc_getAssociatedObject(alertView, "ChannelNameKey");
+        if (program && channelName) {
+            NSDictionary *appointmentInfo = @{
+                                              @"channelName": channelName,
+                                              @"title": program.title,
+                                              @"startTime": program.startTime,
+                                              @"endTime": program.endTime
+                                              };
+            [[WatchListDataManager sharedManager] addAppointment:appointmentInfo];
+            
+            // 提示预约成功
+            UIAlertView *successAlert = [[UIAlertView alloc] initWithTitle:LocalizedString(@"tips") message:LocalizedString(@"reserve_success") delegate:nil cancelButtonTitle:LocalizedString(@"confirm") otherButtonTitles:nil];
+            [successAlert show];
+        }
     }
 }
 

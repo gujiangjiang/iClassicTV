@@ -19,7 +19,7 @@
 #import "PlayerConfigManager.h"
 #import "EPGManager.h"
 
-@interface AppDelegate () <UITabBarControllerDelegate>
+@interface AppDelegate () <UITabBarControllerDelegate, UIAlertViewDelegate>
 @property (nonatomic, strong) UINavigationController *navWatchList; // 保留实例以备动态添加
 @end
 
@@ -30,6 +30,16 @@
     AVAudioSession *audioSession = [AVAudioSession sharedInstance];
     [audioSession setCategory:AVAudioSessionCategoryPlayback error:nil];
     [audioSession setActive:YES error:nil];
+    
+    // ==========================================
+    // [新增] 兼容 iOS 8+ 的本地通知权限申请 (处理旧版 Xcode 编译报错)
+#ifdef __IPHONE_8_0
+    if ([application respondsToSelector:@selector(registerUserNotificationSettings:)]) {
+        UIUserNotificationSettings *settings = [UIUserNotificationSettings settingsForTypes:(UIUserNotificationTypeAlert | UIUserNotificationTypeBadge | UIUserNotificationTypeSound) categories:nil];
+        [application registerUserNotificationSettings:settings];
+    }
+#endif
+    // ==========================================
     
     self.window = [[UIWindow alloc] initWithFrame:[[UIScreen mainScreen] bounds]];
     
@@ -63,14 +73,66 @@
     // 首次加载立即计算标题并决定是否展现“我的电视”Tab
     [self updateWatchListTabVisibility];
     
-    // [新增] 根据设置决定打开软件默认显示的页面
+    // 根据设置决定打开软件默认显示的页面
     if ([PlayerConfigManager defaultStartupPage] == 1) {
         if ([self.tabBarController.viewControllers containsObject:self.navWatchList]) {
             self.tabBarController.selectedViewController = self.navWatchList;
         }
     }
     
+    // [新增] 处理冷启动时用户点击预约通知拉起APP的情况
+    UILocalNotification *localNotif = [launchOptions objectForKey:UIApplicationLaunchOptionsLocalNotificationKey];
+    if (localNotif) {
+        if ([localNotif.userInfo[@"isEPGReminder"] boolValue]) {
+            // 稍微延迟跳转，等待根视图初始化完全
+            [self performSelector:@selector(jumpToAppointmentsTab) withObject:nil afterDelay:0.5];
+        }
+    }
+    
     return YES;
+}
+
+// [新增] 接收到本地通知时的代理方法
+- (void)application:(UIApplication *)application didReceiveLocalNotification:(UILocalNotification *)notification {
+    NSDictionary *userInfo = notification.userInfo;
+    if ([userInfo[@"isEPGReminder"] boolValue]) {
+        // 如果 App 处于前台运行状态，则不走系统的顶部推送，直接由 App 内部弹窗提醒
+        if (application.applicationState == UIApplicationStateActive) {
+            NSString *channel = userInfo[@"channelName"];
+            NSString *title = userInfo[@"title"];
+            NSDate *startTime = userInfo[@"startTime"];
+            
+            NSDateFormatter *df = [[NSDateFormatter alloc] init];
+            [df setDateFormat:@"MM-dd HH:mm"];
+            NSString *timeStr = [df stringFromDate:startTime];
+            
+            NSString *msg = [NSString stringWithFormat:LocalizedString(@"reminder_alert_msg"), channel, timeStr, title];
+            
+            UIAlertView *alert = [[UIAlertView alloc] initWithTitle:LocalizedString(@"reminder_alert_title") message:msg delegate:self cancelButtonTitle:LocalizedString(@"reminder_ignore") otherButtonTitles:LocalizedString(@"reminder_go"), nil];
+            alert.tag = 1001; // 用来区分是否为提醒弹窗
+            [alert show];
+        } else {
+            // 如果 App 是在后台运行，点击通知进来，则直接跳转预约列表界面
+            [self jumpToAppointmentsTab];
+        }
+    }
+}
+
+// [新增] 处理内部应用弹窗点击“立即前往”跳转预约界面的逻辑
+- (void)alertView:(UIAlertView *)alertView clickedButtonAtIndex:(NSInteger)buttonIndex {
+    if (alertView.tag == 1001 && buttonIndex == 1) {
+        [self jumpToAppointmentsTab];
+    }
+}
+
+// [新增] 跳转至“我的电视”预约页的辅助方法
+- (void)jumpToAppointmentsTab {
+    [self updateWatchListTabVisibility];
+    if ([self.tabBarController.viewControllers containsObject:self.navWatchList]) {
+        self.tabBarController.selectedViewController = self.navWatchList;
+        // 如果 WatchListViewController 中有多个子 Tab（如最近、收藏、预约），可以使用通知触发切换
+        [[NSNotificationCenter defaultCenter] postNotificationName:@"JumpToAppointmentsTabNotification" object:nil];
+    }
 }
 
 // 辅助方法：计算当前“我的电视”Tab 应该显示的标题文字

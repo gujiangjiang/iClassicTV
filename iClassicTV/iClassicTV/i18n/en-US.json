@@ -205,7 +205,17 @@
         "scheduled_update_time": "Scheduled Update Time",
         "disable_scheduled_update": "Disable Scheduled Update",
         "last_update_time_label": "Last Updated",
-        "no_update_record": "No update record"
+        "no_update_record": "No update record",
+        "reserve_program_title": "Reserve Program",
+        "reserve_program_msg": "Do you want to reserve this program? You will be reminded 5 minutes before it starts.",
+        "reserve_confirm": "Reserve",
+        "reserve_cancel": "Cancel",
+        "reserve_success": "Reservation Successful",
+        "reserve_already_exists": "Program already reserved",
+        "reminder_alert_title": "Program Starting Soon",
+        "reminder_alert_msg": "Your reserved program is starting soon:\nChannel: %@\nTime: %@\nProgram: %@",
+        "reminder_ignore": "Ignore",
+        "reminder_go": "Go to View"
     },
     
     "user_agent": {

@@ -7,6 +7,7 @@
 //
 
 #import <Foundation/Foundation.h>
+#import "EPGProgram.h"
 
 // 专门用于管理收藏、最近播放、预约等列表数据的管理器，剥离控制器的耦合
 @interface WatchListDataManager : NSObject
@@ -37,5 +38,17 @@
 - (void)removeFavoriteWithURL:(NSString *)url;
 // 判断某个URL是否已经被收藏
 - (BOOL)isFavorited:(NSString *)url;
+
+// [新增] 预约功能接口
+// 获取所有预约记录
+- (NSArray *)getAppointments;
+// 添加一条预约记录，并自动注册本地通知提醒
+- (void)addAppointment:(NSDictionary *)appointmentInfo;
+// 删除指定预约记录，并取消对应的本地通知
+- (void)removeAppointment:(NSDictionary *)appointmentInfo;
+// 判断某个频道的某个时段是否已经被预约
+- (BOOL)isAppointed:(NSString *)channelName startTime:(NSDate *)startTime;
+// 过滤掉所有已过期的预约记录
+- (void)filterExpiredAppointments;
 
 @end
