@@ -1,108 +1,111 @@
-# 📺 iClassicTV (Native iOS 6 Edition)
+# iClassicTV
 
-**iClassicTV** 是一款专为怀旧党和老旧 iOS 设备（如 iPhone 4/4s、iPad 2/3）打造的 **纯原生** IPTV / M3U 直播源播放器。
+![Platform](https://img.shields.io/badge/Platform-iOS%206.0+-blue.svg)
+![Language](https://img.shields.io/badge/Language-Objective--C-orange.svg)
+![License](https://img.shields.io/badge/License-MIT-green.svg)
 
-本项目不仅是 iClassicTV Web版 的完全重构，更是一次针对 iOS 6 拟物化美学的深度致敬。它摒弃了现代 Web 容器的臃肿，直接基于 **Objective-C** 和 **UIKit** 构建，在“古董”设备上也能实现丝滑流畅的直播体验。
-
----
-
-## ✨ 核心特性
-
-* **🕰️ 纯正拟物化 UI**: 完美利用 iOS 6 原生 `UITableView` 和 `UINavigationController`。无需 CSS 模拟，即可获得最真实的蓝灰渐变导航栏和立体触感。
-* **🚀 硬件级解码播放**: 采用系统原生的 `MPMoviePlayerController` 内核，支持 HLS (.m3u8) 硬件加速解码，比网页版更省电、发热更低。
-* **🎧 全面的后台体验**:
-    * **后台音频**: 支持在应用最小化或锁屏状态下继续播放直播声音。
-    * **锁屏控制**: 集成 `MPNowPlayingInfoCenter`，在锁屏界面显示频道 Logo 及名称，并支持通过线控或系统控制中心切换播放/暂停。
-* **🔒 深度优化的播放交互**:
-    * **防误触锁定**: 播放器内置半透明锁定按钮，锁定后隐藏所有控制条，防止观看时的意外操作。
-    * **智能状态反馈**: 自动识别并提示“纯音频/电台”模式，并针对缓冲、解析失败提供友好的 Emoji 提示。
-* **📡 全方位电子节目指南 (EPG)**:
-    * 内置高效的 `EPGParser`，支持 XMLTV 格式的节目单实时解析。
-    * 播放器内部集成 `PlayerEPGView`，可在不中断播放的情况下随时调出当前及后续节目预告。
-* **📂 强大的 M3U 管理与导入**:
-    * **多维导入**: 支持网络 URL 下载、手动文本粘贴。
-    * **iTunes 文件共享**: 可通过电脑 iTunes 软件直接将 `.m3u` 文件拖入应用，并在软件内一键扫描导入。
-    * **系统关联支持**: 深度集成 iOS “Open In...” 机制，在 Safari 或邮件中下载的 M3U 文件可直接选择自动导入。
-    * **网络源同步**: 支持一键从服务器刷新同步最新的网络直播源内容。
-* **🧠 智能频道解析与线路记忆**:
-    * 自动聚合相同频道名称的多条线路，具备失效自动回退机制并记忆您的线路偏好。
-    * 精准的频道名清洗过滤逻辑，智能去除冗余分辨率标签，同时严格保留 `CCTV4K` 和 `CCTV8K` 等作为固定独立频道的原始标识，确保台标与 EPG 匹配无误。
-* **🌐 老旧系统网络兼容增强**:
-    * 针对 iOS 6 设备根证书过期导致无法播放现代 HTTPS (Let's Encrypt 等) 链接的问题，底层实现了 `SSLBypassHelper` 以保障网络源的畅通。
-    * 内置 `UserAgentManager` (UA管理器)，支持自定义请求头，以绕过部分 IPTV 供应商的访问限制。
-* **🌍 原生多语言支持 (i18n)**:
-    * 架构已完整接入 `LanguageManager`，原生支持简体中文 (zh-CN) 与英文 (en-US) 的无缝切换。
+**iClassicTV** 是一款专为 iOS 6 等拟物化老系统精心打造的 IPTV 直播流媒体播放器。它在极致还原经典拟物化 UI 视觉美感的同时，克服了老旧设备 SSL 证书过期、硬件解码性能受限等重重障碍，提供了媲美现代 App 的流畅直播体验。
 
 ---
 
-## 📂 项目代码目录树
+## ✨ 核心特性 (Detailed Features)
+
+### 🚀 极速直播流解析引擎
+* **全格式兼容**：深度支持 `M3U`、`M3U8` 以及类 `TXT` 格式的直播源解析，内置 `M3UParser` 自动提取 `tvg-id`、`tvg-logo` 和 `group-title`。
+* **智能源校验**：集成 `M3UValidator` 异步校验引擎，支持对直播源的有效性、连接延迟进行后台检测，自动过滤或标记失效线路。
+* **层级化频道管理**：通过 `TVSearchManager` 实现秒级的全库搜索，支持按分组目录深度分类，让上千个频道也井然有序。
+
+### 📅 全能型电子节目指南 (EPG System)
+* **XMLTV 深度解析**：自研 `EPGParser` 逻辑，完美解析海量 XMLTV 数据，支持节目名称、简介、开始/结束时间的精确提取。
+* **四级缓存架构**：依托 `EPGManager+Cache` 实现“内存-磁盘-网络”的高效同步。即便在离线状态下，也能快速呼出已缓存的节目单。
+* **时间轴追踪**：播放界面实时显示“正在播放”进度条，支持 EPG 跨天查询与日期快速切换。
+
+### ⭐ 闭环式片单管理 (WatchList)
+* **❤️ 深度收藏系统**：支持对频道进行多维度的收藏管理，采用持久化存储保证数据在系统更新后不丢失。
+* **🕒 精确播放历史**：自动记录最后观看的频道与线路，支持“继续观看”功能。
+- **⏰ 智能预约提醒**：结合本地通知系统，对 EPG 中未来的节目进行预约。程序会自动计算时间，确保您不会错过重要赛事或节目。
+
+### 🛠 针对旧设备的底层黑科技
+* **🔒 SSL 证书绕过**：通过 `SSLBypassHelper` 动态处理握手协议，彻底修复老系统因根证书过期导致的 `NSURLErrorDomain -1202` 错误，支持所有 HTTPS 资源。
+* **🎭 全局 UA 伪装**：内置 `UserAgentManager`，支持模拟各种现代浏览器、机顶盒或移动设备的请求头，轻松突破直播源的防盗链限制。
+* **📱 极致性能优化**：针对 armv7 架构微调 `PlayerConfigManager` 缓冲区大小，优化 `UITableView` 的滑动重用逻辑，确保在 iPhone 4S/5 上依然纵滑丝滑。
+
+---
+
+## 📂 详尽代码目录树 (Project Structure)
 
 ```text
-iClassicTV-Project
-├── .gitattributes
-├── .gitignore
-├── LICENSE
-├── README.md
-└── iClassicTV
-    ├── iClassicTV.xcodeproj                 # Xcode 项目工程文件配置
-    ├── iClassicTV
-    │   ├── App                              # 应用生命周期与全局配置 (AppDelegate, main)
-    │   ├── Core                             # 核心引擎层 
-    │   │   ├── LanguageManager.[h/m]        # 国际化语言切换中心
-    │   │   └── M3UParser.[h/m]              # M3U 播放列表核心解析器
-    │   ├── Features                         # 核心业务逻辑模块
-    │   │   ├── EPG                          # 电子节目指南 (数据模型、XMLTV解析、控制器)
-    │   │   ├── Live                         # 直播模块 (频道列表、分组管理)
-    │   │   ├── Player                       # 播放器组件 (覆盖交互层、EPG浮窗、核心播放控制)
-    │   │   └── Settings                     # 设置中心 (UA管理、源导入/导出、播放偏好、数据管理)
-    │   ├── Models                           # 数据模型实体 (Channel 频道定义)
-    │   ├── Modules                          # 通用工具与系统扩展
-    │   │   ├── AlertHelper / ToastHelper    # 拟物化风格的弹窗与提示组件
-    │   │   ├── NetworkManager               # 轻量级网络请求封装
-    │   │   ├── SSLBypassHelper              # [核心] iOS 6 根证书失效及 HTTPS 访问修复机制
-    │   │   └── UIImage+*.h/m                # 动态图标绘制引擎与 Logo 处理辅助类
-    │   ├── Resources                        # 静态资源 (Images.xcassets, Info.plist, PCH配置)
-    │   └── i18n                             # 语言包定义配置 (en-US.json, zh-CN.json)
-    └── iClassicTVTests                      # 单元测试用例目录
+iClassicTV/
+├── App/                          # 核心启动入口
+│   ├── AppDelegate.h/m           # 应用生命周期管理、全局 UI 初始化
+│   └── main.m                    # C 入口函数
+├── Core/                         # 基础解析引擎
+│   ├── LanguageManager.h/m       # 多语言动态切换逻辑
+│   ├── M3UParser.h/m             # M3U 标准协议解析器
+│   └── M3UValidator.h/m          # 直播源连接可用性校验工具
+├── Features/                     # 核心业务功能模块
+│   ├── EPG/                      # EPG 节目单全家桶
+│   │   ├── EPGManager.h/m        # EPG 调度中心 (Query/Update/Sources)
+│   │   ├── EPGParser.h/m         # XMLTV 格式解析核心
+│   │   ├── EPGProgram.h/m        # 节目数据模型
+│   │   └── ViewControllers...    # 节目单列表、源管理界面
+│   ├── Live/                     # 直播逻辑
+│   │   ├── GroupListVC.h/m       # 频道分组展示 (拟物化列表)
+│   │   └── ChannelListVC.h/m     # 频道选择与筛选逻辑
+│   ├── Player/                   # 播放器核心视图
+│   │   ├── TVPlaybackVC.h/m      # 播放器主控制器 (Player/UI/EPG 分类)
+│   │   ├── TVPlaybackOverlay.h/m # 播放控制层 (进度条、按钮组)
+│   │   ├── PlayerEPGView.h/m     # 播放器内嵌节目单滑块视图
+│   │   └── TVUIComponents.h/m    # 锁屏、比例切换等自定义 UI 控件
+│   ├── Settings/                 # 系统设置与工具
+│   │   ├── UAManager.h/m         # User-Agent 伪装配置
+│   │   ├── SourceManager.h/m     # 多源管理与扫描
+│   │   ├── DataManagement.h/m    # 缓存清理与存储统计
+│   │   └── AboutVC.h/m           # 版本信息与致谢
+│   └── WatchList/                # 个人数据管理
+│       ├── WatchListManager.h/m  # 收藏、历史、预约的数据持久化
+│       └── ViewControllers...    # 对应的收藏/历史/预约列表界面
+├── Models/                       # 数据模型层
+│   └── Channel.h/m               # 直播频道核心模型 (含多线路逻辑)
+├── Modules/                      # 通用工具组件库
+│   ├── NetworkManager.h/m        # 针对旧系统的网络请求封装
+│   ├── SSLBypassHelper.h/m       # 安全传输协议降级与证书忽略助手
+│   ├── PlayerConfigManager.h/m   # 播放内核参数调优 (Buffer/Cache)
+│   ├── TVSearchManager.h/m       # 频道全局快速搜索引擎
+│   ├── UIStyleHelper.h/m         # 拟物化风格样式库 (颜色、圆角)
+│   └── Extensions...             # NSString/UIImage 等各种分类助手
+├── Resources/                    # 静态资产
+│   ├── Images.xcassets           # 拟物化图标、启动页、AppIcon
+│   └── iClassicTV-Info.plist     # 系统配置文件
+└── i18n/                         # 国际化本地化包
+    ├── zh-CN.json                # 简体中文语言定义
+    └── en-US.json                # 英文语言定义
 ```
 
 ---
 
-## 🛠️ 编译与部署
-
-由于本项目致力于兼容“古董”设备，请遵循以下环境要求：
-
-* **IDE**: 建议使用 **Xcode 5.1.1** (运行在 OS X 10.9 Mavericks 效果最佳)。
-* **最低版本**: iOS 6.0 (Deployment Target: 6.0)。
-* **架构**: 支持 `armv7` (iPhone 3GS/4/4s/5) 及模拟器 `i386`。
-* **关键配置**:
-    * 项目已配置 `UIBackgroundModes` 为 `audio` 以支持后台播放。
-    * 项目已开启 `UIFileSharingEnabled` 以支持 iTunes 文件传输。
-    * 建议真机配合越狱插件 `AppSync` 使用以简化调试安装。
-
----
-
-## 📖 使用指南
+## 📖 使用指南 (Usage Guide)
 
 ### 1. 导入直播源
-您可以点击 **【设置】->【直播源管理】->【+】**，选择：
-* **网络导入**: 输入 M3U 链接，点击下载。
-* **本地文本**: 直接粘贴 M3U 源代码。
-* **iTunes 共享**: 将文件命名为 `.m3u` 通过 iTunes 导入 Documents 目录后点击系统内的扫描。
+您可以点击 **【设置】** -> **【直播源管理】** -> **【+】**，选择：
+* **网络导入**: 输入 M3U 链接，点击下载，支持自动检测编码。
+* **本地文本**: 直接粘贴 M3U 源代码，适合快速调试。
+* **iTunes 共享**: 将文件命名为 `.m3u` 通过 iTunes 导入 Documents 目录后点击系统内的“扫描本地文件”。
 
-### 2. 播放交互
-* **单击屏幕**: 显隐顶部/底部控制栏及 EPG 节目预告。
-* **双击屏幕**: 快速切换全屏/等比缩放窗口模式。
-* **左侧锁头**: 点击锁定屏幕交互（隐藏所有控件，防误触），再次点击对应位置解锁。
-* **列表刷新**: 对于网络源，可在频道分组列表页右上角直接点击“刷新”图标同步服务器最新数据。
+### 2. 播放交互技巧
+* **单击屏幕**: 唤起顶部/底部控制栏，左划或右划底部可查看前后节目。
+* **双击屏幕**: 循环切换 `16:9`、`4:3` 以及 `全屏拉伸` 模式。
+* **左侧锁头**: 一键锁定 UI，防止横屏观看时误触导致播放中断。
+* **下拉刷新**: 在频道列表界面下拉，即可触发网络源的实时同步。
 
-### 3. 高阶网络设置
-* 若直播源存在限制访问情况，请前往 **【设置】->【用户代理 (UA) 管理】**，修改全局 User-Agent 以进行伪装。
+### 3. 高阶调试
+若某些频道无法加载，请尝试：
+1. 前往 **【设置】** -> **【UA 管理】** 切换为 `VLC` 或 `iPhone`。
+2. 确认 **【网络设置】** 中的 SSL 绕过开关已开启。
 
 ### 4. 推荐 M3U 格式
 为了获得最佳的分组、线路聚合以及 EPG 匹配体验，建议源文件包含 `group-title` 和 `tvg-name` 标签：
-
-```m3u
+```text
 #EXTM3U
 #EXTINF:-1 tvg-name="CCTV1" tvg-logo="logo.png" group-title="央视",CCTV-1 综合
 http://source1.m3u8
@@ -114,15 +117,14 @@ http://source3.m3u8
 
 ---
 
-## 🤝 贡献与反馈
+## 🚀 编译运行 (Build)
 
-欢迎提交 Issue 或 Pull Request 来帮助完善项目。我们特别关注：
-- 对 iOS 6.x 不同小版本（如 6.1.3 与 6.0）底层 `MPMoviePlayerController` 的边界异常处理优化。
-- EPG 数据缓存机制的进一步性能优化。
+1. 环境：**Xcode 5.x - 7.x**（推荐在 macOS High Sierra 或更早版本运行）。
+2. 架构：确保项目的 Base SDK 指向 **iOS 6.0** 或以上，支持 `armv7/armv7s`。
+3. 签名：真机运行需具备有效的开发证书，或在越狱设备上使用 `AppSync`。
 
 ---
 
-## 📄 开源协议
+## 📄 许可证 (License)
 
-本项目基于 **MIT License** 开源。
-Copyright (c) 2026 gujiangjiang.
+本项目基于 MIT 许可证开源。请在保留原作者版权信息的前提下进行二次开发。
