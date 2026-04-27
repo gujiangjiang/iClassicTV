@@ -39,14 +39,8 @@
     
     self.title = self.channelTitle ?: LocalizedString(@"unknown_channel");
     
-    // 进入播放器时，将当前频道数据存入最近播放历史 (底层管理器会进行限制检查及模式过滤)
-    NSDictionary *recentInfo = @{
-                                 @"name": self.channelTitle ?: @"",
-                                 @"url": self.videoURLString ?: @"",
-                                 @"tvgName": self.tvgName ?: @"",
-                                 @"catchupSource": self.catchupSource ?: @""
-                                 };
-    [[WatchListDataManager sharedManager] addRecentPlay:recentInfo];
+    // [优化] 延迟 5 秒记录最近播放，避免手误点击
+    [self performSelector:@selector(saveToRecentPlays) withObject:nil afterDelay:5.0];
     
     // 渲染右侧收藏爱心按钮
     [self setupFavoriteButton];
@@ -115,6 +109,17 @@
     dispatch_async(dispatch_get_main_queue(), ^{
         [self.epgView scrollToCurrentProgram];
     });
+}
+
+// [新增] 独立出记录最近播放的方法，供延迟调用
+- (void)saveToRecentPlays {
+    NSDictionary *recentInfo = @{
+                                 @"name": self.channelTitle ?: @"",
+                                 @"url": self.videoURLString ?: @"",
+                                 @"tvgName": self.tvgName ?: @"",
+                                 @"catchupSource": self.catchupSource ?: @""
+                                 };
+    [[WatchListDataManager sharedManager] addRecentPlay:recentInfo];
 }
 
 // 初始化收藏按钮
@@ -240,6 +245,9 @@
 }
 
 - (void)performCleanupBeforePop {
+    // [新增] 如果在 5 秒内退出播放器，取消记录最近播放的延迟操作
+    [NSObject cancelPreviousPerformRequestsWithTarget:self selector:@selector(saveToRecentPlays) object:nil];
+    
     [[UIApplication sharedApplication] endReceivingRemoteControlEvents];
     [self resignFirstResponder];
     if (NSClassFromString(@"MPNowPlayingInfoCenter")) [[MPNowPlayingInfoCenter defaultCenter] setNowPlayingInfo:nil];
