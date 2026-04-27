@@ -44,6 +44,7 @@
 		4887FE622F9CF98C00EA87E2 /* PlayerEPGEmptyView.m in Sources */ = {isa = PBXBuildFile; fileRef = 4887FE612F9CF98C00EA87E2 /* PlayerEPGEmptyView.m */; };
 		4887FE652F9CF9A900EA87E2 /* PlayerEPGDateBar.m in Sources */ = {isa = PBXBuildFile; fileRef = 4887FE642F9CF9A900EA87E2 /* PlayerEPGDateBar.m */; };
 		4887FE682F9CF9C500EA87E2 /* PlayerEPGView.m in Sources */ = {isa = PBXBuildFile; fileRef = 4887FE672F9CF9C500EA87E2 /* PlayerEPGView.m */; };
+		488CECB22F9FC62500219547 /* UITableView+EmptyState.m in Sources */ = {isa = PBXBuildFile; fileRef = 488CECB12F9FC62500219547 /* UITableView+EmptyState.m */; };
 		4895374E2F9C9D0D005D3CA3 /* PlayerSettingsViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 4895374D2F9C9D0D005D3CA3 /* PlayerSettingsViewController.m */; };
 		489537502F9CA6AC005D3CA3 /* libz.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 4895374F2F9CA6AC005D3CA3 /* libz.dylib */; };
 		489537532F9CBB4B005D3CA3 /* TVPlaybackUIComponents.m in Sources */ = {isa = PBXBuildFile; fileRef = 489537522F9CBB4B005D3CA3 /* TVPlaybackUIComponents.m */; };
@@ -163,6 +164,8 @@
 		4887FE642F9CF9A900EA87E2 /* PlayerEPGDateBar.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = PlayerEPGDateBar.m; sourceTree = "<group>"; };
 		4887FE662F9CF9C500EA87E2 /* PlayerEPGView.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = PlayerEPGView.h; sourceTree = "<group>"; };
 		4887FE672F9CF9C500EA87E2 /* PlayerEPGView.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = PlayerEPGView.m; sourceTree = "<group>"; };
+		488CECB02F9FC62500219547 /* UITableView+EmptyState.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "UITableView+EmptyState.h"; sourceTree = "<group>"; };
+		488CECB12F9FC62500219547 /* UITableView+EmptyState.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = "UITableView+EmptyState.m"; sourceTree = "<group>"; };
 		4895374C2F9C9D0D005D3CA3 /* PlayerSettingsViewController.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = PlayerSettingsViewController.h; sourceTree = "<group>"; };
 		4895374D2F9C9D0D005D3CA3 /* PlayerSettingsViewController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = PlayerSettingsViewController.m; sourceTree = "<group>"; };
 		4895374F2F9CA6AC005D3CA3 /* libz.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libz.dylib; path = usr/lib/libz.dylib; sourceTree = SDKROOT; };
@@ -428,6 +431,8 @@
 				487972412F9E82EB00BF7DD9 /* UIStyleHelper.m */,
 				48FB1F7E2F9F5F5700876245 /* TVSearchManager.h */,
 				48FB1F7F2F9F5F5700876245 /* TVSearchManager.m */,
+				488CECB02F9FC62500219547 /* UITableView+EmptyState.h */,
+				488CECB12F9FC62500219547 /* UITableView+EmptyState.m */,
 			);
 			path = Modules;
 			sourceTree = "<group>";
@@ -656,6 +661,7 @@
 				4887FE5F2F9CF96C00EA87E2 /* EPGProgramCell.m in Sources */,
 				48BCAB132F9E71FC00BCBE0A /* M3UValidator.m in Sources */,
 				48DB713A2F9F8A2D00190F20 /* WatchListDataManager.m in Sources */,
+				488CECB22F9FC62500219547 /* UITableView+EmptyState.m in Sources */,
 				48317BA92F9A78E9002489FE /* TextImportModalViewController.m in Sources */,
 				48204B842F9E6A7C00966094 /* PlayerEPGView+Data.m in Sources */,
 				488143362F9E6D750098F995 /* EPGManager+Sources.m in Sources */,

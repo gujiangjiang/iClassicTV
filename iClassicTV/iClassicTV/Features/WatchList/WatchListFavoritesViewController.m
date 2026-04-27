@@ -11,6 +11,7 @@
 #import "TVPlaybackViewController.h"
 #import "LanguageManager.h"
 #import "PlayerConfigManager.h" // [新增] 引入配置管理器
+#import "UITableView+EmptyState.h" // [新增] 引入空白状态通用模块
 
 @interface WatchListFavoritesViewController () <UITableViewDelegate, UITableViewDataSource>
 
@@ -59,21 +60,12 @@
     [self updateEmptyState]; // [新增] 加载数据后更新空白状态
 }
 
-// [新增] 根据数据源数量更新空白提示视图
+// [优化] 接入通用的 UITableView 空白状态管理模块
 - (void)updateEmptyState {
     if (self.dataList.count == 0) {
-        UILabel *emptyLabel = [[UILabel alloc] initWithFrame:self.tableView.bounds];
-        emptyLabel.text = LocalizedString(@"no_favorites_tips");
-        emptyLabel.textColor = [UIColor grayColor];
-        emptyLabel.textAlignment = NSTextAlignmentCenter;
-        emptyLabel.font = [UIFont systemFontOfSize:16.0f];
-        emptyLabel.numberOfLines = 0;
-        emptyLabel.backgroundColor = [UIColor clearColor];
-        self.tableView.backgroundView = emptyLabel;
-        self.tableView.separatorStyle = UITableViewCellSeparatorStyleNone;
+        [self.tableView showEmptyStateWithText:LocalizedString(@"no_favorites_tips")];
     } else {
-        self.tableView.backgroundView = nil;
-        self.tableView.separatorStyle = UITableViewCellSeparatorStyleSingleLine;
+        [self.tableView hideEmptyState];
     }
 }
 

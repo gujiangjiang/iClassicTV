@@ -9,12 +9,13 @@
 #import "WatchListReminderViewController.h"
 #import "WatchListDataManager.h"
 #import "LanguageManager.h"
-#import "TVPlaybackViewController.h" // [新增]
-#import "AppDataManager.h"           // [新增]
-#import "M3UParser.h"                // [新增]
-#import "Channel.h"                  // [新增]
-#import "ToastHelper.h"              // [新增]
+#import "TVPlaybackViewController.h"
+#import "AppDataManager.h"
+#import "M3UParser.h"
+#import "Channel.h"
+#import "ToastHelper.h"
 #import "PlayerConfigManager.h"      // [新增] 引入以获取当前记录模式
+#import "UITableView+EmptyState.h"   // [新增] 引入空白状态通用模块
 
 @interface WatchListReminderViewController () <UITableViewDelegate, UITableViewDataSource>
 
@@ -83,21 +84,12 @@
     [self updateEmptyState]; // [新增] 加载数据后更新空白状态
 }
 
-// [新增] 根据分组数量更新空白提示视图
+// [优化] 接入通用的 UITableView 空白状态管理模块
 - (void)updateEmptyState {
     if (self.groupedKeys.count == 0) {
-        UILabel *emptyLabel = [[UILabel alloc] initWithFrame:self.tableView.bounds];
-        emptyLabel.text = LocalizedString(@"no_appointments_tips");
-        emptyLabel.textColor = [UIColor grayColor];
-        emptyLabel.textAlignment = NSTextAlignmentCenter;
-        emptyLabel.font = [UIFont systemFontOfSize:16.0f];
-        emptyLabel.numberOfLines = 0;
-        emptyLabel.backgroundColor = [UIColor clearColor];
-        self.tableView.backgroundView = emptyLabel;
-        self.tableView.separatorStyle = UITableViewCellSeparatorStyleNone;
+        [self.tableView showEmptyStateWithText:LocalizedString(@"no_appointments_tips")];
     } else {
-        self.tableView.backgroundView = nil;
-        self.tableView.separatorStyle = UITableViewCellSeparatorStyleSingleLine;
+        [self.tableView hideEmptyState];
     }
 }
 
@@ -192,7 +184,7 @@
         playerVC.hidesBottomBarWhenPushed = YES;
         [self.navigationController pushViewController:playerVC animated:YES];
     } else {
-        // 没有找到播放链接，提示用户（请确保在语言文件中补充此 key）
+        // 没有找到播放链接，提示用户
         [ToastHelper showToastWithMessage:LocalizedString(@"channel_not_found")];
     }
 }
