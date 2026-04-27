@@ -11,7 +11,7 @@
 #import "PlayerConfigManager.h"
 #import "EPGManager.h"
 
-// [重构] 引入解耦后的三个独立子控制器
+// 引入解耦后的三个独立子控制器
 #import "WatchListFavoritesViewController.h"
 #import "WatchListRecentViewController.h"
 #import "WatchListReminderViewController.h"
@@ -20,7 +20,7 @@
 
 @property (nonatomic, strong) UISegmentedControl *segmentedControl;
 
-// [重构] 独立维护三个子页面
+// 独立维护三个子页面
 @property (nonatomic, strong) WatchListFavoritesViewController *favVC;
 @property (nonatomic, strong) WatchListRecentViewController *recentVC;
 @property (nonatomic, strong) WatchListReminderViewController *reminderVC;
@@ -36,7 +36,15 @@
     [super viewDidLoad];
     self.view.backgroundColor = [UIColor whiteColor];
     
-    // [重构] 初始化并挂载子控制器，将列表逻辑完全剥离出去
+    // [修复] 适配 iOS 7+ 视图布局，强制视图从导航栏下方开始，避免内部的列表被顶部 Tab 遮挡
+    if ([self respondsToSelector:@selector(setEdgesForExtendedLayout:)]) {
+        self.edgesForExtendedLayout = UIRectEdgeNone;
+    }
+    if ([self respondsToSelector:@selector(setAutomaticallyAdjustsScrollViewInsets:)]) {
+        self.automaticallyAdjustsScrollViewInsets = NO;
+    }
+    
+    // 初始化并挂载子控制器，将列表逻辑完全剥离出去
     [self setupChildViewControllers];
     
     // 配置顶部分段选择器
@@ -51,7 +59,7 @@
     [self updateTabsAndVisibility];
 }
 
-// [重构] 将列表页面作为子层级挂载
+// 将列表页面作为子层级挂载
 - (void)setupChildViewControllers {
     self.favVC = [[WatchListFavoritesViewController alloc] init];
     self.recentVC = [[WatchListRecentViewController alloc] init];
@@ -142,12 +150,12 @@
         }
     }
     
-    // [重构] 触发页面切换展示逻辑
+    // 触发页面切换展示逻辑
     [self showCurrentSelectedVC];
 }
 
 - (void)segmentChanged:(UISegmentedControl *)sender {
-    // [重构] 切换不同分类时，让对应的子页面层级浮现
+    // 切换不同分类时，让对应的子页面层级浮现
     [self showCurrentSelectedVC];
 }
 
@@ -172,7 +180,7 @@
     return [self.activeTabs[safeIndex] integerValue];
 }
 
-// [重构] 控制视图显示与隐藏
+// 控制视图显示与隐藏
 - (void)showCurrentSelectedVC {
     NSInteger currentTab = [self currentSelectedTabType];
     
