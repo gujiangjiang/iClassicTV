@@ -14,7 +14,9 @@
 #import "LanguageManager.h"
 #import "EPGManager.h"
 #import "NSString+EncodingHelper.h"
-#import <QuartzCore/QuartzCore.h> // [新增] 引入 QuartzCore 用于绘制拟物化边框
+#import <QuartzCore/QuartzCore.h>
+#import "WatchListDataManager.h" // [新增] 引入数据管理模块
+#import "PlayerConfigManager.h"  // [新增] 判断开关状态
 
 @implementation TVPlaybackViewController
 
@@ -26,7 +28,7 @@
     self.isFullscreen = UIInterfaceOrientationIsLandscape([UIApplication sharedApplication].statusBarOrientation);
     self.isManualFullscreen = NO;
     
-    // [优化] 利用原生特性动态控制视图延伸：全屏时延伸至边缘(All)，非全屏时不延伸(None)以此避开导航栏
+    // 利用原生特性动态控制视图延伸：全屏时延伸至边缘(All)，非全屏时不延伸(None)以此避开导航栏
     if ([self respondsToSelector:@selector(setEdgesForExtendedLayout:)]) {
         self.edgesForExtendedLayout = self.isFullscreen ? UIRectEdgeAll : UIRectEdgeNone;
     }
@@ -35,6 +37,15 @@
     }
     
     self.title = self.channelTitle ?: LocalizedString(@"unknown_channel");
+    
+    // [新增] 进入播放器时，将当前频道数据存入最近播放历史 (底层管理器会进行限制检查)
+    NSDictionary *recentInfo = @{
+                                 @"name": self.channelTitle ?: @"",
+                                 @"url": self.videoURLString ?: @"",
+                                 @"tvgName": self.tvgName ?: @"",
+                                 @"catchupSource": self.catchupSource ?: @""
+                                 };
+    [[WatchListDataManager sharedManager] addRecentPlay:recentInfo];
     
     self.epgTimeFormatter = [[NSDateFormatter alloc] init];
     [self.epgTimeFormatter setTimeZone:[EPGManager sharedManager].epgTimeZone];
@@ -51,7 +62,7 @@
     self.backgroundView = [[UIView alloc] initWithFrame:self.view.bounds];
     [self.view addSubview:self.backgroundView];
     
-    // [新增] 初始化 EPG 容器，用于实现 iOS 6 风格的拟物化边框
+    // 初始化 EPG 容器，用于实现 iOS 6 风格的拟物化边框
     self.epgContainerView = [[UIView alloc] initWithFrame:CGRectZero];
     self.epgContainerView.backgroundColor = [UIColor whiteColor];
     // 模拟 iOS 6 的卡片式阴影
@@ -88,7 +99,7 @@
     [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(loadStateChanged) name:MPMoviePlayerLoadStateDidChangeNotification object:self.player];
     [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(mediaTypesAvailable) name:MPMovieMediaTypesAvailableNotification object:self.player];
     [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(playbackDidFinish:) name:MPMoviePlayerPlaybackDidFinishNotification object:self.player];
-    // [新增] 监听后台 EPG 数据获取成功的通知自动刷新界面
+    // 监听后台 EPG 数据获取成功的通知自动刷新界面
     [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(epgDataDidUpdateInBackground) name:@"EPGDataDidUpdateNotification" object:nil];
     
     [self.player play];
@@ -111,7 +122,7 @@
         self.originalBarStyle = self.navigationController.navigationBar.barStyle;
         self.originalTranslucent = self.navigationController.navigationBar.translucent;
         if (!isIOS7) {
-            // [新增] 保存原本全局的状态栏样式
+            // 保存原本全局的状态栏样式
             self.originalStatusBarStyle = [[UIApplication sharedApplication] statusBarStyle];
         }
         self.hasSavedOriginalNavState = YES;
@@ -119,14 +130,14 @@
     
     self.navigationController.navigationBar.barStyle = UIBarStyleBlack;
     
-    // [修复] 导航栏的透明度取决于是否在全屏模式，确保全屏下是悬浮的不挤压画面
+    // 导航栏的透明度取决于是否在全屏模式，确保全屏下是悬浮的不挤压画面
     self.navigationController.navigationBar.translucent = (self.isFullscreen || isIOS7) ? YES : NO;
     
     if (!isIOS7) {
         BOOL isLocked = self.overlayView.isLocked;
         BOOL shouldHideStatusBar = self.isFullscreen ? (self.isControlsHidden || isLocked) : NO;
         [[UIApplication sharedApplication] setStatusBarHidden:shouldHideStatusBar withAnimation:UIStatusBarAnimationNone];
-        // [修复] 状态栏的样式取决于是否全屏模式（哪怕是竖屏全屏），全屏必定用悬浮透明的，防止推挤画面
+        // 状态栏的样式取决于是否全屏模式（哪怕是竖屏全屏），全屏必定用悬浮透明的，防止推挤画面
         [[UIApplication sharedApplication] setStatusBarStyle:(self.isFullscreen ? UIStatusBarStyleBlackTranslucent : UIStatusBarStyleBlackOpaque) animated:animated];
         
         // 统一校准导航栏坐标：如果全屏且隐藏控件，Y为0；否则Y为20
@@ -147,7 +158,7 @@
     
     BOOL isIOS7 = [[[UIDevice currentDevice] systemVersion] floatValue] >= 7.0;
     
-    // [修复] 提前恢复状态栏的显示和样式，并强制重置导航栏的 Y 坐标，防止横屏返回时列表页的标题栏上移被状态栏遮挡
+    // 提前恢复状态栏的显示和样式，并强制重置导航栏的 Y 坐标，防止横屏返回时列表页的标题栏上移被状态栏遮挡
     if (!isIOS7) {
         [[UIApplication sharedApplication] setStatusBarHidden:NO withAnimation:UIStatusBarAnimationNone];
         [[UIApplication sharedApplication] setStatusBarStyle:self.originalStatusBarStyle animated:NO];
@@ -184,7 +195,7 @@
     [self.player stop];
     [[NSNotificationCenter defaultCenter] removeObserver:self];
     
-    // [修复] 退出播放时，不再强制写死回到竖屏，而是根据当前手机的真实物理方向旋转
+    // 退出播放时，不再强制写死回到竖屏，而是根据当前手机的真实物理方向旋转
     UIDeviceOrientation deviceOrientation = [[UIDevice currentDevice] orientation];
     UIInterfaceOrientation targetOrientation;
     if (deviceOrientation == UIDeviceOrientationLandscapeLeft) {

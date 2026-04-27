@@ -105,6 +105,10 @@
         [PlayerConfigManager setEnableFavoritesTab:sender.on];
     } else if (sender.tag == 1) {
         [PlayerConfigManager setEnableRecentPlayTab:sender.on];
+        // [新增] 当关闭最近播放功能时，自动清空所有最近播放记录
+        if (!sender.on) {
+            [[WatchListDataManager sharedManager] clearRecentPlays];
+        }
     }
     // 发送全局通知，触发表单结构与Tab展现逻辑刷新
     [[NSNotificationCenter defaultCenter] postNotificationName:@"WatchListVisibilityDidChangeNotification" object:nil];
@@ -119,7 +123,6 @@
             sheet.tag = 201;
             [sheet showInView:self.view];
         } else if (indexPath.row == 1) {
-            // [修改] 将最近播放数量限制改为弹窗手动输入形式
             UIAlertView *alert = [[UIAlertView alloc] initWithTitle:LocalizedString(@"recent_play_limit")
                                                             message:LocalizedString(@"enter_limit_1_to_50")
                                                            delegate:self
@@ -182,7 +185,6 @@
             UIAlertView *toast = [[UIAlertView alloc] initWithTitle:nil message:LocalizedString(@"cleanup_complete") delegate:nil cancelButtonTitle:LocalizedString(@"confirm") otherButtonTitles:nil];
             [toast show];
         } else if (alertView.tag == 301) {
-            // [新增] 处理数量限制的手动输入逻辑，并进行边界验证
             UITextField *textField = [alertView textFieldAtIndex:0];
             NSInteger limit = [textField.text integerValue];
             if (limit >= 1 && limit <= 50) {

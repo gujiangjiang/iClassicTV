@@ -10,13 +10,15 @@
 #import "LanguageManager.h"
 #import "PlayerConfigManager.h"
 #import "EPGManager.h"
+#import "WatchListDataManager.h" // 引入数据管理模块
+#import "TVPlaybackViewController.h" // 引入播放器，实现点击播放
 
 @interface WatchListViewController () <UITableViewDelegate, UITableViewDataSource>
 
 @property (nonatomic, strong) UISegmentedControl *segmentedControl;
 @property (nonatomic, strong) UITableView *tableView;
 
-// 预留的三个功能数据源
+// 三个功能数据源
 @property (nonatomic, strong) NSMutableArray *favoritesList;
 @property (nonatomic, strong) NSMutableArray *recentList;
 @property (nonatomic, strong) NSMutableArray *reminderList;
@@ -32,15 +34,15 @@
     [super viewDidLoad];
     self.view.backgroundColor = [UIColor whiteColor];
     
-    // 1. 初始化空数据源 (后续这里可以替换为读取数据库或本地偏好设置缓存)
+    // 初始化空数据源
     self.favoritesList = [NSMutableArray array];
     self.recentList = [NSMutableArray array];
     self.reminderList = [NSMutableArray array];
     
-    // 2. 配置顶部分段选择器
+    // 配置顶部分段选择器
     [self setupSegmentedControl];
     
-    // 3. 配置主体列表
+    // 配置主体列表
     [self setupTableView];
     
     // 监听全局语言切换和功能可见性变更的通知
@@ -48,8 +50,20 @@
     [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(updateTabsAndVisibility) name:@"WatchListVisibilityDidChangeNotification" object:nil];
     [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(updateTabsAndVisibility) name:NSUserDefaultsDidChangeNotification object:nil];
     
-    // 初始化配置
+    // [新增] 监听本地数据变化的通知，并自动刷新
+    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(loadWatchListData) name:@"WatchListDataDidChangeNotification" object:nil];
+    
+    // 初始化配置和加载数据
     [self updateTabsAndVisibility];
+    [self loadWatchListData];
+}
+
+// [新增] 统一加载数据方法
+- (void)loadWatchListData {
+    self.recentList = [[[WatchListDataManager sharedManager] getRecentPlays] mutableCopy];
+    // 待后续功能完善时在此处继续补充 favoritesList 和 reminderList 的加载逻辑
+    
+    [self.tableView reloadData];
 }
 
 - (void)setupSegmentedControl {
@@ -89,7 +103,6 @@
     // 先清空所有分段，防止旧数据残留
     [self.segmentedControl removeAllSegments];
     
-    // [优化] 当有超过一个选项时，显示分段选择器；否则隐藏并显示纯文本标题
     if (self.activeTabs.count > 1) {
         for (NSUInteger i = 0; i < items.count; i++) {
             [self.segmentedControl insertSegmentWithTitle:items[i] atIndex:i animated:NO];
@@ -99,7 +112,7 @@
         self.navigationItem.titleView = nil; // 先置空，确保重新赋值能触发导航栏重绘
         self.navigationItem.titleView = self.segmentedControl;
         
-        // 关键修复：只清空顶部导航栏的标题，不使用 self.title = nil
+        // 只清空顶部导航栏的标题，不使用 self.title = nil
         self.navigationItem.title = nil;
         // 显式恢复底部 Tab 的标题，防止丢失
         self.navigationController.tabBarItem.title = LocalizedString(@"watchlist.my_tv");
@@ -180,13 +193,74 @@
     static NSString *cellID = @"WatchListCellIdentifier";
     UITableViewCell *cell = [tableView dequeueReusableCellWithIdentifier:cellID];
     if (!cell) {
-        cell = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleDefault reuseIdentifier:cellID];
+        // [修改] 使用 Subtitle 样式，可以显示频道的 URL
+        cell = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleSubtitle reuseIdentifier:cellID];
         cell.textLabel.font = [UIFont boldSystemFontOfSize:16.0f];
+        cell.detailTextLabel.textColor = [UIColor grayColor];
+        cell.detailTextLabel.font = [UIFont systemFontOfSize:12.0f];
     }
     
-    // TODO: 这里预留具体的渲染逻辑，由于暂无真实数据源接入，先置空
-    cell.textLabel.text = @"";
+    NSInteger currentTab = [self currentSelectedTabType];
+    
+    if (currentTab == 1) { // 最近播放渲染
+        if (indexPath.row < self.recentList.count) {
+            NSDictionary *info = self.recentList[indexPath.row];
+            cell.textLabel.text = info[@"name"];
+            cell.detailTextLabel.text = info[@"url"];
+        }
+    } else {
+        cell.textLabel.text = @"";
+        cell.detailTextLabel.text = @"";
+    }
+    
     return cell;
+}
+
+// [新增] 开启滑动删除支持
+- (BOOL)tableView:(UITableView *)tableView canEditRowAtIndexPath:(NSIndexPath *)indexPath {
+    return YES;
+}
+
+// [新增] 实现左滑删除功能逻辑
+- (void)tableView:(UITableView *)tableView commitEditingStyle:(UITableViewCellEditingStyle)editingStyle forRowAtIndexPath:(NSIndexPath *)indexPath {
+    if (editingStyle == UITableViewCellEditingStyleDelete) {
+        NSInteger currentTab = [self currentSelectedTabType];
+        
+        if (currentTab == 1) { // 删除最近播放项
+            // 1. 先操作本地内存数组并触发平滑的删除动画
+            [self.recentList removeObjectAtIndex:indexPath.row];
+            [tableView deleteRowsAtIndexPaths:@[indexPath] withRowAnimation:UITableViewRowAnimationAutomatic];
+            // 2. 调用后台方法进行真正的持久化存储（此方法不派发全局变更通知，保护前面的动画）
+            [[WatchListDataManager sharedManager] removeRecentPlayAtIndex:indexPath.row];
+        }
+    }
+}
+
+// [新增] 滑动删除按钮显示多语言文字
+- (NSString *)tableView:(UITableView *)tableView titleForDeleteConfirmationButtonForRowAtIndexPath:(NSIndexPath *)indexPath {
+    return LocalizedString(@"delete");
+}
+
+// [新增] 处理点击跳转播放器
+- (void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath {
+    [tableView deselectRowAtIndexPath:indexPath animated:YES];
+    
+    NSInteger currentTab = [self currentSelectedTabType];
+    if (currentTab == 1) {
+        if (indexPath.row < self.recentList.count) {
+            NSDictionary *info = self.recentList[indexPath.row];
+            
+            TVPlaybackViewController *playerVC = [[TVPlaybackViewController alloc] init];
+            playerVC.videoURLString = info[@"url"];
+            playerVC.channelTitle = info[@"name"];
+            playerVC.tvgName = info[@"tvgName"];
+            playerVC.catchupSource = info[@"catchupSource"];
+            
+            // push 过去进行视频播放
+            playerVC.hidesBottomBarWhenPushed = YES;
+            [self.navigationController pushViewController:playerVC animated:YES];
+        }
+    }
 }
 
 - (void)dealloc {
