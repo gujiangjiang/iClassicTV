@@ -35,7 +35,7 @@
     [[NSUserDefaults standardUserDefaults] synchronize];
 }
 
-// [新增] 存储与读取控件样式设置（0:图标，1:文字）
+// 存储与读取控件样式设置（0:图标，1:文字）
 + (NSInteger)playerControlStylePref {
     NSUserDefaults *defs = [NSUserDefaults standardUserDefaults];
     if ([defs objectForKey:@"PlayerControlStylePref"] == nil) {
@@ -124,6 +124,30 @@
 
 + (void)setEnableRecentPlayTab:(BOOL)enable {
     [[NSUserDefaults standardUserDefaults] setBool:enable forKey:@"EnableRecentPlayTabPref"];
+    [[NSUserDefaults standardUserDefaults] synchronize];
+}
+
+// [新增] 存储与读取最近播放上限
++ (NSInteger)recentPlayLimit {
+    NSUserDefaults *defs = [NSUserDefaults standardUserDefaults];
+    if ([defs objectForKey:@"RecentPlayLimitPref"] == nil) {
+        return 50; // 默认 50条
+    }
+    return [defs integerForKey:@"RecentPlayLimitPref"];
+}
+
++ (void)setRecentPlayLimit:(NSInteger)limit {
+    [[NSUserDefaults standardUserDefaults] setInteger:limit forKey:@"RecentPlayLimitPref"];
+    [[NSUserDefaults standardUserDefaults] synchronize];
+}
+
+// [新增] 存储与读取启动默认页
++ (NSInteger)defaultStartupPage {
+    return [[NSUserDefaults standardUserDefaults] integerForKey:@"DefaultStartupPagePref"];
+}
+
++ (void)setDefaultStartupPage:(NSInteger)page {
+    [[NSUserDefaults standardUserDefaults] setInteger:page forKey:@"DefaultStartupPagePref"];
     [[NSUserDefaults standardUserDefaults] synchronize];
 }
 

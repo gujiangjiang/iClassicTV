@@ -17,6 +17,7 @@
 #import "EPGManagerViewController.h"
 #import "PlayerSettingsViewController.h"
 #import "PlayerConfigManager.h"
+#import "FeatureSettingsViewController.h" // [新增] 引入功能设置视图
 
 @interface SettingsViewController () <UIActionSheetDelegate>
 @property (nonatomic, strong) NSArray *sections;
@@ -56,11 +57,10 @@
     UIBarButtonItem *backItem = [[UIBarButtonItem alloc] initWithTitle:LocalizedString(@"back") style:UIBarButtonItemStyleBordered target:nil action:nil];
     self.navigationItem.backBarButtonItem = backItem;
     
-    // 修复：使用 LocalizedString 替换硬编码的 EPG 和 播放器设置，同时新增了“我的电视”选项板块
+    // 优化：将“我的电视”开关移入二级功能设置菜单，清理主设置页逻辑
     self.sections = @[
                       @{@"title": LocalizedString(@"source_settings"), @"rows": @[LocalizedString(@"my_sources_manage"), LocalizedString(@"epg_manager_title")]},
-                      @{@"title": LocalizedString(@"watchlist.my_tv"), @"rows": @[LocalizedString(@"watchlist.favorites"), LocalizedString(@"watchlist.recent_play")]},
-                      @{@"title": LocalizedString(@"software_settings"), @"rows": @[LocalizedString(@"language_settings"), LocalizedString(@"player_settings_title"), LocalizedString(@"ua_settings")]},
+                      @{@"title": LocalizedString(@"software_settings"), @"rows": @[LocalizedString(@"language_settings"), LocalizedString(@"feature_settings"), LocalizedString(@"player_settings_title"), LocalizedString(@"ua_settings")]},
                       @{@"title": LocalizedString(@"data_and_security"), @"rows": @[LocalizedString(@"data_management_and_backup")]},
                       @{@"title": LocalizedString(@"about"), @"rows": @[LocalizedString(@"about_iclassictv")]}
                       ];
@@ -86,49 +86,23 @@
     cell.textLabel.textAlignment = NSTextAlignmentLeft;
     cell.textLabel.textColor = [UIColor blackColor];
     
-    // 处理新增的“我的电视”功能开关逻辑
+    cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
+    cell.accessoryView = nil;
+    cell.selectionStyle = UITableViewCellSelectionStyleBlue;
+    
+    // 软件设置（语言设置状态显示）
     if (indexPath.section == 1) {
-        UISwitch *switchView = [[UISwitch alloc] initWithFrame:CGRectZero];
-        switchView.tag = indexPath.row;
-        [switchView addTarget:self action:@selector(watchListSwitchChanged:) forControlEvents:UIControlEventValueChanged];
-        
         if (indexPath.row == 0) {
-            switchView.on = [PlayerConfigManager enableFavoritesTab];
-        } else if (indexPath.row == 1) {
-            switchView.on = [PlayerConfigManager enableRecentPlayTab];
-        }
-        
-        cell.accessoryView = switchView;
-        cell.selectionStyle = UITableViewCellSelectionStyleNone;
-    } else {
-        cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
-        cell.accessoryView = nil;
-        cell.selectionStyle = UITableViewCellSelectionStyleBlue;
-        
-        // 软件设置（原索引为1，现在变更为2）
-        if (indexPath.section == 2) {
-            if (indexPath.row == 0) {
-                NSString *savedMode = [LanguageManager sharedManager].savedLanguageCode;
-                if ([savedMode isEqualToString:@"system"]) {
-                    cell.detailTextLabel.text = LocalizedString(@"follow_system");
-                } else {
-                    cell.detailTextLabel.text = [[LanguageManager sharedManager] currentLanguageDisplayName];
-                }
+            NSString *savedMode = [LanguageManager sharedManager].savedLanguageCode;
+            if ([savedMode isEqualToString:@"system"]) {
+                cell.detailTextLabel.text = LocalizedString(@"follow_system");
+            } else {
+                cell.detailTextLabel.text = [[LanguageManager sharedManager] currentLanguageDisplayName];
             }
         }
     }
     
     return cell;
-}
-
-- (void)watchListSwitchChanged:(UISwitch *)sender {
-    if (sender.tag == 0) {
-        [PlayerConfigManager setEnableFavoritesTab:sender.on];
-    } else if (sender.tag == 1) {
-        [PlayerConfigManager setEnableRecentPlayTab:sender.on];
-    }
-    // 发送全局通知，触发表单结构与Tab展现逻辑刷新
-    [[NSNotificationCenter defaultCenter] postNotificationName:@"WatchListVisibilityDidChangeNotification" object:nil];
 }
 
 - (void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath {
@@ -141,9 +115,7 @@
             [self.navigationController pushViewController:[[EPGManagerViewController alloc] init] animated:YES];
         }
     } else if (indexPath.section == 1) {
-        // 我的电视设置，没有下级页面，单纯的开关
-    } else if (indexPath.section == 2) {
-        if (indexPath.row == 0) {
+        if (indexPath.row == 0) { // 语言设置
             self.currentAvailableLanguages = [[LanguageManager sharedManager] availableLanguages];
             UIActionSheet *sheet = [[UIActionSheet alloc] initWithTitle:LocalizedString(@"language_settings") delegate:self cancelButtonTitle:nil destructiveButtonTitle:nil otherButtonTitles:LocalizedString(@"follow_system"), nil];
             for (NSDictionary *lang in self.currentAvailableLanguages) {
@@ -153,17 +125,20 @@
             sheet.cancelButtonIndex = sheet.numberOfButtons - 1;
             sheet.tag = 201;
             [sheet showInView:self.view];
-        } else if (indexPath.row == 1) {
+        } else if (indexPath.row == 1) { // [新增] 功能设置
+            FeatureSettingsViewController *featureVC = [[FeatureSettingsViewController alloc] init];
+            [self.navigationController pushViewController:featureVC animated:YES];
+        } else if (indexPath.row == 2) { // 播放器设置
             PlayerSettingsViewController *playerVC = [[PlayerSettingsViewController alloc] init];
             [self.navigationController pushViewController:playerVC animated:YES];
-        } else if (indexPath.row == 2) {
+        } else if (indexPath.row == 3) { // UA 设置
             UAManagerViewController *uaVC = [[UAManagerViewController alloc] initWithStyle:UITableViewStyleGrouped];
             [self.navigationController pushViewController:uaVC animated:YES];
         }
-    } else if (indexPath.section == 3 && indexPath.row == 0) {
+    } else if (indexPath.section == 2 && indexPath.row == 0) {
         DataManagementViewController *dataVC = [[DataManagementViewController alloc] init];
         [self.navigationController pushViewController:dataVC animated:YES];
-    } else if (indexPath.section == 4 && indexPath.row == 0) {
+    } else if (indexPath.section == 3 && indexPath.row == 0) {
         [self.navigationController pushViewController:[[AboutViewController alloc] init] animated:YES];
     }
 }

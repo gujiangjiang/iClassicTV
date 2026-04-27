@@ -48,14 +48,24 @@
 // 设置全屏状态下是否显示实时网速
 + (void)setShowNetworkSpeedInFullscreen:(BOOL)show;
 
-// [新增] 获取是否启用收藏功能 (默认 YES)
+// 获取是否启用收藏功能 (默认 YES)
 + (BOOL)enableFavoritesTab;
-// [新增] 设置是否启用收藏功能
+// 设置是否启用收藏功能
 + (void)setEnableFavoritesTab:(BOOL)enable;
 
-// [新增] 获取是否启用最近播放功能 (默认 YES)
+// 获取是否启用最近播放功能 (默认 YES)
 + (BOOL)enableRecentPlayTab;
-// [新增] 设置是否启用最近播放功能
+// 设置是否启用最近播放功能
 + (void)setEnableRecentPlayTab:(BOOL)enable;
+
+// [新增] 获取最近播放数量上限 (默认 50)
++ (NSInteger)recentPlayLimit;
+// [新增] 设置最近播放数量上限
++ (void)setRecentPlayLimit:(NSInteger)limit;
+
+// [新增] 获取打开软件默认主页 (0: 频道列表, 1: 我的电视)
++ (NSInteger)defaultStartupPage;
+// [新增] 设置打开软件默认主页
++ (void)setDefaultStartupPage:(NSInteger)page;
 
 @end

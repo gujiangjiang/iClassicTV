@@ -63,6 +63,13 @@
     // 首次加载立即计算标题并决定是否展现“我的电视”Tab
     [self updateWatchListTabVisibility];
     
+    // [新增] 根据设置决定打开软件默认显示的页面
+    if ([PlayerConfigManager defaultStartupPage] == 1) {
+        if ([self.tabBarController.viewControllers containsObject:self.navWatchList]) {
+            self.tabBarController.selectedViewController = self.navWatchList;
+        }
+    }
+    
     return YES;
 }
 

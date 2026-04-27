@@ -23,7 +23,8 @@
         "downloading": "下载中...",
         "refreshing": "刷新中...",
         "syncing": "正在同步...",
-        "no_results": "无结果"
+        "no_results": "无结果",
+        "cleanup_complete": "清理完成"
     },
     
     "settings_menu": {
@@ -36,7 +37,8 @@
         "about_iclassictv": "关于 iClassicTV",
         "settings": "设置",
         "data_management": "数据管理",
-        "go_to_settings": "去设置"
+        "go_to_settings": "去设置",
+        "feature_settings": "功能设置"
     },
     
     "player": {
@@ -240,7 +242,6 @@
         "settings_restored": "各项设置已恢复至默认",
         "cleared_n_backups": "成功清空了 %d 个备份文件",
         "no_backups_to_clear": "没有找到需要清理的备份文件",
-        "cleanup_complete": "清理完成",
         "export_failed": "导出失败",
         "config_serialize_failed": "配置文件序列化失败",
         "cannot_write_local": "无法将文件写入本地目录",
@@ -265,6 +266,17 @@
         "my_tv": "我的电视",
         "favorites": "收藏",
         "recent_play": "最近播放",
-        "appointments": "预约"
+        "appointments": "预约",
+        "recent_play_limit": "最近播放数量上限",
+        "clear_favorites": "清空收藏夹",
+        "clear_recent_play": "清空最近播放",
+        "clear_appointments": "清空预约记录",
+        "default_startup_page": "默认启动页面",
+        "confirm_clear_favorites_msg": "确定要清空所有收藏的频道吗？",
+        "confirm_clear_recent_msg": "确定要清空所有最近播放记录吗？",
+        "confirm_clear_appointments_msg": "确定要清空所有预约记录吗？",
+        "limit_50": "50条",
+        "limit_100": "100条",
+        "limit_200": "200条"
     }
 }
