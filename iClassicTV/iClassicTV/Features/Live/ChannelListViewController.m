@@ -215,13 +215,19 @@
 - (void)tableView:(UITableView *)tableView accessoryButtonTappedForRowWithIndexPath:(NSIndexPath *)indexPath {
     self.selectedChannel = self.channels[indexPath.row];
     
-    UIActionSheet *sheet = [[UIActionSheet alloc] initWithTitle:LocalizedString(@"switch_playback_line") delegate:self cancelButtonTitle:LocalizedString(@"cancel") destructiveButtonTitle:nil otherButtonTitles:nil];
+    // [修复] 先不添加取消按钮，保证动态添加的线路按照 0, 1, 2 的正确顺序排列，避免索引错位问题
+    UIActionSheet *sheet = [[UIActionSheet alloc] initWithTitle:LocalizedString(@"switch_playback_line") delegate:self cancelButtonTitle:nil destructiveButtonTitle:nil otherButtonTitles:nil];
     NSInteger currentIndex = [[NSUserDefaults standardUserDefaults] integerForKey:[self.selectedChannel persistenceKey]];
     
     for (int i = 0; i < self.selectedChannel.urls.count; i++) {
         NSString *title = (i == currentIndex) ? [NSString stringWithFormat:LocalizedString(@"line_current_format"), i+1] : [NSString stringWithFormat:LocalizedString(@"line_format"), i+1];
         [sheet addButtonWithTitle:title];
     }
+    
+    // [修复] 线路添加完毕后，再追加取消按钮，并指定其为 cancelButtonIndex
+    [sheet addButtonWithTitle:LocalizedString(@"cancel")];
+    sheet.cancelButtonIndex = self.selectedChannel.urls.count;
+    
     [sheet showInView:self.view];
 }
 
@@ -242,13 +248,20 @@
 
 - (void)searchManager:(id)manager accessoryButtonTappedForChannel:(Channel *)channel {
     self.selectedChannel = channel;
-    UIActionSheet *sheet = [[UIActionSheet alloc] initWithTitle:LocalizedString(@"switch_playback_line") delegate:self cancelButtonTitle:LocalizedString(@"cancel") destructiveButtonTitle:nil otherButtonTitles:nil];
+    
+    // [修复] 同上，保证搜索界面的 ActionSheet 也能获得正确的顺序和索引
+    UIActionSheet *sheet = [[UIActionSheet alloc] initWithTitle:LocalizedString(@"switch_playback_line") delegate:self cancelButtonTitle:nil destructiveButtonTitle:nil otherButtonTitles:nil];
     NSInteger currentIndex = [[NSUserDefaults standardUserDefaults] integerForKey:[self.selectedChannel persistenceKey]];
     
     for (int i = 0; i < self.selectedChannel.urls.count; i++) {
         NSString *title = (i == currentIndex) ? [NSString stringWithFormat:LocalizedString(@"line_current_format"), i+1] : [NSString stringWithFormat:LocalizedString(@"line_format"), i+1];
         [sheet addButtonWithTitle:title];
     }
+    
+    // [修复] 追加取消按钮
+    [sheet addButtonWithTitle:LocalizedString(@"cancel")];
+    sheet.cancelButtonIndex = self.selectedChannel.urls.count;
+    
     [sheet showInView:self.view];
 }
 
@@ -256,7 +269,9 @@
 
 - (void)actionSheet:(UIActionSheet *)actionSheet clickedButtonAtIndex:(NSInteger)buttonIndex {
     if (buttonIndex == actionSheet.cancelButtonIndex) return;
-    NSInteger sourceIndex = buttonIndex - 1;
+    
+    // [修复] 由于取消按钮现在被严格添加在最后，直接使用 buttonIndex 作为真实索引，去除会导致偏移的 `- 1`
+    NSInteger sourceIndex = buttonIndex;
     
     // [优化] 增加越界保护，防止极端情况下的崩溃
     if (sourceIndex < 0 || sourceIndex >= self.selectedChannel.urls.count) return;
