@@ -85,4 +85,84 @@
     return img;
 }
 
+// [新增] 动态绘制播放器底部的“播放/暂停”状态图标
++ (UIImage *)dynamicPlaybackIconWithState:(BOOL)isPlaying {
+    CGSize size = CGSizeMake(30, 30);
+    UIGraphicsBeginImageContextWithOptions(size, NO, 0.0);
+    [[UIColor whiteColor] setFill];
+    
+    if (isPlaying) {
+        // 正在播放，显示暂停图标 (两条垂直矩形)
+        [[UIBezierPath bezierPathWithRect:CGRectMake(8, 7, 4, 16)] fill];
+        [[UIBezierPath bezierPathWithRect:CGRectMake(18, 7, 4, 16)] fill];
+    } else {
+        // 已经暂停，显示播放图标 (向右的三角形)
+        UIBezierPath *path = [UIBezierPath bezierPath];
+        [path moveToPoint:CGPointMake(10, 6)];
+        [path addLineToPoint:CGPointMake(24, 15)];
+        [path addLineToPoint:CGPointMake(10, 24)];
+        [path closePath];
+        [path fill];
+    }
+    
+    UIImage *img = UIGraphicsGetImageFromCurrentImageContext();
+    UIGraphicsEndImageContext();
+    return img;
+}
+
+// [新增] 动态绘制播放器底部的“全屏/退出全屏”状态图标
++ (UIImage *)dynamicFullscreenIconWithState:(BOOL)isFullscreen {
+    CGSize size = CGSizeMake(30, 30);
+    UIGraphicsBeginImageContextWithOptions(size, NO, 0.0);
+    
+    [[UIColor whiteColor] setStroke];
+    UIBezierPath *path = [UIBezierPath bezierPath];
+    
+    if (!isFullscreen) {
+        // 放大：四个角朝外的折线
+        // 左上
+        [path moveToPoint:CGPointMake(6, 12)];
+        [path addLineToPoint:CGPointMake(6, 6)];
+        [path addLineToPoint:CGPointMake(12, 6)];
+        // 右上
+        [path moveToPoint:CGPointMake(18, 6)];
+        [path addLineToPoint:CGPointMake(24, 6)];
+        [path addLineToPoint:CGPointMake(24, 12)];
+        // 右下
+        [path moveToPoint:CGPointMake(24, 18)];
+        [path addLineToPoint:CGPointMake(24, 24)];
+        [path addLineToPoint:CGPointMake(18, 24)];
+        // 左下
+        [path moveToPoint:CGPointMake(12, 24)];
+        [path addLineToPoint:CGPointMake(6, 24)];
+        [path addLineToPoint:CGPointMake(6, 18)];
+    } else {
+        // 缩小：四个角朝内的折线
+        // 左上
+        [path moveToPoint:CGPointMake(12, 6)];
+        [path addLineToPoint:CGPointMake(12, 12)];
+        [path addLineToPoint:CGPointMake(6, 12)];
+        // 右上
+        [path moveToPoint:CGPointMake(18, 6)];
+        [path addLineToPoint:CGPointMake(18, 12)];
+        [path addLineToPoint:CGPointMake(24, 12)];
+        // 右下
+        [path moveToPoint:CGPointMake(24, 18)];
+        [path addLineToPoint:CGPointMake(18, 18)];
+        [path addLineToPoint:CGPointMake(18, 24)];
+        // 左下
+        [path moveToPoint:CGPointMake(12, 24)];
+        [path addLineToPoint:CGPointMake(12, 18)];
+        [path addLineToPoint:CGPointMake(6, 18)];
+    }
+    path.lineWidth = 2.0;
+    path.lineCapStyle = kCGLineCapSquare;
+    path.lineJoinStyle = kCGLineJoinMiter;
+    [path stroke];
+    
+    UIImage *img = UIGraphicsGetImageFromCurrentImageContext();
+    UIGraphicsEndImageContext();
+    return img;
+}
+
 @end

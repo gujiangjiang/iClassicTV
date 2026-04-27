@@ -10,6 +10,7 @@
 #import "LanguageManager.h"
 #import "PlayerConfigManager.h"
 #import "EPGManager.h" // [优化] 引入 EPG 管理器以获取时区设置
+#import "UIImage+DynamicIcon.h" // [新增] 引入动态图标类绘制按钮图标
 
 #pragma mark - ====== TVPlaybackBottomBar 实现 ======
 
@@ -46,14 +47,15 @@
 
 - (void)setupUI {
     self.playBtn = [UIButton buttonWithType:UIButtonTypeCustom];
-    self.playBtn.frame = CGRectMake(5, 5, 50, 40);
-    [self.playBtn setTitle:LocalizedString(@"pause") forState:UIControlStateNormal];
-    [self.playBtn setTitleColor:[UIColor whiteColor] forState:UIControlStateNormal];
-    self.playBtn.titleLabel.font = [UIFont systemFontOfSize:14];
+    // [优化] 因为是纯图标，宽度调整到更小，释放空间给进度条
+    self.playBtn.frame = CGRectMake(5, 5, 45, 40);
+    // [优化] 彻底移除硬编码文字，改为使用动态图标初始化
+    [self.playBtn setImage:[UIImage dynamicPlaybackIconWithState:NO] forState:UIControlStateNormal];
     [self.playBtn addTarget:self action:@selector(playBtnTapped) forControlEvents:UIControlEventTouchUpInside];
     [self addSubview:self.playBtn];
     
-    self.progressBar = [[UISlider alloc] initWithFrame:CGRectMake(60, 10, self.bounds.size.width - 155, 30)];
+    // [优化] 进度条在新的左右对称图标布局下（左侧占50宽度，右侧占50宽度），变得更长更对称
+    self.progressBar = [[UISlider alloc] initWithFrame:CGRectMake(50, 10, self.bounds.size.width - 100, 30)];
     self.progressBar.autoresizingMask = UIViewAutoresizingFlexibleWidth;
     [self.progressBar addTarget:self action:@selector(sliderValueChanged:) forControlEvents:UIControlEventValueChanged];
     [self.progressBar addTarget:self action:@selector(sliderTouchDown) forControlEvents:UIControlEventTouchDown];
@@ -61,19 +63,26 @@
     [self addSubview:self.progressBar];
     
     self.fullBtn = [UIButton buttonWithType:UIButtonTypeCustom];
-    self.fullBtn.frame = CGRectMake(self.bounds.size.width - 85, 5, 80, 40);
-    [self.fullBtn setTitle:LocalizedString(@"fullscreen") forState:UIControlStateNormal];
-    [self.fullBtn setTitleColor:[UIColor whiteColor] forState:UIControlStateNormal];
-    self.fullBtn.titleLabel.font = [UIFont systemFontOfSize:14];
-    self.fullBtn.titleLabel.adjustsFontSizeToFitWidth = YES;
+    // [优化] 全屏按钮也缩小宽度，对称布局
+    self.fullBtn.frame = CGRectMake(self.bounds.size.width - 50, 5, 45, 40);
+    // [优化] 彻底移除硬编码文字，改为使用动态图标初始化
+    [self.fullBtn setImage:[UIImage dynamicFullscreenIconWithState:NO] forState:UIControlStateNormal];
     self.fullBtn.autoresizingMask = UIViewAutoresizingFlexibleLeftMargin;
     [self.fullBtn addTarget:self action:@selector(fullscreenBtnTapped) forControlEvents:UIControlEventTouchUpInside];
     [self addSubview:self.fullBtn];
 }
 
 - (void)updateProgressWithValue:(float)value { self.progressBar.value = value; }
-- (void)updatePlayButtonState:(BOOL)isPlaying { [self.playBtn setTitle:(isPlaying ? LocalizedString(@"pause") : LocalizedString(@"play")) forState:UIControlStateNormal]; }
-- (void)updateFullscreenButtonState:(BOOL)isFullscreen { [self.fullBtn setTitle:(isFullscreen ? LocalizedString(@"exit_fullscreen") : LocalizedString(@"fullscreen")) forState:UIControlStateNormal]; }
+
+// [修改] 更新播放按钮状态时，刷新图标而不是文字
+- (void)updatePlayButtonState:(BOOL)isPlaying {
+    [self.playBtn setImage:[UIImage dynamicPlaybackIconWithState:isPlaying] forState:UIControlStateNormal];
+}
+
+// [修改] 更新全屏按钮状态时，刷新图标而不是文字
+- (void)updateFullscreenButtonState:(BOOL)isFullscreen {
+    [self.fullBtn setImage:[UIImage dynamicFullscreenIconWithState:isFullscreen] forState:UIControlStateNormal];
+}
 
 - (void)playBtnTapped { if ([self.delegate respondsToSelector:@selector(bottomBarDidTapPlayPause)]) [self.delegate bottomBarDidTapPlayPause]; }
 - (void)fullscreenBtnTapped { if ([self.delegate respondsToSelector:@selector(bottomBarDidTapFullscreen)]) [self.delegate bottomBarDidTapFullscreen]; }
