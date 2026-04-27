@@ -47,68 +47,92 @@
 
 - (void)setupUI {
     self.playBtn = [UIButton buttonWithType:UIButtonTypeCustom];
-    self.fullBtn = [UIButton buttonWithType:UIButtonTypeCustom];
-    
-    // [优化] 动态获取用户设置，决定布局逻辑
-    BOOL isIconStyle = ([PlayerConfigManager playerControlStylePref] == 0);
-    
-    if (isIconStyle) {
-        // [新增] 图标样式布局逻辑：按钮稍窄，进度条更长
-        self.playBtn.frame = CGRectMake(5, 5, 45, 40);
-        [self.playBtn setImage:[UIImage dynamicPlaybackIconWithState:NO] forState:UIControlStateNormal];
-        
-        self.progressBar = [[UISlider alloc] initWithFrame:CGRectMake(50, 10, self.bounds.size.width - 100, 30)];
-        
-        self.fullBtn.frame = CGRectMake(self.bounds.size.width - 50, 5, 45, 40);
-        [self.fullBtn setImage:[UIImage dynamicFullscreenIconWithState:NO] forState:UIControlStateNormal];
-    } else {
-        // [保留] 经典文字样式布局逻辑：文字较宽，挤压进度条
-        self.playBtn.frame = CGRectMake(5, 5, 50, 40);
-        [self.playBtn setTitle:LocalizedString(@"pause") forState:UIControlStateNormal];
-        [self.playBtn setTitleColor:[UIColor whiteColor] forState:UIControlStateNormal];
-        self.playBtn.titleLabel.font = [UIFont systemFontOfSize:14];
-        
-        self.progressBar = [[UISlider alloc] initWithFrame:CGRectMake(60, 10, self.bounds.size.width - 155, 30)];
-        
-        self.fullBtn.frame = CGRectMake(self.bounds.size.width - 85, 5, 80, 40);
-        [self.fullBtn setTitle:LocalizedString(@"fullscreen") forState:UIControlStateNormal];
-        [self.fullBtn setTitleColor:[UIColor whiteColor] forState:UIControlStateNormal];
-        self.fullBtn.titleLabel.font = [UIFont systemFontOfSize:14];
-        self.fullBtn.titleLabel.adjustsFontSizeToFitWidth = YES;
-    }
-    
     [self.playBtn addTarget:self action:@selector(playBtnTapped) forControlEvents:UIControlEventTouchUpInside];
+    // [优化] 初始化字体大小，兼容文字模式
+    self.playBtn.titleLabel.font = [UIFont systemFontOfSize:14];
+    [self.playBtn setTitleColor:[UIColor whiteColor] forState:UIControlStateNormal];
     [self addSubview:self.playBtn];
     
-    self.progressBar.autoresizingMask = UIViewAutoresizingFlexibleWidth;
+    self.progressBar = [[UISlider alloc] initWithFrame:CGRectZero];
+    // [优化] 移除 autoresizingMask，完全交由 layoutSubviews 动态接管进度条的宽度计算
     [self.progressBar addTarget:self action:@selector(sliderValueChanged:) forControlEvents:UIControlEventValueChanged];
     [self.progressBar addTarget:self action:@selector(sliderTouchDown) forControlEvents:UIControlEventTouchDown];
     [self.progressBar addTarget:self action:@selector(sliderTouchRelease) forControlEvents:UIControlEventTouchUpInside | UIControlEventTouchUpOutside | UIControlEventTouchCancel];
     [self addSubview:self.progressBar];
     
-    self.fullBtn.autoresizingMask = UIViewAutoresizingFlexibleLeftMargin;
+    self.fullBtn = [UIButton buttonWithType:UIButtonTypeCustom];
     [self.fullBtn addTarget:self action:@selector(fullscreenBtnTapped) forControlEvents:UIControlEventTouchUpInside];
+    // [优化] 初始化字体大小，兼容文字模式
+    self.fullBtn.titleLabel.font = [UIFont systemFontOfSize:14];
+    [self.fullBtn setTitleColor:[UIColor whiteColor] forState:UIControlStateNormal];
     [self addSubview:self.fullBtn];
+    
+    // 初始化时主动触发一次状态更新以加载初始图标或文字
+    [self updatePlayButtonState:NO];
+    [self updateFullscreenButtonState:NO];
+}
+
+// [新增] 重写原生布局系统，统一处理图标与多语言文字的动态自适应宽度计算
+- (void)layoutSubviews {
+    [super layoutSubviews];
+    
+    BOOL isIconStyle = ([PlayerConfigManager playerControlStylePref] == 0);
+    
+    // 图标模式默认固定为45像素宽度，保证点击热区充足
+    CGFloat playBtnWidth = 45.0;
+    CGFloat fullBtnWidth = 45.0;
+    
+    if (!isIconStyle) {
+        // 文字模式下，根据按钮上具体的文字长度动态计算所需宽度，并增加20像素的安全边距
+        NSString *playTitle = [self.playBtn titleForState:UIControlStateNormal];
+        if (playTitle.length > 0) {
+            CGSize playSize = [playTitle sizeWithFont:self.playBtn.titleLabel.font];
+            playBtnWidth = MAX(45.0, playSize.width + 20.0);
+        }
+        
+        NSString *fullTitle = [self.fullBtn titleForState:UIControlStateNormal];
+        if (fullTitle.length > 0) {
+            CGSize fullSize = [fullTitle sizeWithFont:self.fullBtn.titleLabel.font];
+            fullBtnWidth = MAX(45.0, fullSize.width + 20.0);
+        }
+    }
+    
+    // 根据动态计算出的左右宽度，安置两侧按钮
+    self.playBtn.frame = CGRectMake(5, 5, playBtnWidth, 40);
+    self.fullBtn.frame = CGRectMake(self.bounds.size.width - fullBtnWidth - 5, 5, fullBtnWidth, 40);
+    
+    // 中间的进度条如同弹簧般动态计算，吃掉两侧按钮余下的所有空间
+    CGFloat sliderX = CGRectGetMaxX(self.playBtn.frame) + 5;
+    CGFloat sliderWidth = CGRectGetMinX(self.fullBtn.frame) - sliderX - 5;
+    self.progressBar.frame = CGRectMake(sliderX, 10, sliderWidth, 30);
 }
 
 - (void)updateProgressWithValue:(float)value { self.progressBar.value = value; }
 
-// [优化] 根据用户的控件样式偏好，动态决定更新图标还是文字
+// [优化] 根据用户的控件样式偏好，动态决定更新图标还是文字，并在末尾请求重新布局
 - (void)updatePlayButtonState:(BOOL)isPlaying {
     if ([PlayerConfigManager playerControlStylePref] == 0) {
         [self.playBtn setImage:[UIImage dynamicPlaybackIconWithState:isPlaying] forState:UIControlStateNormal];
+        [self.playBtn setTitle:nil forState:UIControlStateNormal]; // 清除可能残留的文字
     } else {
+        [self.playBtn setImage:nil forState:UIControlStateNormal]; // 清除可能残留的图标
         [self.playBtn setTitle:(isPlaying ? LocalizedString(@"pause") : LocalizedString(@"play")) forState:UIControlStateNormal];
     }
+    // [核心优化] 无论是文字长短变化，还是中英文切换，都触发系统重新调用 layoutSubviews 动态计算进度条长度
+    [self setNeedsLayout];
 }
 
-// [优化] 根据用户的控件样式偏好，动态决定更新图标还是文字
+// [优化] 根据用户的控件样式偏好，动态决定更新图标还是文字，并在末尾请求重新布局
 - (void)updateFullscreenButtonState:(BOOL)isFullscreen {
     if ([PlayerConfigManager playerControlStylePref] == 0) {
         [self.fullBtn setImage:[UIImage dynamicFullscreenIconWithState:isFullscreen] forState:UIControlStateNormal];
+        [self.fullBtn setTitle:nil forState:UIControlStateNormal];
     } else {
+        [self.fullBtn setImage:nil forState:UIControlStateNormal];
         [self.fullBtn setTitle:(isFullscreen ? LocalizedString(@"exit_fullscreen") : LocalizedString(@"fullscreen")) forState:UIControlStateNormal];
     }
+    // [核心优化] 触发重新布局计算
+    [self setNeedsLayout];
 }
 
 - (void)playBtnTapped { if ([self.delegate respondsToSelector:@selector(bottomBarDidTapPlayPause)]) [self.delegate bottomBarDidTapPlayPause]; }
