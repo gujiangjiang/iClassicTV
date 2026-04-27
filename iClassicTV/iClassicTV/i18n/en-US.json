@@ -289,6 +289,7 @@
         "enter_limit_1_to_50": "Please enter a number between 1 and 50",
         "invalid_limit_msg": "Invalid input. Limit must be between 1 and 50.",
         "add_favorite_success": "Added to favorites",
-        "remove_favorite_success": "Removed from favorites"
+        "remove_favorite_success": "Removed from favorites",
+        "channel_not_found": "No playback link found for this channel"
     }
 }

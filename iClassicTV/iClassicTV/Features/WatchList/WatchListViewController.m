@@ -55,6 +55,9 @@
     [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(updateTabsAndVisibility) name:@"WatchListVisibilityDidChangeNotification" object:nil];
     [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(updateTabsAndVisibility) name:NSUserDefaultsDidChangeNotification object:nil];
     
+    // [新增] 监听来自 AppDelegate 的跳转到预约 Tab 的通知
+    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(jumpToAppointmentsTabNotification:) name:@"JumpToAppointmentsTabNotification" object:nil];
+    
     // 初始化配置和加载页面展示
     [self updateTabsAndVisibility];
 }
@@ -162,6 +165,16 @@
 - (void)languageDidChange {
     // 同步刷新
     [self updateTabsAndVisibility];
+}
+
+// [新增] 接收到跳转通知后的处理逻辑
+- (void)jumpToAppointmentsTabNotification:(NSNotification *)notif {
+    // 寻找代表“预约”的索引 (标记为 2)
+    NSUInteger targetIndex = [self.activeTabs indexOfObject:@(2)];
+    if (targetIndex != NSNotFound) {
+        self.segmentedControl.selectedSegmentIndex = targetIndex;
+        [self showCurrentSelectedVC];
+    }
 }
 
 #pragma mark - Helper

@@ -9,6 +9,11 @@
 #import "WatchListReminderViewController.h"
 #import "WatchListDataManager.h"
 #import "LanguageManager.h"
+#import "TVPlaybackViewController.h" // [新增]
+#import "AppDataManager.h"           // [新增]
+#import "M3UParser.h"                // [新增]
+#import "Channel.h"                  // [新增]
+#import "ToastHelper.h"              // [新增]
 
 @interface WatchListReminderViewController () <UITableViewDelegate, UITableViewDataSource>
 
@@ -97,7 +102,7 @@
     UITableViewCell *cell = [tableView dequeueReusableCellWithIdentifier:cellId];
     if (!cell) {
         cell = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleDefault reuseIdentifier:cellId];
-        cell.selectionStyle = UITableViewCellSelectionStyleNone;
+        cell.selectionStyle = UITableViewCellSelectionStyleDefault; // [修改] 恢复选中效果以便点击
         cell.textLabel.font = [UIFont systemFontOfSize:15];
     }
     
@@ -113,6 +118,52 @@
     cell.textLabel.text = [NSString stringWithFormat:@"%@  %@", timeStr, info[@"title"]];
     
     return cell;
+}
+
+// [新增] 点击预约节目列表进行自动匹配并跳转播放
+- (void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath {
+    [tableView deselectRowAtIndexPath:indexPath animated:YES];
+    
+    NSString *channelName = self.groupedKeys[indexPath.section];
+    NSArray *list = self.groupedData[channelName];
+    NSDictionary *info = list[indexPath.row];
+    
+    NSString *videoUrl = info[@"url"];
+    NSString *tvgName = info[@"tvgName"];
+    NSString *catchupSource = info[@"catchupSource"];
+    
+    // 如果预约信息里没有保存播放链接（纯EPG界面预约时），则去当前激活的直播源里匹配同名频道获取默认链接
+    if (!videoUrl || videoUrl.length == 0) {
+        NSDictionary *activeSource = [[AppDataManager sharedManager] getActiveSourceInfo];
+        NSString *content = activeSource[@"content"];
+        if (content && content.length > 0) {
+            NSArray *channels = [M3UParser parseM3UString:content];
+            for (Channel *ch in channels) {
+                if ([ch.name isEqualToString:channelName]) {
+                    if (ch.urls.count > 0) {
+                        videoUrl = ch.urls.firstObject; // 采用默认的第一个直播源
+                        tvgName = ch.tvgName;
+                        catchupSource = ch.catchupSource;
+                    }
+                    break;
+                }
+            }
+        }
+    }
+    
+    if (videoUrl && videoUrl.length > 0) {
+        TVPlaybackViewController *playerVC = [[TVPlaybackViewController alloc] init];
+        playerVC.videoURLString = videoUrl;
+        playerVC.channelTitle = channelName;
+        playerVC.tvgName = tvgName;
+        playerVC.catchupSource = catchupSource;
+        
+        playerVC.hidesBottomBarWhenPushed = YES;
+        [self.navigationController pushViewController:playerVC animated:YES];
+    } else {
+        // 没有找到播放链接，提示用户（请确保在语言文件中补充此 key）
+        [ToastHelper showToastWithMessage:LocalizedString(@"channel_not_found")];
+    }
 }
 
 - (void)tableView:(UITableView *)tableView commitEditingStyle:(UITableViewCellEditingStyle)editingStyle forRowAtIndexPath:(NSIndexPath *)indexPath {
