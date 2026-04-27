@@ -121,7 +121,8 @@
     self.isPlaying = isPlaying;
     [self.bottomBar updatePlayButtonState:isPlaying];
     
-    BOOL shouldShowCenterBtn = !isPlaying && !self.isLocked && !self.isControlsHidden;
+    // [优化] 移除 !self.isControlsHidden 限制，使其在暂停期间始终显示
+    BOOL shouldShowCenterBtn = !isPlaying && !self.isLocked;
     
     if (shouldShowCenterBtn) {
         self.centerPlayBtn.hidden = NO;
@@ -197,12 +198,12 @@
             self.bottomBar.alpha = hidden ? 0.0 : 1.0;
             self.lockBtn.alpha = hidden ? 0.0 : 0.6;
             [self.widgetsView setOverlaysHidden:(self.isFullscreen ? hidden : NO)];
-            // [新增] 非播放且不隐藏控制栏时才显示
-            self.centerPlayBtn.alpha = (hidden || self.isPlaying) ? 0.0 : 1.0;
+            // [优化] 非播放时始终显示，不受 hidden 影响
+            self.centerPlayBtn.alpha = self.isPlaying ? 0.0 : 1.0;
         }
     } completion:^(BOOL finished) {
-        // [新增] 动画结束后真正将其隐藏防止阻挡手势
-        if (self.isLocked || self.isPlaying || hidden) {
+        // [优化] 动画结束后真正将其隐藏防止阻挡手势，不再包含 hidden 判断
+        if (self.isLocked || self.isPlaying) {
             self.centerPlayBtn.hidden = YES;
         } else {
             self.centerPlayBtn.hidden = NO;
