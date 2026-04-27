@@ -9,6 +9,7 @@
 #import "AppDelegate.h"
 #import "GroupListViewController.h"
 #import "SettingsViewController.h"
+#import "WatchListViewController.h"
 #import "UIImage+DynamicIcon.h"
 #import <AVFoundation/AVFoundation.h>
 #import "AppDataManager.h"
@@ -30,12 +31,19 @@
     UINavigationController *nav1 = [[UINavigationController alloc] initWithRootViewController:groupVC];
     nav1.tabBarItem = [[UITabBarItem alloc] initWithTitle:LocalizedString(@"channel_list") image:[UIImage dynamicPlayTabBarIcon] tag:0];
     
+    // 新增：注入建立的“我的电视”功能 Tab，并插入到中间
+    WatchListViewController *watchListVC = [[WatchListViewController alloc] init];
+    UINavigationController *nav2 = [[UINavigationController alloc] initWithRootViewController:watchListVC];
+    // 提示：如果您在 UIImage+DynamicIcon 里画了新的图标，可以在这里替换 nil
+    nav2.tabBarItem = [[UITabBarItem alloc] initWithTitle:LocalizedString(@"watchlist.my_tv") image:nil tag:1];
+    
     SettingsViewController *settingsVC = [[SettingsViewController alloc] init];
-    UINavigationController *nav2 = [[UINavigationController alloc] initWithRootViewController:settingsVC];
-    nav2.tabBarItem = [[UITabBarItem alloc] initWithTitle:LocalizedString(@"settings") image:[UIImage dynamicSettingsTabBarIcon] tag:1];
+    UINavigationController *nav3 = [[UINavigationController alloc] initWithRootViewController:settingsVC];
+    nav3.tabBarItem = [[UITabBarItem alloc] initWithTitle:LocalizedString(@"settings") image:[UIImage dynamicSettingsTabBarIcon] tag:2];
     
     self.tabBarController = [[UITabBarController alloc] init];
-    self.tabBarController.viewControllers = @[nav1, nav2];
+    // 注册三个控制器到导航栏
+    self.tabBarController.viewControllers = @[nav1, nav2, nav3];
     self.tabBarController.delegate = self;
     
     self.window.rootViewController = self.tabBarController;
@@ -48,12 +56,15 @@
 }
 
 - (void)languageDidChange {
-    if (self.tabBarController.viewControllers.count >= 2) {
+    if (self.tabBarController.viewControllers.count >= 3) {
         UIViewController *nav1 = self.tabBarController.viewControllers[0];
         nav1.tabBarItem.title = LocalizedString(@"channel_list");
         
         UIViewController *nav2 = self.tabBarController.viewControllers[1];
-        nav2.tabBarItem.title = LocalizedString(@"settings");
+        nav2.tabBarItem.title = LocalizedString(@"watchlist.my_tv");
+        
+        UIViewController *nav3 = self.tabBarController.viewControllers[2];
+        nav3.tabBarItem.title = LocalizedString(@"settings");
     }
 }
 
