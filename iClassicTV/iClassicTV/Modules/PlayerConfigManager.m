@@ -127,13 +127,16 @@
     [[NSUserDefaults standardUserDefaults] synchronize];
 }
 
-// [新增] 存储与读取最近播放上限
+// [修改] 存储与读取最近播放上限，保证值域范围在 1~50
 + (NSInteger)recentPlayLimit {
     NSUserDefaults *defs = [NSUserDefaults standardUserDefaults];
     if ([defs objectForKey:@"RecentPlayLimitPref"] == nil) {
-        return 50; // 默认 50条
+        return 25; // 默认 25条
     }
-    return [defs integerForKey:@"RecentPlayLimitPref"];
+    NSInteger limit = [defs integerForKey:@"RecentPlayLimitPref"];
+    if (limit < 1) return 1;
+    if (limit > 50) return 50;
+    return limit;
 }
 
 + (void)setRecentPlayLimit:(NSInteger)limit {
@@ -141,7 +144,7 @@
     [[NSUserDefaults standardUserDefaults] synchronize];
 }
 
-// [新增] 存储与读取启动默认页
+// 存储与读取启动默认页
 + (NSInteger)defaultStartupPage {
     return [[NSUserDefaults standardUserDefaults] integerForKey:@"DefaultStartupPagePref"];
 }

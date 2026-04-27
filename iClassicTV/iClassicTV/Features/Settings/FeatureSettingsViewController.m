@@ -87,7 +87,6 @@
         cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
         if (indexPath.row == 0) {
             NSInteger page = [PlayerConfigManager defaultStartupPage];
-            // 优化：复用已有的 channel_list 和 watchlist.my_tv
             cell.detailTextLabel.text = (page == 0) ? LocalizedString(@"channel_list") : LocalizedString(@"watchlist.my_tv");
         } else if (indexPath.row == 1) {
             NSInteger limit = [PlayerConfigManager recentPlayLimit];
@@ -116,14 +115,22 @@
     
     if (indexPath.section == 1) {
         if (indexPath.row == 0) {
-            // 优化：复用已有的 channel_list 和 watchlist.my_tv
             UIActionSheet *sheet = [[UIActionSheet alloc] initWithTitle:LocalizedString(@"default_startup_page") delegate:self cancelButtonTitle:LocalizedString(@"cancel") destructiveButtonTitle:nil otherButtonTitles:LocalizedString(@"channel_list"), LocalizedString(@"watchlist.my_tv"), nil];
             sheet.tag = 201;
             [sheet showInView:self.view];
         } else if (indexPath.row == 1) {
-            UIActionSheet *sheet = [[UIActionSheet alloc] initWithTitle:LocalizedString(@"recent_play_limit") delegate:self cancelButtonTitle:LocalizedString(@"cancel") destructiveButtonTitle:nil otherButtonTitles:LocalizedString(@"limit_50"), LocalizedString(@"limit_100"), LocalizedString(@"limit_200"), nil];
-            sheet.tag = 202;
-            [sheet showInView:self.view];
+            // [修改] 将最近播放数量限制改为弹窗手动输入形式
+            UIAlertView *alert = [[UIAlertView alloc] initWithTitle:LocalizedString(@"recent_play_limit")
+                                                            message:LocalizedString(@"enter_limit_1_to_50")
+                                                           delegate:self
+                                                  cancelButtonTitle:LocalizedString(@"cancel")
+                                                  otherButtonTitles:LocalizedString(@"confirm"), nil];
+            alert.alertViewStyle = UIAlertViewStylePlainTextInput;
+            UITextField *textField = [alert textFieldAtIndex:0];
+            textField.keyboardType = UIKeyboardTypeNumberPad;
+            textField.text = [NSString stringWithFormat:@"%ld", (long)[PlayerConfigManager recentPlayLimit]];
+            alert.tag = 301;
+            [alert show];
         }
     } else if (indexPath.section == 2) {
         NSString *title = LocalizedString(@"tips");
@@ -155,12 +162,6 @@
     if (actionSheet.tag == 201) {
         [PlayerConfigManager setDefaultStartupPage:buttonIndex];
         [self.tableView reloadData];
-    } else if (actionSheet.tag == 202) {
-        NSInteger limit = 50;
-        if (buttonIndex == 1) limit = 100;
-        else if (buttonIndex == 2) limit = 200;
-        [PlayerConfigManager setRecentPlayLimit:limit];
-        [self.tableView reloadData];
     }
 }
 
@@ -170,7 +171,6 @@
     if (buttonIndex == 1) { // 确认按钮
         if (alertView.tag == 101) {
             [[WatchListDataManager sharedManager] clearFavorites];
-            // 优化：统一使用通用的 cleanup_complete
             UIAlertView *toast = [[UIAlertView alloc] initWithTitle:nil message:LocalizedString(@"cleanup_complete") delegate:nil cancelButtonTitle:LocalizedString(@"confirm") otherButtonTitles:nil];
             [toast show];
         } else if (alertView.tag == 102) {
@@ -181,6 +181,21 @@
             [[WatchListDataManager sharedManager] clearAppointments];
             UIAlertView *toast = [[UIAlertView alloc] initWithTitle:nil message:LocalizedString(@"cleanup_complete") delegate:nil cancelButtonTitle:LocalizedString(@"confirm") otherButtonTitles:nil];
             [toast show];
+        } else if (alertView.tag == 301) {
+            // [新增] 处理数量限制的手动输入逻辑，并进行边界验证
+            UITextField *textField = [alertView textFieldAtIndex:0];
+            NSInteger limit = [textField.text integerValue];
+            if (limit >= 1 && limit <= 50) {
+                [PlayerConfigManager setRecentPlayLimit:limit];
+                [self.tableView reloadData];
+            } else {
+                UIAlertView *errorAlert = [[UIAlertView alloc] initWithTitle:LocalizedString(@"tips")
+                                                                     message:LocalizedString(@"invalid_limit_msg")
+                                                                    delegate:nil
+                                                           cancelButtonTitle:LocalizedString(@"confirm")
+                                                           otherButtonTitles:nil];
+                [errorAlert show];
+            }
         }
     }
 }
