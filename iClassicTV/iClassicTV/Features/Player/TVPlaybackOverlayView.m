@@ -17,9 +17,9 @@
 @property (nonatomic, strong) UIView *gestureCatcherView;
 @property (nonatomic, strong) UIButton *lockBtn;
 
-// [新增]
 @property (nonatomic, strong) UIButton *centerPlayBtn;
 @property (nonatomic, assign) BOOL isPlaying;
+@property (nonatomic, assign) BOOL isManualPaused; // [核心修复] 仅代表用户真正动手点了暂停
 
 @property (nonatomic, assign) BOOL isLocked;
 @property (nonatomic, assign) BOOL isControlsHidden;
@@ -37,6 +37,7 @@
         self.isLocked = NO;
         self.isControlsHidden = NO;
         self.isPlaying = YES; // 默认初始化即播放
+        self.isManualPaused = NO;
         [self setupUI];
         [self startAutoHideTimer];
     }
@@ -57,7 +58,7 @@
     self.widgetsView = [[TVPlaybackWidgetsView alloc] initWithFrame:self.bounds];
     [self addSubview:self.widgetsView];
     
-    // [新增] 在手势视图之上、底栏之下插入中央大按钮，确保既能点击，又不会被底栏盖住
+    // 在手势视图之上、底栏之下插入中央大按钮，确保既能点击，又不会被底栏盖住
     self.centerPlayBtn = [UIButton buttonWithType:UIButtonTypeCustom];
     self.centerPlayBtn.frame = CGRectMake(0, 0, 80, 80);
     [self.centerPlayBtn setImage:[UIImage dynamicLargeCenterPlayIcon] forState:UIControlStateNormal];
@@ -109,20 +110,24 @@
     self.lockBtn.hidden = !isFullscreen;
     self.lockBtn.center = CGPointMake(40, CGRectGetMidY(videoFrame));
     
-    // [新增] 同步将大按钮居中于视频画面
+    // 同步将大按钮居中于视频画面
     self.centerPlayBtn.center = CGPointMake(CGRectGetMidX(videoFrame), CGRectGetMidY(videoFrame));
     
     [self.widgetsView updateLayoutForFullscreen:isFullscreen parentSize:videoFrame.size];
     [self setControlsHidden:self.isControlsHidden];
 }
 
-// [新增] 统一接管底栏和中央大按钮的播放状态控制
+// 仅负责底栏的状态同步
 - (void)updatePlaybackState:(BOOL)isPlaying {
     self.isPlaying = isPlaying;
     [self.bottomBar updatePlayButtonState:isPlaying];
+}
+
+// [核心修复] 彻底分离手动暂停逻辑，外部明确下发指令时才改变按钮的显示状态
+- (void)setManualPausedState:(BOOL)isManualPaused {
+    self.isManualPaused = isManualPaused;
     
-    // [优化] 移除 !self.isControlsHidden 限制，使其在暂停期间始终显示
-    BOOL shouldShowCenterBtn = !isPlaying && !self.isLocked;
+    BOOL shouldShowCenterBtn = self.isManualPaused && !self.isLocked;
     
     if (shouldShowCenterBtn) {
         self.centerPlayBtn.hidden = NO;
@@ -138,7 +143,7 @@
     }
 }
 
-// [新增] 中央大按钮点击回调，复用原有暂停播放逻辑
+// 中央大按钮点击回调，复用原有暂停播放逻辑
 - (void)centerPlayBtnTapped {
     [self startAutoHideTimer];
     if ([self.delegate respondsToSelector:@selector(overlayDidTapPlayPause)]) {
@@ -193,17 +198,17 @@
             self.bottomBar.alpha = 0.0;
             self.lockBtn.alpha = hidden ? 0.0 : 0.6;
             [self.widgetsView setOverlaysHidden:YES];
-            self.centerPlayBtn.alpha = 0.0; // [新增] 锁屏时隐藏
+            self.centerPlayBtn.alpha = 0.0; // 锁屏时隐藏
         } else {
             self.bottomBar.alpha = hidden ? 0.0 : 1.0;
             self.lockBtn.alpha = hidden ? 0.0 : 0.6;
             [self.widgetsView setOverlaysHidden:(self.isFullscreen ? hidden : NO)];
-            // [优化] 非播放时始终显示，不受 hidden 影响
-            self.centerPlayBtn.alpha = self.isPlaying ? 0.0 : 1.0;
+            // [核心修复] 显隐判定只跟用户手动暂停有关
+            self.centerPlayBtn.alpha = self.isManualPaused ? 1.0 : 0.0;
         }
     } completion:^(BOOL finished) {
-        // [优化] 动画结束后真正将其隐藏防止阻挡手势，不再包含 hidden 判断
-        if (self.isLocked || self.isPlaying) {
+        // [核心修复] 动画结束后隐藏依据仅针对手动状态，确保手势不被阻挡
+        if (self.isLocked || !self.isManualPaused) {
             self.centerPlayBtn.hidden = YES;
         } else {
             self.centerPlayBtn.hidden = NO;

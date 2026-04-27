@@ -21,11 +21,22 @@
 
 - (void)remoteControlReceivedWithEvent:(UIEvent *)event {
     if (event.type == UIEventTypeRemoteControl) {
-        if (event.subtype == UIEventSubtypeRemoteControlPlay) [self.player play];
-        else if (event.subtype == UIEventSubtypeRemoteControlPause) [self.player pause];
+        if (event.subtype == UIEventSubtypeRemoteControlPlay) {
+            [self.player play];
+            [self.overlayView setManualPausedState:NO]; // [核心修复] 接管遥控器恢复播放指令
+        }
+        else if (event.subtype == UIEventSubtypeRemoteControlPause) {
+            [self.player pause];
+            [self.overlayView setManualPausedState:YES]; // [核心修复] 接管遥控器暂停指令
+        }
         else if (event.subtype == UIEventSubtypeRemoteControlTogglePlayPause) {
-            if (self.player.playbackState == MPMoviePlaybackStatePlaying) [self.player pause];
-            else [self.player play];
+            if (self.player.playbackState == MPMoviePlaybackStatePlaying) {
+                [self.player pause];
+                [self.overlayView setManualPausedState:YES]; // [核心修复] 标记明确的手动暂停
+            } else {
+                [self.player play];
+                [self.overlayView setManualPausedState:NO];
+            }
         }
     }
 }
@@ -43,11 +54,19 @@
 }
 
 - (void)loadStateChanged {
-    if (self.player.loadState & MPMovieLoadStateStalled) [self.overlayView showStatusMessage:LocalizedString(@"buffering")];
-    else if ((self.player.loadState & MPMovieLoadStatePlayable) || (self.player.loadState & MPMovieLoadStatePlaythroughOK)) {
+    if (self.player.loadState & MPMovieLoadStateStalled) {
+        [self.overlayView showStatusMessage:LocalizedString(@"buffering")];
+    } else if ((self.player.loadState & MPMovieLoadStatePlayable) || (self.player.loadState & MPMovieLoadStatePlaythroughOK)) {
         if ((self.player.movieMediaTypes & MPMovieMediaTypeMaskVideo) == 0 && (self.player.movieMediaTypes & MPMovieMediaTypeMaskAudio) != 0) {
             [self.overlayView showStatusMessage:LocalizedString(@"audio_only_signal")];
-        } else [self.overlayView hideStatusMessage];
+        } else {
+            [self.overlayView hideStatusMessage];
+        }
+    }
+    
+    // [核心修复] 不管是不是假暂停，只要发生加载状态重置（切换节目）、卡顿等情况，立刻解除大按钮展现，杜绝漏网之鱼
+    if (self.player.loadState == MPMovieLoadStateUnknown || (self.player.loadState & MPMovieLoadStateStalled)) {
+        [self.overlayView setManualPausedState:NO];
     }
 }
 
@@ -62,8 +81,16 @@
 }
 
 - (void)playbackStateChanged {
-    // [优化] 调用 overlayView 统一更新播放状态，它会负责同步中央大按钮和底栏控件，并执行动画
-    [self.overlayView updatePlaybackState:(self.player.playbackState == MPMoviePlaybackStatePlaying)];
+    BOOL isPlaying = (self.player.playbackState == MPMoviePlaybackStatePlaying);
+    
+    // 只负责更新底栏图标
+    [self.overlayView updatePlaybackState:isPlaying];
+    
+    // [核心修复] 如果系统状态不再是暂停（例如切换节目时的 Stopped 状态、加载时的 Interrupted 状态），强制没收大按钮
+    // 这样，中央按钮就变成了只有在【系统确实是暂停状态】且【用户显式指派了暂停命令】这双重条件满足时才会持续显示
+    if (self.player.playbackState != MPMoviePlaybackStatePaused) {
+        [self.overlayView setManualPausedState:NO];
+    }
 }
 
 - (void)playbackDidFinish:(NSNotification *)notification {
@@ -128,8 +155,13 @@
 #pragma mark - TVPlaybackOverlayDelegate
 
 - (void)overlayDidTapPlayPause {
-    if (self.player.playbackState == MPMoviePlaybackStatePlaying) [self.player pause];
-    else [self.player play];
+    if (self.player.playbackState == MPMoviePlaybackStatePlaying) {
+        [self.player pause];
+        [self.overlayView setManualPausedState:YES]; // [核心修复] 将所有界面上的主动点击都明确标记为手动暂停
+    } else {
+        [self.player play];
+        [self.overlayView setManualPausedState:NO];
+    }
 }
 
 - (void)overlayDidTapFullscreen {

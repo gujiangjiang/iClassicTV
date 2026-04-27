@@ -29,8 +29,9 @@
 // 布局同步
 - (void)updateLayoutForFullscreen:(BOOL)isFullscreen videoFrame:(CGRect)videoFrame;
 
-// [新增] 统一同步播放状态，管理底栏和中央大按钮的显示状态
+// [核心修复] 将系统播放状态和用户手动暂停状态拆分为两个独立的方法，避免互相干扰
 - (void)updatePlaybackState:(BOOL)isPlaying;
+- (void)setManualPausedState:(BOOL)isManualPaused;
 
 // 代理中央状态提示
 - (void)showStatusMessage:(NSString *)message;
