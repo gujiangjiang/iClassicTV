@@ -98,7 +98,11 @@
         [self.segmentedControl sizeToFit];
         self.navigationItem.titleView = nil; // 先置空，确保重新赋值能触发导航栏重绘
         self.navigationItem.titleView = self.segmentedControl;
-        self.title = nil; // 清空主标题文字，避免在部分机型上与 titleView 重叠
+        
+        // 关键修复：只清空顶部导航栏的标题，不使用 self.title = nil
+        self.navigationItem.title = nil;
+        // 显式恢复底部 Tab 的标题，防止丢失
+        self.navigationController.tabBarItem.title = LocalizedString(@"watchlist.my_tv");
         
         // 选中逻辑回正
         if (self.segmentedControl.selectedSegmentIndex == UISegmentedControlNoSegment || self.segmentedControl.selectedSegmentIndex >= self.activeTabs.count) {
@@ -108,10 +112,12 @@
         // 只有一个或没有选项时，隐藏分段选择器，直接显示标题
         self.navigationItem.titleView = nil;
         if (self.activeTabs.count == 1) {
-            self.title = items[0];
+            self.navigationItem.title = items[0];
+            self.navigationController.tabBarItem.title = items[0];
         } else {
             // 虽然 AppDelegate 理论上会隐藏整个 Tab，但此处作为兜底显示默认名称
-            self.title = LocalizedString(@"watchlist.my_tv");
+            self.navigationItem.title = LocalizedString(@"watchlist.my_tv");
+            self.navigationController.tabBarItem.title = LocalizedString(@"watchlist.my_tv");
         }
     }
     
@@ -149,7 +155,7 @@
     }
     
     NSInteger safeIndex = self.segmentedControl.selectedSegmentIndex;
-    // 关键修复：当分段选择器被清空时，其索引是 UISegmentedControlNoSegment，强制归 0
+    // 当分段选择器被清空时，其索引是 UISegmentedControlNoSegment，强制归 0
     if (safeIndex == UISegmentedControlNoSegment || safeIndex >= self.activeTabs.count) {
         safeIndex = 0;
     }
