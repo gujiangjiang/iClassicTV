@@ -17,9 +17,13 @@
 @property (nonatomic, strong) UIView *gestureCatcherView;
 @property (nonatomic, strong) UIButton *lockBtn;
 
+// [新增]
+@property (nonatomic, strong) UIButton *centerPlayBtn;
+@property (nonatomic, assign) BOOL isPlaying;
+
 @property (nonatomic, assign) BOOL isLocked;
 @property (nonatomic, assign) BOOL isControlsHidden;
-@property (nonatomic, assign) BOOL isFullscreen; // [新增] 用于内部同步记录全屏状态，以统一组件常显判断
+@property (nonatomic, assign) BOOL isFullscreen; // 用于内部同步记录全屏状态，以统一组件常显判断
 @property (nonatomic, strong) NSTimer *autoHideTimer;
 
 @end
@@ -32,6 +36,7 @@
         self.backgroundColor = [UIColor clearColor];
         self.isLocked = NO;
         self.isControlsHidden = NO;
+        self.isPlaying = YES; // 默认初始化即播放
         [self setupUI];
         [self startAutoHideTimer];
     }
@@ -51,6 +56,20 @@
     
     self.widgetsView = [[TVPlaybackWidgetsView alloc] initWithFrame:self.bounds];
     [self addSubview:self.widgetsView];
+    
+    // [新增] 在手势视图之上、底栏之下插入中央大按钮，确保既能点击，又不会被底栏盖住
+    self.centerPlayBtn = [UIButton buttonWithType:UIButtonTypeCustom];
+    self.centerPlayBtn.frame = CGRectMake(0, 0, 80, 80);
+    [self.centerPlayBtn setImage:[UIImage dynamicLargeCenterPlayIcon] forState:UIControlStateNormal];
+    self.centerPlayBtn.alpha = 0.0;
+    self.centerPlayBtn.hidden = YES;
+    // 增加轻微阴影，使按钮在任何背景下都能清晰浮现
+    self.centerPlayBtn.layer.shadowColor = [UIColor blackColor].CGColor;
+    self.centerPlayBtn.layer.shadowOffset = CGSizeMake(0, 2);
+    self.centerPlayBtn.layer.shadowOpacity = 0.5;
+    self.centerPlayBtn.layer.shadowRadius = 4.0;
+    [self.centerPlayBtn addTarget:self action:@selector(centerPlayBtnTapped) forControlEvents:UIControlEventTouchUpInside];
+    [self addSubview:self.centerPlayBtn];
     
     self.bottomBar = [[TVPlaybackBottomBar alloc] initWithFrame:CGRectMake(0, self.bounds.size.height - 50, self.bounds.size.width, 50)];
     self.bottomBar.delegate = self;
@@ -81,7 +100,7 @@
         [self.lockBtn setImage:[UIImage dynamicLockIconWithState:NO] forState:UIControlStateNormal];
     }
     
-    self.isFullscreen = isFullscreen; // [新增] 记录全屏状态
+    self.isFullscreen = isFullscreen; // 记录全屏状态
     
     self.gestureCatcherView.frame = videoFrame;
     self.widgetsView.frame = videoFrame;
@@ -90,8 +109,40 @@
     self.lockBtn.hidden = !isFullscreen;
     self.lockBtn.center = CGPointMake(40, CGRectGetMidY(videoFrame));
     
+    // [新增] 同步将大按钮居中于视频画面
+    self.centerPlayBtn.center = CGPointMake(CGRectGetMidX(videoFrame), CGRectGetMidY(videoFrame));
+    
     [self.widgetsView updateLayoutForFullscreen:isFullscreen parentSize:videoFrame.size];
     [self setControlsHidden:self.isControlsHidden];
+}
+
+// [新增] 统一接管底栏和中央大按钮的播放状态控制
+- (void)updatePlaybackState:(BOOL)isPlaying {
+    self.isPlaying = isPlaying;
+    [self.bottomBar updatePlayButtonState:isPlaying];
+    
+    BOOL shouldShowCenterBtn = !isPlaying && !self.isLocked && !self.isControlsHidden;
+    
+    if (shouldShowCenterBtn) {
+        self.centerPlayBtn.hidden = NO;
+        [UIView animateWithDuration:0.25 animations:^{
+            self.centerPlayBtn.alpha = 1.0;
+        }];
+    } else {
+        [UIView animateWithDuration:0.25 animations:^{
+            self.centerPlayBtn.alpha = 0.0;
+        } completion:^(BOOL finished) {
+            self.centerPlayBtn.hidden = YES;
+        }];
+    }
+}
+
+// [新增] 中央大按钮点击回调，复用原有暂停播放逻辑
+- (void)centerPlayBtnTapped {
+    [self startAutoHideTimer];
+    if ([self.delegate respondsToSelector:@selector(overlayDidTapPlayPause)]) {
+        [self.delegate overlayDidTapPlayPause];
+    }
 }
 
 #pragma mark - Gestures & Locks
@@ -140,13 +191,21 @@
         if (self.isLocked) {
             self.bottomBar.alpha = 0.0;
             self.lockBtn.alpha = hidden ? 0.0 : 0.6;
-            // [修复] 锁屏状态下，挂件应当和底部播放控件一样彻底隐藏，防止单击闪烁
             [self.widgetsView setOverlaysHidden:YES];
+            self.centerPlayBtn.alpha = 0.0; // [新增] 锁屏时隐藏
         } else {
             self.bottomBar.alpha = hidden ? 0.0 : 1.0;
             self.lockBtn.alpha = hidden ? 0.0 : 0.6;
-            // [修复] 非锁屏状态下，保证逻辑完全统一：全屏时跟随控件隐藏，非全屏时常驻显示
             [self.widgetsView setOverlaysHidden:(self.isFullscreen ? hidden : NO)];
+            // [新增] 非播放且不隐藏控制栏时才显示
+            self.centerPlayBtn.alpha = (hidden || self.isPlaying) ? 0.0 : 1.0;
+        }
+    } completion:^(BOOL finished) {
+        // [新增] 动画结束后真正将其隐藏防止阻挡手势
+        if (self.isLocked || self.isPlaying || hidden) {
+            self.centerPlayBtn.hidden = YES;
+        } else {
+            self.centerPlayBtn.hidden = NO;
         }
     }];
     

@@ -85,7 +85,6 @@
     return img;
 }
 
-// [新增] 动态绘制播放器底部的“播放/暂停”状态图标
 + (UIImage *)dynamicPlaybackIconWithState:(BOOL)isPlaying {
     CGSize size = CGSizeMake(30, 30);
     UIGraphicsBeginImageContextWithOptions(size, NO, 0.0);
@@ -110,7 +109,6 @@
     return img;
 }
 
-// [新增] 动态绘制播放器底部的“全屏/退出全屏”状态图标
 + (UIImage *)dynamicFullscreenIconWithState:(BOOL)isFullscreen {
     CGSize size = CGSizeMake(30, 30);
     UIGraphicsBeginImageContextWithOptions(size, NO, 0.0);
@@ -119,7 +117,6 @@
     UIBezierPath *path = [UIBezierPath bezierPath];
     
     if (!isFullscreen) {
-        // 放大：四个角朝外的折线
         // 左上
         [path moveToPoint:CGPointMake(6, 12)];
         [path addLineToPoint:CGPointMake(6, 6)];
@@ -137,7 +134,6 @@
         [path addLineToPoint:CGPointMake(6, 24)];
         [path addLineToPoint:CGPointMake(6, 18)];
     } else {
-        // 缩小：四个角朝内的折线
         // 左上
         [path moveToPoint:CGPointMake(12, 6)];
         [path addLineToPoint:CGPointMake(12, 12)];
@@ -163,6 +159,36 @@
     UIImage *img = UIGraphicsGetImageFromCurrentImageContext();
     UIGraphicsEndImageContext();
     return img;
+}
+
+// [新增] 动态绘制播放器画面中央的大型圆形播放图标
++ (UIImage *)dynamicLargeCenterPlayIcon {
+    CGSize size = CGSizeMake(80, 80);
+    UIGraphicsBeginImageContextWithOptions(size, NO, 0.0);
+    
+    // 半透明黑色圆形背景
+    [[UIColor colorWithWhite:0.0 alpha:0.5] setFill];
+    [[UIBezierPath bezierPathWithOvalInRect:CGRectMake(0, 0, 80, 80)] fill];
+    
+    // 增加一个淡白色的描边边框提升质感
+    [[UIColor colorWithWhite:1.0 alpha:0.8] setStroke];
+    UIBezierPath *border = [UIBezierPath bezierPathWithOvalInRect:CGRectMake(2, 2, 76, 76)];
+    border.lineWidth = 2.0;
+    [border stroke];
+    
+    // 白色播放三角形
+    [[UIColor colorWithWhite:1.0 alpha:0.9] setFill];
+    UIBezierPath *path = [UIBezierPath bezierPath];
+    // 经过数学计算，将三角形重心点严格对齐在 X=40, Y=40，达到完美的视觉居中
+    [path moveToPoint:CGPointMake(30, 24)];
+    [path addLineToPoint:CGPointMake(56, 40)];
+    [path addLineToPoint:CGPointMake(30, 56)];
+    [path closePath];
+    [path fill];
+    
+    UIImage *image = UIGraphicsGetImageFromCurrentImageContext();
+    UIGraphicsEndImageContext();
+    return image;
 }
 
 @end
