@@ -218,7 +218,7 @@
     "player_settings_title": "播放器设置",
     "player_selection": "播放器选择",
     "advanced_features_custom_only": "高级功能 (仅限自定义播放器)",
-    "fullscreen_widgets_footer": "全屏状态下可附带显示节目单列表、右上角的悬浮时间以及左下角的回放标识。部分组件会跟随播放进度条同步显示与隐藏。",
+    "fullscreen_widgets_footer": "全屏状态下可附带显示节目单列表、右上角的悬浮时间(自动跟随EPG时区)以及左下角的回放标识。部分组件会跟随播放进度条同步显示与隐藏。",
     "show_epg_in_fullscreen": "全屏状态显示节目单",
     "show_time_in_fullscreen": "全屏状态显示悬浮时间",
     "show_catchup_badge_in_fullscreen": "全屏状态显示回放标识",

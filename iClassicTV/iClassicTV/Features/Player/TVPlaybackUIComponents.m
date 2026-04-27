@@ -9,6 +9,7 @@
 #import "TVPlaybackUIComponents.h"
 #import "LanguageManager.h"
 #import "PlayerConfigManager.h"
+#import "EPGManager.h" // [优化] 引入 EPG 管理器以获取时区设置
 
 #pragma mark - ====== TVPlaybackBottomBar 实现 ======
 
@@ -318,6 +319,8 @@
 }
 
 - (void)updateSystemTime {
+    // [优化] 动态同步 EPG 时区，确保悬浮时间显示与当前节目单的时区逻辑完全一致
+    [self.timeFormatter setTimeZone:[EPGManager sharedManager].epgTimeZone];
     self.timeLabel.text = [self.timeFormatter stringFromDate:[NSDate date]];
 }
 
