@@ -196,8 +196,12 @@
         EPGProgram *program = objc_getAssociatedObject(alertView, "EPGProgramKey");
         NSString *channelName = objc_getAssociatedObject(alertView, "ChannelNameKey");
         if (program && channelName) {
+            // [修复] 补充完整的链接参数，确保特定URL记录模式能够正常跳转
             NSDictionary *appointmentInfo = @{
                                               @"channelName": channelName,
+                                              @"url": self.videoURLString ?: @"",
+                                              @"tvgName": self.tvgName ?: @"",
+                                              @"catchupSource": self.catchupSource ?: @"",
                                               @"title": program.title,
                                               @"startTime": program.startTime,
                                               @"endTime": program.endTime
@@ -208,7 +212,7 @@
             UIAlertView *successAlert = [[UIAlertView alloc] initWithTitle:LocalizedString(@"tips") message:LocalizedString(@"reserve_success") delegate:nil cancelButtonTitle:LocalizedString(@"confirm") otherButtonTitles:nil];
             [successAlert show];
             
-            // [新增] 刷新当前表格，使刚才点击的节目立刻显示为“已预约”
+            // 刷新当前表格，使刚才点击的节目立刻显示为“已预约”
             if ([self respondsToSelector:@selector(tableView)]) {
                 UITableView *tv = [self performSelector:@selector(tableView)];
                 if (tv) {

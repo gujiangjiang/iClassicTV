@@ -22,9 +22,11 @@
 
 @property (nonatomic, weak) id<PlayerEPGViewDelegate> delegate;
 
-// 频道信息，用于查询 EPG
+// 频道信息，用于查询 EPG 和记录预约数据
 @property (nonatomic, copy) NSString *channelTitle;
 @property (nonatomic, copy) NSString *tvgName;
+@property (nonatomic, copy) NSString *videoURLString; // [新增] 用于保存预约记录的URL
+@property (nonatomic, copy) NSString *catchupSource;  // [新增] 用于保存预约记录的回放参数
 
 // 标识该频道是否支持回看，以便开启列表点击交互
 @property (nonatomic, assign) BOOL supportsCatchup;

@@ -79,6 +79,8 @@
     self.epgView = [[PlayerEPGView alloc] initWithFrame:CGRectZero];
     self.epgView.channelTitle = self.channelTitle;
     self.epgView.tvgName = self.tvgName;
+    self.epgView.videoURLString = self.videoURLString; // [新增] 传递给视图，用于预约时保存
+    self.epgView.catchupSource = self.catchupSource;   // [新增]
     self.epgView.delegate = self;
     self.epgView.supportsCatchup = (self.catchupSource && self.catchupSource.length > 0);
     [self.epgContainerView addSubview:self.epgView];

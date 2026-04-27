@@ -14,6 +14,7 @@
 #import "M3UParser.h"                // [新增]
 #import "Channel.h"                  // [新增]
 #import "ToastHelper.h"              // [新增]
+#import "PlayerConfigManager.h"      // [新增] 引入以获取当前记录模式
 
 @interface WatchListReminderViewController () <UITableViewDelegate, UITableViewDataSource>
 
@@ -101,9 +102,12 @@
     static NSString *cellId = @"ReminderCell";
     UITableViewCell *cell = [tableView dequeueReusableCellWithIdentifier:cellId];
     if (!cell) {
-        cell = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleDefault reuseIdentifier:cellId];
-        cell.selectionStyle = UITableViewCellSelectionStyleDefault; // [修改] 恢复选中效果以便点击
+        // [修复] 将样式改为 Subtitle，以支持副标题显示 URL
+        cell = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleSubtitle reuseIdentifier:cellId];
+        cell.selectionStyle = UITableViewCellSelectionStyleDefault;
         cell.textLabel.font = [UIFont systemFontOfSize:15];
+        cell.detailTextLabel.textColor = [UIColor grayColor];
+        cell.detailTextLabel.font = [UIFont systemFontOfSize:12.0f];
     }
     
     NSString *channel = self.groupedKeys[indexPath.section];
@@ -116,6 +120,14 @@
     NSString *timeStr = [df stringFromDate:startTime];
     
     cell.textLabel.text = [NSString stringWithFormat:@"%@  %@", timeStr, info[@"title"]];
+    
+    // [新增] 根据记录模式判断是否在副标题显示特定的URL
+    NSInteger mode = [PlayerConfigManager watchListRecordMode];
+    if (mode == 1 && info[@"url"] && [info[@"url"] length] > 0) {
+        cell.detailTextLabel.text = info[@"url"];
+    } else {
+        cell.detailTextLabel.text = nil;
+    }
     
     return cell;
 }
