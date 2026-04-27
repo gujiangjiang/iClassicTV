@@ -80,6 +80,25 @@
     }
     
     [self.tableView reloadData];
+    [self updateEmptyState]; // [新增] 加载数据后更新空白状态
+}
+
+// [新增] 根据分组数量更新空白提示视图
+- (void)updateEmptyState {
+    if (self.groupedKeys.count == 0) {
+        UILabel *emptyLabel = [[UILabel alloc] initWithFrame:self.tableView.bounds];
+        emptyLabel.text = LocalizedString(@"no_appointments_tips");
+        emptyLabel.textColor = [UIColor grayColor];
+        emptyLabel.textAlignment = NSTextAlignmentCenter;
+        emptyLabel.font = [UIFont systemFontOfSize:16.0f];
+        emptyLabel.numberOfLines = 0;
+        emptyLabel.backgroundColor = [UIColor clearColor];
+        self.tableView.backgroundView = emptyLabel;
+        self.tableView.separatorStyle = UITableViewCellSeparatorStyleNone;
+    } else {
+        self.tableView.backgroundView = nil;
+        self.tableView.separatorStyle = UITableViewCellSeparatorStyleSingleLine;
+    }
 }
 
 #pragma mark - UITableViewDataSource & Delegate
@@ -193,6 +212,8 @@
             [self.groupedKeys removeObjectAtIndex:indexPath.section];
             [self.groupedData removeObjectForKey:channel];
             [tableView deleteSections:[NSIndexSet indexSetWithIndex:indexPath.section] withRowAnimation:UITableViewRowAnimationFade];
+            
+            [self updateEmptyState]; // [新增] 当某个分组都被删光后更新空白状态
         } else {
             [tableView deleteRowsAtIndexPaths:@[indexPath] withRowAnimation:UITableViewRowAnimationFade];
         }

@@ -54,6 +54,25 @@
 - (void)loadData {
     self.dataList = [[WatchListDataManager sharedManager] getRecentPlays];
     [self.tableView reloadData];
+    [self updateEmptyState]; // [新增] 加载数据后更新空白状态
+}
+
+// [新增] 根据数据源数量更新空白提示视图
+- (void)updateEmptyState {
+    if (self.dataList.count == 0) {
+        UILabel *emptyLabel = [[UILabel alloc] initWithFrame:self.tableView.bounds];
+        emptyLabel.text = LocalizedString(@"no_recent_plays_tips");
+        emptyLabel.textColor = [UIColor grayColor];
+        emptyLabel.textAlignment = NSTextAlignmentCenter;
+        emptyLabel.font = [UIFont systemFontOfSize:16.0f];
+        emptyLabel.numberOfLines = 0;
+        emptyLabel.backgroundColor = [UIColor clearColor];
+        self.tableView.backgroundView = emptyLabel;
+        self.tableView.separatorStyle = UITableViewCellSeparatorStyleNone;
+    } else {
+        self.tableView.backgroundView = nil;
+        self.tableView.separatorStyle = UITableViewCellSeparatorStyleSingleLine;
+    }
 }
 
 #pragma mark - UITableViewDataSource & Delegate
@@ -101,6 +120,8 @@
         [tableView deleteRowsAtIndexPaths:@[indexPath] withRowAnimation:UITableViewRowAnimationAutomatic];
         
         [[WatchListDataManager sharedManager] removeRecentPlayAtIndex:indexPath.row];
+        
+        [self updateEmptyState]; // [新增] 删除后更新空白状态
     }
 }
 
