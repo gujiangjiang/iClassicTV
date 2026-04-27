@@ -18,6 +18,7 @@
 #import "LanguageManager.h"
 #import "NSString+EncodingHelper.h" // [优化] 引入编码助手以使用 toSafeURL
 #import "TVSearchManager.h"         // [新增] 引入独立的搜索模块
+#import "UITableView+EmptyState.h"  // [新增] 引入空数据状态通用模块
 
 @interface CustomNativePlayerViewController : MPMoviePlayerViewController
 @end
@@ -124,6 +125,18 @@
     
     // [新增] 默认隐藏搜索框，下拉显示
     self.tableView.contentOffset = CGPointMake(0, CGRectGetHeight(self.searchManager.searchBar.bounds));
+}
+
+// [新增] 在视图即将出现时检查数据并刷新空白状态
+- (void)viewWillAppear:(BOOL)animated {
+    [super viewWillAppear:animated];
+    
+    // [优化] 接入统一的 UITableView 空白状态模块
+    if (self.channels.count == 0) {
+        [self.tableView showEmptyStateWithText:LocalizedString(@"no_data")];
+    } else {
+        [self.tableView hideEmptyState];
+    }
 }
 
 - (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section {

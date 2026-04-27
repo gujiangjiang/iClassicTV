@@ -16,6 +16,7 @@
 #import "AlertHelper.h"
 #import "LanguageManager.h"
 #import "M3UValidator.h"
+#import "UITableView+EmptyState.h" // [新增] 引入空数据状态通用模块
 
 @interface SourceManagerViewController () <UIActionSheetDelegate, UIAlertViewDelegate>
 @property (nonatomic, strong) NSArray *scannedLocalFiles;
@@ -36,7 +37,17 @@
 - (void)viewWillAppear:(BOOL)animated {
     [super viewWillAppear:animated];
     self.sources = [[AppDataManager sharedManager] getAllSources];
+    [self reloadAndCheckEmptyState]; // [优化] 使用统一的方法刷新列表并检查空白状态
+}
+
+// [新增] 刷新并检查空白状态的辅助方法
+- (void)reloadAndCheckEmptyState {
     [self.tableView reloadData];
+    if (self.sources.count == 0) {
+        [self.tableView showEmptyStateWithText:LocalizedString(@"no_data")];
+    } else {
+        [self.tableView hideEmptyState];
+    }
 }
 
 - (void)showAddOptions {
@@ -97,7 +108,7 @@
                                   confirmBlock:^{
                                       [[AppDataManager sharedManager] deleteSourceAtIndex:indexPath.row];
                                       weakSelf.sources = [[AppDataManager sharedManager] getAllSources];
-                                      [tableView reloadData];
+                                      [weakSelf reloadAndCheckEmptyState]; // [优化] 使用统一方法刷新列表
                                   } cancelBlock:nil];
     }
 }
@@ -176,7 +187,7 @@
                                                               [ToastHelper dismissGlobalProgressHUDWithKey:taskKey text:LocalizedString(@"source_saved") delay:3.0];
                                                               
                                                               weakSelf.sources = [[AppDataManager sharedManager] getAllSources];
-                                                              [weakSelf.tableView reloadData];
+                                                              [weakSelf reloadAndCheckEmptyState]; // [优化] 使用统一方法刷新列表
                                                           } else {
                                                               [ToastHelper dismissGlobalProgressHUDWithKey:taskKey text:LocalizedString(@"m3u_format_invalid") delay:3.0];
                                                           }
@@ -264,11 +275,11 @@
                                       confirmBlock:^{
                                           [[AppDataManager sharedManager] deleteSourceAtIndex:weakSelf.selectedIndexPath.row];
                                           weakSelf.sources = [[AppDataManager sharedManager] getAllSources];
-                                          [weakSelf.tableView reloadData];
+                                          [weakSelf reloadAndCheckEmptyState]; // [优化] 使用统一方法刷新列表
                                       } cancelBlock:nil];
         } else if ([title isEqualToString:LocalizedString(@"set_as_current")]) {
             [[AppDataManager sharedManager] setActiveSourceById:sourceDict[@"id"]];
-            [self.tableView reloadData];
+            [self reloadAndCheckEmptyState]; // [优化] 使用统一方法刷新列表
             [ToastHelper showToastWithMessage:LocalizedString(@"source_switched")];
         } else if ([title isEqualToString:LocalizedString(@"rename")]) {
             UIAlertView *alert = [[UIAlertView alloc] initWithTitle:LocalizedString(@"rename") message:LocalizedString(@"enter_new_name") delegate:self cancelButtonTitle:LocalizedString(@"cancel") otherButtonTitles:LocalizedString(@"confirm"), nil];
@@ -293,7 +304,7 @@
         if (tf.text.length > 0) {
             [[AppDataManager sharedManager] updateSourceNameAtIndex:self.selectedIndexPath.row withName:tf.text];
             self.sources = [[AppDataManager sharedManager] getAllSources];
-            [self.tableView reloadData];
+            [self reloadAndCheckEmptyState]; // [优化] 使用统一方法刷新列表
         }
     } else if (alertView.tag == 204) {
         NSString *name = [alertView textFieldAtIndex:0].text;
@@ -307,7 +318,7 @@
         [ToastHelper showToastWithMessage:LocalizedString(@"source_saved")];
         
         self.sources = [[AppDataManager sharedManager] getAllSources];
-        [self.tableView reloadData];
+        [self reloadAndCheckEmptyState]; // [优化] 使用统一方法刷新列表
     }
 }
 
@@ -338,7 +349,7 @@
         [[UIApplication sharedApplication] setNetworkActivityIndicatorVisible:NO];
         if (success) {
             weakSelf.sources = [[AppDataManager sharedManager] getAllSources];
-            [weakSelf.tableView reloadData];
+            [weakSelf reloadAndCheckEmptyState]; // [优化] 使用统一方法刷新列表
         }
     }];
 }

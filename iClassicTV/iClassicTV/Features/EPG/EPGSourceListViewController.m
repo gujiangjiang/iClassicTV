@@ -11,6 +11,7 @@
 #import "AlertHelper.h"
 #import "ToastHelper.h"
 #import "LanguageManager.h" // 引入多语言
+#import "UITableView+EmptyState.h" // [新增] 引入空数据状态通用模块
 
 // 修复：在这里补上 <UIActionSheetDelegate> 协议声明
 @interface EPGSourceListViewController () <UIActionSheetDelegate>
@@ -33,7 +34,17 @@
 
 - (void)viewWillAppear:(BOOL)animated {
     [super viewWillAppear:animated];
+    [self reloadAndCheckEmptyState]; // [优化] 页面显示前使用统一方法刷新并检查空白状态
+}
+
+// [新增] 刷新并检查空白状态的辅助方法
+- (void)reloadAndCheckEmptyState {
     [self.tableView reloadData];
+    if ([EPGManager sharedManager].epgSources.count == 0) {
+        [self.tableView showEmptyStateWithText:LocalizedString(@"no_data")];
+    } else {
+        [self.tableView hideEmptyState];
+    }
 }
 
 #pragma mark - Actions
@@ -115,7 +126,7 @@
         [[EPGManager sharedManager] addEPGSourceWithName:nameText url:urlText type:type];
     }
     
-    [self.tableView reloadData];
+    [self reloadAndCheckEmptyState]; // [优化] 数据源变动后统一刷新并检查空白状态
 }
 
 #pragma mark - Table view data source
@@ -173,7 +184,7 @@
 - (void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath {
     [tableView deselectRowAtIndexPath:indexPath animated:YES];
     [[EPGManager sharedManager] setActiveEPGSourceAtIndex:indexPath.row];
-    [self.tableView reloadData];
+    [self reloadAndCheckEmptyState]; // [优化] 数据源变动后统一刷新并检查空白状态
 }
 
 - (BOOL)tableView:(UITableView *)tableView canEditRowAtIndexPath:(NSIndexPath *)indexPath {
@@ -193,8 +204,16 @@
     if (editingStyle == UITableViewCellEditingStyleDelete) {
         [[EPGManager sharedManager] removeEPGSourceAtIndex:indexPath.row];
         [tableView deleteRowsAtIndexPaths:@[indexPath] withRowAnimation:UITableViewRowAnimationFade];
+        
+        // [优化] 删除一行数据后立刻检查此时的数量，以判定是否呼出空白状态
+        if ([EPGManager sharedManager].epgSources.count == 0) {
+            [self.tableView showEmptyStateWithText:LocalizedString(@"no_data")];
+        } else {
+            [self.tableView hideEmptyState];
+        }
+        
         dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.3 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-            [self.tableView reloadData];
+            [self reloadAndCheckEmptyState]; // 确保整体状态及重绘安全
         });
     }
 }

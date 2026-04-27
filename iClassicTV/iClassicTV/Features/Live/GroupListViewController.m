@@ -23,6 +23,9 @@
 #import "TVPlaybackViewController.h"
 #import "PlayerConfigManager.h"
 
+// [新增] 引入空数据状态通用模块
+#import "UITableView+EmptyState.h"
+
 // [新增] 内部复用原生播放器，与频道列表逻辑保持一致
 @interface GroupNativePlayerViewController : MPMoviePlayerViewController
 @end
@@ -168,24 +171,12 @@
             if (weakSelf.groupNames.count == 0) {
                 weakSelf.navigationItem.title = LocalizedString(@"no_sources_title");
                 
-                UIView *emptyView = [[UIView alloc] initWithFrame:weakSelf.tableView.bounds];
-                emptyView.backgroundColor = [UIColor clearColor];
-                
-                UILabel *tipsLabel = [[UILabel alloc] initWithFrame:CGRectMake(20, 0, weakSelf.tableView.bounds.size.width - 40, weakSelf.tableView.bounds.size.height - 120)];
-                tipsLabel.text = LocalizedString(@"no_sources_tips");
-                tipsLabel.textColor = [UIColor grayColor];
-                tipsLabel.textAlignment = NSTextAlignmentCenter;
-                tipsLabel.numberOfLines = 0;
-                tipsLabel.font = [UIFont systemFontOfSize:16];
-                tipsLabel.backgroundColor = [UIColor clearColor];
-                
-                [emptyView addSubview:tipsLabel];
-                weakSelf.tableView.backgroundView = emptyView;
-                weakSelf.tableView.separatorStyle = UITableViewCellSeparatorStyleNone;
+                // [优化] 接入统一的 UITableView 空白状态模块
+                [weakSelf.tableView showEmptyStateWithText:LocalizedString(@"no_sources_tips")];
             } else {
                 weakSelf.navigationItem.title = activeName;
-                weakSelf.tableView.backgroundView = nil;
-                weakSelf.tableView.separatorStyle = UITableViewCellSeparatorStyleSingleLine;
+                // [优化] 隐藏空白状态
+                [weakSelf.tableView hideEmptyState];
             }
         });
     });
