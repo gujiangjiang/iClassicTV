@@ -39,7 +39,8 @@
     
     WatchListViewController *watchListVC = [[WatchListViewController alloc] init];
     UINavigationController *nav2 = [[UINavigationController alloc] initWithRootViewController:watchListVC];
-    nav2.tabBarItem = [[UITabBarItem alloc] initWithTitle:LocalizedString(@"watchlist.my_tv") image:[UIImage dynamicWatchListTabBarIcon] tag:1];
+    // 初始化时先设置图标，标题将由 updateWatchListTabVisibility 统一计算
+    nav2.tabBarItem = [[UITabBarItem alloc] initWithTitle:@"" image:[UIImage dynamicWatchListTabBarIcon] tag:1];
     self.navWatchList = nav2;
     
     SettingsViewController *settingsVC = [[SettingsViewController alloc] init];
@@ -57,13 +58,27 @@
     
     [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(languageDidChange) name:@"LanguageDidChangeNotification" object:nil];
     [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(updateWatchListTabVisibility) name:@"WatchListVisibilityDidChangeNotification" object:nil];
-    // 监听全局保存操作以感知可能发生的 EPG 数据或配置变动
     [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(updateWatchListTabVisibility) name:NSUserDefaultsDidChangeNotification object:nil];
     
-    // 触发判断是否展现“我的电视”Tab
+    // 首次加载立即计算标题并决定是否展现“我的电视”Tab
     [self updateWatchListTabVisibility];
     
     return YES;
+}
+
+// 辅助方法：计算当前“我的电视”Tab 应该显示的标题文字
+- (NSString *)currentWatchListTargetTitle {
+    BOOL showFavorites = [PlayerConfigManager enableFavoritesTab];
+    BOOL showRecent = [PlayerConfigManager enableRecentPlayTab];
+    BOOL showReminder = ([EPGManager sharedManager].epgSources.count > 0);
+    
+    int activeCount = (showFavorites ? 1 : 0) + (showRecent ? 1 : 0) + (showReminder ? 1 : 0);
+    if (activeCount == 1) {
+        if (showFavorites) return LocalizedString(@"watchlist.favorites");
+        if (showRecent) return LocalizedString(@"watchlist.recent_play");
+        if (showReminder) return LocalizedString(@"watchlist.appointments");
+    }
+    return LocalizedString(@"watchlist.my_tv");
 }
 
 - (void)updateWatchListTabVisibility {
@@ -71,7 +86,6 @@
     BOOL showRecent = [PlayerConfigManager enableRecentPlayTab];
     BOOL showReminder = ([EPGManager sharedManager].epgSources.count > 0);
     
-    // 三个条件满足一个就显示主 Tab
     BOOL shouldShowWatchList = showFavorites || showRecent || showReminder;
     
     NSMutableArray *vcs = [self.tabBarController.viewControllers mutableCopy];
@@ -79,21 +93,25 @@
     
     BOOL isCurrentlyShowing = [vcs containsObject:self.navWatchList];
     
-    if (shouldShowWatchList && !isCurrentlyShowing) {
-        if (vcs.count >= 1) {
-            [vcs insertObject:self.navWatchList atIndex:1];
-        } else {
-            [vcs addObject:self.navWatchList];
+    if (shouldShowWatchList) {
+        // 在显示之前，先更新一次标题，确保文字是正确的（尤其是只有一个功能时）
+        self.navWatchList.tabBarItem.title = [self currentWatchListTargetTitle];
+        
+        if (!isCurrentlyShowing) {
+            if (vcs.count >= 1) {
+                [vcs insertObject:self.navWatchList atIndex:1];
+            } else {
+                [vcs addObject:self.navWatchList];
+            }
+            self.tabBarController.viewControllers = vcs;
         }
-        self.tabBarController.viewControllers = vcs;
-    } else if (!shouldShowWatchList && isCurrentlyShowing) {
+    } else if (isCurrentlyShowing) {
         [vcs removeObject:self.navWatchList];
         self.tabBarController.viewControllers = vcs;
     }
 }
 
 - (void)languageDidChange {
-    // 动态遍历查找对应的 ViewController 进行多语言更新，防止因隐藏了Tab导致获取崩溃越界
     for (UIViewController *vc in self.tabBarController.viewControllers) {
         if ([vc isKindOfClass:[UINavigationController class]]) {
             UINavigationController *nav = (UINavigationController *)vc;
@@ -105,8 +123,8 @@
         }
     }
     
-    // 直接更新已持有的实例引用
-    self.navWatchList.tabBarItem.title = LocalizedString(@"watchlist.my_tv");
+    // 语言切换后重新刷新“我的电视”底栏标题
+    self.navWatchList.tabBarItem.title = [self currentWatchListTargetTitle];
 }
 
 #pragma mark - UITabBarControllerDelegate
