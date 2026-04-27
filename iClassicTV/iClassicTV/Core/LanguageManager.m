@@ -99,6 +99,27 @@ static NSString * const kCurrentLanguageKey = @"iClassicTV_CurrentLanguage";
     }
 }
 
+// 递归扁平化多级 JSON 字典
+// 将形如 {"common": {"cancel": "取消"}} 转换为 {"common.cancel": "取消", "cancel": "取消"}
+- (void)flattenDictionary:(NSDictionary *)dict into:(NSMutableDictionary *)result prefix:(NSString *)prefix {
+    for (NSString *key in dict) {
+        id value = dict[key];
+        NSString *fullKey = prefix.length > 0 ? [NSString stringWithFormat:@"%@.%@", prefix, key] : key;
+        
+        if ([value isKindOfClass:[NSDictionary class]]) {
+            // 递归处理嵌套字典
+            [self flattenDictionary:value into:result prefix:fullKey];
+        } else if ([value isKindOfClass:[NSString class]]) {
+            // 存储完整的 dot-notation 键（例如 "common.cancel"）
+            result[fullKey] = value;
+            // 同时存储叶子键名，兼容旧的硬编码调用（例如 "cancel"）
+            if (!result[key]) {
+                result[key] = value;
+            }
+        }
+    }
+}
+
 - (void)loadLanguageDict {
     // 尝试加载对应的 JSON 语言包文件
     NSString *path = [[NSBundle mainBundle] pathForResource:self.currentLanguageCode ofType:@"json"];
@@ -114,7 +135,10 @@ static NSString * const kCurrentLanguageKey = @"iClassicTV_CurrentLanguage";
             NSError *error = nil;
             NSDictionary *dict = [NSJSONSerialization JSONObjectWithData:data options:kNilOptions error:&error];
             if (!error && [dict isKindOfClass:[NSDictionary class]]) {
-                self.languageDict = dict;
+                // 将多层嵌套字典扁平化展开，方便检索并兼容旧版本短命名
+                NSMutableDictionary *flatDict = [NSMutableDictionary dictionary];
+                [self flattenDictionary:dict into:flatDict prefix:@""];
+                self.languageDict = flatDict;
                 return;
             }
         }

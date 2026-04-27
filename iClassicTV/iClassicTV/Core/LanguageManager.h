@@ -9,6 +9,7 @@
 #import <Foundation/Foundation.h>
 
 // 提供一个便捷的宏，方便在全局调用替换原本的硬编码中文字符串
+// 支持兼容原有的短键名（如 @"cancel"）或新的层级键名（如 @"common.cancel"）
 #define LocalizedString(key) [[LanguageManager sharedManager] localizedStringForKey:(key)]
 
 @interface LanguageManager : NSObject
