@@ -14,6 +14,7 @@
 #import "LanguageManager.h"
 #import <objc/runtime.h>
 #import "WatchListDataManager.h"
+#import "ToastHelper.h"
 
 @implementation PlayerEPGView (Table)
 
@@ -208,9 +209,8 @@
                                               };
             [[WatchListDataManager sharedManager] addAppointment:appointmentInfo];
             
-            // 提示预约成功
-            UIAlertView *successAlert = [[UIAlertView alloc] initWithTitle:LocalizedString(@"tips") message:LocalizedString(@"reserve_success") delegate:nil cancelButtonTitle:LocalizedString(@"confirm") otherButtonTitles:nil];
-            [successAlert show];
+            // [优化] 将成功弹窗替换为 Toast 提示，提升用户体验
+            [ToastHelper showToastWithMessage:LocalizedString(@"reserve_success")];
             
             // 刷新当前表格，使刚才点击的节目立刻显示为“已预约”
             if ([self respondsToSelector:@selector(tableView)]) {
