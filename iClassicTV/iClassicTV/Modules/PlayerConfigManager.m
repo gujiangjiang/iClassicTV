@@ -127,7 +127,6 @@
     [[NSUserDefaults standardUserDefaults] synchronize];
 }
 
-// [修改] 存储与读取最近播放上限，保证值域范围在 1~50
 + (NSInteger)recentPlayLimit {
     NSUserDefaults *defs = [NSUserDefaults standardUserDefaults];
     if ([defs objectForKey:@"RecentPlayLimitPref"] == nil) {
@@ -144,13 +143,22 @@
     [[NSUserDefaults standardUserDefaults] synchronize];
 }
 
-// 存储与读取启动默认页
 + (NSInteger)defaultStartupPage {
     return [[NSUserDefaults standardUserDefaults] integerForKey:@"DefaultStartupPagePref"];
 }
 
 + (void)setDefaultStartupPage:(NSInteger)page {
     [[NSUserDefaults standardUserDefaults] setInteger:page forKey:@"DefaultStartupPagePref"];
+    [[NSUserDefaults standardUserDefaults] synchronize];
+}
+
+// [新增] 存储与读取记录模式（0: 按频道名称，1: 按特定URL）
++ (NSInteger)watchListRecordMode {
+    return [[NSUserDefaults standardUserDefaults] integerForKey:@"WatchListRecordModePref"];
+}
+
++ (void)setWatchListRecordMode:(NSInteger)mode {
+    [[NSUserDefaults standardUserDefaults] setInteger:mode forKey:@"WatchListRecordModePref"];
     [[NSUserDefaults standardUserDefaults] synchronize];
 }
 

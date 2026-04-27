@@ -14,6 +14,7 @@
 
 @interface FeatureSettingsViewController () <UIActionSheetDelegate, UIAlertViewDelegate>
 @property (nonatomic, strong) NSArray *sections;
+@property (nonatomic, assign) NSInteger pendingRecordMode; // 用于暂存即将切换的记录模式
 @end
 
 @implementation FeatureSettingsViewController
@@ -35,9 +36,10 @@
 }
 
 - (void)setupSections {
+    // [优化] 添加新版收藏与记录模式设置项
     self.sections = @[
                       @{@"title": LocalizedString(@"watchlist.my_tv"), @"rows": @[LocalizedString(@"watchlist.favorites"), LocalizedString(@"watchlist.recent_play")]},
-                      @{@"title": LocalizedString(@"feature_settings"), @"rows": @[LocalizedString(@"default_startup_page"), LocalizedString(@"recent_play_limit")]},
+                      @{@"title": LocalizedString(@"feature_settings"), @"rows": @[LocalizedString(@"default_startup_page"), LocalizedString(@"recent_play_limit"), LocalizedString(@"watchlist.record_mode")]},
                       @{@"title": LocalizedString(@"data_management"), @"rows": @[LocalizedString(@"clear_favorites"), LocalizedString(@"clear_recent_play"), LocalizedString(@"clear_appointments")]}
                       ];
 }
@@ -91,6 +93,10 @@
         } else if (indexPath.row == 1) {
             NSInteger limit = [PlayerConfigManager recentPlayLimit];
             cell.detailTextLabel.text = [NSString stringWithFormat:@"%ld", (long)limit];
+        } else if (indexPath.row == 2) {
+            // [新增] 记录模式显示
+            NSInteger mode = [PlayerConfigManager watchListRecordMode];
+            cell.detailTextLabel.text = (mode == 0) ? LocalizedString(@"watchlist.record_mode_channel") : LocalizedString(@"watchlist.record_mode_url");
         }
     } else if (indexPath.section == 2) {
         // 数据清理项
@@ -105,7 +111,7 @@
         [PlayerConfigManager setEnableFavoritesTab:sender.on];
     } else if (sender.tag == 1) {
         [PlayerConfigManager setEnableRecentPlayTab:sender.on];
-        // [新增] 当关闭最近播放功能时，自动清空所有最近播放记录
+        // 当关闭最近播放功能时，自动清空所有最近播放记录
         if (!sender.on) {
             [[WatchListDataManager sharedManager] clearRecentPlays];
         }
@@ -134,6 +140,11 @@
             textField.text = [NSString stringWithFormat:@"%ld", (long)[PlayerConfigManager recentPlayLimit]];
             alert.tag = 301;
             [alert show];
+        } else if (indexPath.row == 2) {
+            // [新增] 记录模式选择ActionSheet
+            UIActionSheet *sheet = [[UIActionSheet alloc] initWithTitle:LocalizedString(@"watchlist.record_mode") delegate:self cancelButtonTitle:LocalizedString(@"cancel") destructiveButtonTitle:nil otherButtonTitles:LocalizedString(@"watchlist.record_mode_channel"), LocalizedString(@"watchlist.record_mode_url"), nil];
+            sheet.tag = 202;
+            [sheet showInView:self.view];
         }
     } else if (indexPath.section == 2) {
         NSString *title = LocalizedString(@"tips");
@@ -165,6 +176,17 @@
     if (actionSheet.tag == 201) {
         [PlayerConfigManager setDefaultStartupPage:buttonIndex];
         [self.tableView reloadData];
+    } else if (actionSheet.tag == 202) {
+        // [新增] 处理记录模式的切换选项
+        NSInteger newMode = buttonIndex;
+        NSInteger currentMode = [PlayerConfigManager watchListRecordMode];
+        // 如果选择的内容不一致，需要弹窗提示清空数据
+        if (newMode != currentMode) {
+            self.pendingRecordMode = newMode;
+            UIAlertView *alert = [[UIAlertView alloc] initWithTitle:LocalizedString(@"watchlist.confirm_switch_mode_title") message:LocalizedString(@"watchlist.confirm_switch_mode_msg") delegate:self cancelButtonTitle:LocalizedString(@"cancel") otherButtonTitles:LocalizedString(@"confirm"), nil];
+            alert.tag = 401; // 特殊的tag标识模式切换警告
+            [alert show];
+        }
     }
 }
 
@@ -198,6 +220,14 @@
                                                            otherButtonTitles:nil];
                 [errorAlert show];
             }
+        } else if (alertView.tag == 401) {
+            // [新增] 确认切换记录模式，并清空所有相关数据，保护数据一致性
+            [[WatchListDataManager sharedManager] clearFavorites];
+            [[WatchListDataManager sharedManager] clearRecentPlays];
+            [[WatchListDataManager sharedManager] clearAppointments];
+            [PlayerConfigManager setWatchListRecordMode:self.pendingRecordMode];
+            [self.tableView reloadData];
+            [ToastHelper showToastWithMessage:LocalizedString(@"cleanup_complete")];
         }
     }
 }

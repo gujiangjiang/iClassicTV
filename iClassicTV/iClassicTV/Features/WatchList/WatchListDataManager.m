@@ -7,7 +7,7 @@
 //
 
 #import "WatchListDataManager.h"
-#import "PlayerConfigManager.h" // 引入配置读取数量上限
+#import "PlayerConfigManager.h" // 引入配置读取数量上限及记录模式
 #import <UIKit/UIKit.h>
 #import "LanguageManager.h"
 
@@ -56,13 +56,22 @@
     if (![PlayerConfigManager enableRecentPlayTab]) return; // 如果未开启该功能，则不记录
     
     NSMutableArray *arr = [[self getRecentPlays] mutableCopy];
+    NSInteger mode = [PlayerConfigManager watchListRecordMode];
     NSString *url = channelInfo[@"url"];
+    NSString *name = channelInfo[@"name"];
     
-    // 去重逻辑：如果已经存在相同的播放链接，先将其移除，然后放到最前面
+    // [优化] 去重逻辑：根据用户设置的记录模式判断唯一性
     for (NSInteger i = 0; i < arr.count; i++) {
-        if ([arr[i][@"url"] isEqualToString:url]) {
-            [arr removeObjectAtIndex:i];
-            break;
+        if (mode == 0) { // 按频道名称
+            if ([arr[i][@"name"] isEqualToString:name]) {
+                [arr removeObjectAtIndex:i];
+                break;
+            }
+        } else { // 按直播源URL
+            if ([arr[i][@"url"] isEqualToString:url]) {
+                [arr removeObjectAtIndex:i];
+                break;
+            }
         }
     }
     
@@ -101,13 +110,22 @@
 // 添加一条收藏记录
 - (void)addFavorite:(NSDictionary *)channelInfo {
     NSMutableArray *arr = [[self getFavorites] mutableCopy];
+    NSInteger mode = [PlayerConfigManager watchListRecordMode];
     NSString *url = channelInfo[@"url"];
+    NSString *name = channelInfo[@"name"];
     
-    // 去重逻辑
+    // [优化] 去重逻辑：根据用户设置的记录模式判断唯一性
     for (NSInteger i = 0; i < arr.count; i++) {
-        if ([arr[i][@"url"] isEqualToString:url]) {
-            [arr removeObjectAtIndex:i];
-            break;
+        if (mode == 0) {
+            if ([arr[i][@"name"] isEqualToString:name]) {
+                [arr removeObjectAtIndex:i];
+                break;
+            }
+        } else {
+            if ([arr[i][@"url"] isEqualToString:url]) {
+                [arr removeObjectAtIndex:i];
+                break;
+            }
         }
     }
     
@@ -129,15 +147,22 @@
     }
 }
 
-// 根据URL精准移除收藏记录（用于播放器点击取消收藏）
-- (void)removeFavoriteWithURL:(NSString *)url {
-    if (!url || url.length == 0) return;
+// [优化] 根据URL或频道名称精准移除收藏记录（配合新版记录模式）
+- (void)removeFavoriteWithURL:(NSString *)url channelName:(NSString *)channelName {
     NSMutableArray *arr = [[self getFavorites] mutableCopy];
+    NSInteger mode = [PlayerConfigManager watchListRecordMode];
     
     for (NSInteger i = 0; i < arr.count; i++) {
-        if ([arr[i][@"url"] isEqualToString:url]) {
-            [arr removeObjectAtIndex:i];
-            break;
+        if (mode == 0) {
+            if (channelName && [arr[i][@"name"] isEqualToString:channelName]) {
+                [arr removeObjectAtIndex:i];
+                break;
+            }
+        } else {
+            if (url && [arr[i][@"url"] isEqualToString:url]) {
+                [arr removeObjectAtIndex:i];
+                break;
+            }
         }
     }
     
@@ -146,14 +171,21 @@
     [[NSNotificationCenter defaultCenter] postNotificationName:@"WatchListDataDidChangeNotification" object:nil];
 }
 
-// 判断是否已经收藏
-- (BOOL)isFavorited:(NSString *)url {
-    if (!url || url.length == 0) return NO;
+// [优化] 判断是否已经收藏（配合新版记录模式）
+- (BOOL)isFavorited:(NSString *)url channelName:(NSString *)channelName {
+    if (!url && !channelName) return NO;
     NSArray *arr = [self getFavorites];
+    NSInteger mode = [PlayerConfigManager watchListRecordMode];
     
     for (NSDictionary *dict in arr) {
-        if ([dict[@"url"] isEqualToString:url]) {
-            return YES;
+        if (mode == 0) {
+            if (channelName && [dict[@"name"] isEqualToString:channelName]) {
+                return YES;
+            }
+        } else {
+            if (url && [dict[@"url"] isEqualToString:url]) {
+                return YES;
+            }
         }
     }
     return NO;
@@ -183,7 +215,7 @@
 - (void)addAppointment:(NSDictionary *)appointmentInfo {
     NSMutableArray *arr = [[self getAppointments] mutableCopy];
     
-    // 如果已经预约过，先移除防重
+    // 如果已经预约过，先移除防重 (预约逻辑始终保持通过 频道+时段 判断，这能确保同一个节目的唯一性)
     for (NSInteger i = 0; i < arr.count; i++) {
         NSDictionary *dict = arr[i];
         if ([dict[@"channelName"] isEqualToString:appointmentInfo[@"channelName"]] && [dict[@"startTime"] isEqualToDate:appointmentInfo[@"startTime"]]) {

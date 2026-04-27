@@ -15,9 +15,9 @@
 #import "EPGManager.h"
 #import "NSString+EncodingHelper.h"
 #import <QuartzCore/QuartzCore.h>
-#import "WatchListDataManager.h" // 引入数据管理模块
-#import "PlayerConfigManager.h"  // 判断开关状态
-#import "ToastHelper.h"          // [新增] 引入Toast模块用于收藏提示
+#import "WatchListDataManager.h"
+#import "PlayerConfigManager.h"
+#import "ToastHelper.h"
 
 @implementation TVPlaybackViewController
 
@@ -39,7 +39,7 @@
     
     self.title = self.channelTitle ?: LocalizedString(@"unknown_channel");
     
-    // 进入播放器时，将当前频道数据存入最近播放历史 (底层管理器会进行限制检查)
+    // 进入播放器时，将当前频道数据存入最近播放历史 (底层管理器会进行限制检查及模式过滤)
     NSDictionary *recentInfo = @{
                                  @"name": self.channelTitle ?: @"",
                                  @"url": self.videoURLString ?: @"",
@@ -48,7 +48,7 @@
                                  };
     [[WatchListDataManager sharedManager] addRecentPlay:recentInfo];
     
-    // [新增] 渲染右侧收藏爱心按钮
+    // 渲染右侧收藏爱心按钮
     [self setupFavoriteButton];
     
     self.epgTimeFormatter = [[NSDateFormatter alloc] init];
@@ -115,7 +115,7 @@
     });
 }
 
-// [新增] 初始化收藏按钮
+// 初始化收藏按钮
 - (void)setupFavoriteButton {
     UIButton *favBtn = [UIButton buttonWithType:UIButtonTypeCustom];
     favBtn.frame = CGRectMake(0, 0, 40, 40);
@@ -128,10 +128,10 @@
     [self updateFavoriteButtonUI];
 }
 
-// [新增] 更新收藏按钮的状态图标
+// [优化] 更新收藏按钮的状态图标 (加入 channelName 支持)
 - (void)updateFavoriteButtonUI {
     UIButton *favBtn = (UIButton *)self.navigationItem.rightBarButtonItem.customView;
-    BOOL isFav = [[WatchListDataManager sharedManager] isFavorited:self.videoURLString];
+    BOOL isFav = [[WatchListDataManager sharedManager] isFavorited:self.videoURLString channelName:self.channelTitle];
     
     if (isFav) {
         // 已收藏：实心红心
@@ -144,12 +144,12 @@
     }
 }
 
-// [新增] 切换收藏状态回调
+// [优化] 切换收藏状态回调 (加入 channelName 支持)
 - (void)toggleFavorite {
-    BOOL isFav = [[WatchListDataManager sharedManager] isFavorited:self.videoURLString];
+    BOOL isFav = [[WatchListDataManager sharedManager] isFavorited:self.videoURLString channelName:self.channelTitle];
     
     if (isFav) {
-        [[WatchListDataManager sharedManager] removeFavoriteWithURL:self.videoURLString];
+        [[WatchListDataManager sharedManager] removeFavoriteWithURL:self.videoURLString channelName:self.channelTitle];
         [ToastHelper showToast:LocalizedString(@"watchlist.remove_favorite_success") inView:self.view];
     } else {
         NSDictionary *info = @{

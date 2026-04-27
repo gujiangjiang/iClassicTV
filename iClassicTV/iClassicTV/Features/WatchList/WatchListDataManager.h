@@ -27,19 +27,19 @@
 // 删除指定索引的最近播放记录（不触发全局刷新通知，方便UI做删除动画）
 - (void)removeRecentPlayAtIndex:(NSInteger)index;
 
-// [新增] 收藏功能接口
+// 收藏功能接口
 // 获取所有收藏记录
 - (NSArray *)getFavorites;
 // 添加一条收藏记录
 - (void)addFavorite:(NSDictionary *)channelInfo;
 // 删除指定索引的收藏记录（用于左滑删除）
 - (void)removeFavoriteAtIndex:(NSInteger)index;
-// 根据URL删除指定的收藏记录（用于播放页取消收藏）
-- (void)removeFavoriteWithURL:(NSString *)url;
-// 判断某个URL是否已经被收藏
-- (BOOL)isFavorited:(NSString *)url;
+// [优化] 根据URL或频道名称删除指定的收藏记录（配合新版记录模式）
+- (void)removeFavoriteWithURL:(NSString *)url channelName:(NSString *)channelName;
+// [优化] 判断某个频道是否已经被收藏（配合新版记录模式）
+- (BOOL)isFavorited:(NSString *)url channelName:(NSString *)channelName;
 
-// [新增] 预约功能接口
+// 预约功能接口
 // 获取所有预约记录
 - (NSArray *)getAppointments;
 // 添加一条预约记录，并自动注册本地通知提醒

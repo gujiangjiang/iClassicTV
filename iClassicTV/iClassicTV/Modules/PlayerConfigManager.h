@@ -23,9 +23,9 @@
 // 设置默认全屏方向
 + (void)setPreferredInterfaceOrientationPref:(NSInteger)pref;
 
-// [新增] 获取播放器控件样式 (0: 图标, 1: 文字)
+// 获取播放器控件样式 (0: 图标, 1: 文字)
 + (NSInteger)playerControlStylePref;
-// [新增] 设置播放器控件样式
+// 设置播放器控件样式
 + (void)setPlayerControlStylePref:(NSInteger)style;
 
 // 获取全屏状态下是否显示节目单 (默认 YES)
@@ -58,14 +58,19 @@
 // 设置是否启用最近播放功能
 + (void)setEnableRecentPlayTab:(BOOL)enable;
 
-// [新增] 获取最近播放数量上限 (默认 50)
+// 获取最近播放数量上限 (默认 25)
 + (NSInteger)recentPlayLimit;
-// [新增] 设置最近播放数量上限
+// 设置最近播放数量上限
 + (void)setRecentPlayLimit:(NSInteger)limit;
 
-// [新增] 获取打开软件默认主页 (0: 频道列表, 1: 我的电视)
+// 获取打开软件默认主页 (0: 频道列表, 1: 我的电视)
 + (NSInteger)defaultStartupPage;
-// [新增] 设置打开软件默认主页
+// 设置打开软件默认主页
 + (void)setDefaultStartupPage:(NSInteger)page;
+
+// [新增] 获取收藏与记录模式 (0: 按频道名称, 1: 按特定播放源链接)
++ (NSInteger)watchListRecordMode;
+// [新增] 设置收藏与记录模式
++ (void)setWatchListRecordMode:(NSInteger)mode;
 
 @end
