@@ -60,7 +60,13 @@
         [self.player setContentURL:url];
         [self.player play];
         
-        [self.overlayView showStatusMessage:[NSString stringWithFormat:LocalizedString(@"returned_to_live_format"), program.title]];
+        // [优化] 从多语言字符串中动态提取 "已回到直播" 前缀（剔除尾部可能存在的冒号和空格），并组合为三行显示
+        NSString *format = LocalizedString(@"returned_to_live_format");
+        NSString *statusTitle = [[NSString stringWithFormat:format, @""] stringByTrimmingCharactersInSet:[NSCharacterSet characterSetWithCharactersInString:@" :：\t\n"]];
+        NSString *displayTime = [self.displayTimeFormatter stringFromDate:program.startTime];
+        NSString *multiLineMsg = [NSString stringWithFormat:@"%@\n%@\n%@", statusTitle, displayTime, program.title];
+        [self.overlayView showStatusMessage:multiLineMsg];
+        
         dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(3.0 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
             [self.overlayView hideStatusMessage];
         });
@@ -94,8 +100,8 @@
     
     NSString *displayTime = [self.displayTimeFormatter stringFromDate:program.startTime];
     
-    // [优化] 提示语改成多行显示：第一行正在回放，第二行显示日期+时间，第三行显示节目名
-    NSString *multiLineMsg = [NSString stringWithFormat:@"正在回放\n%@\n%@", displayTime, program.title];
+    // [优化] 彻底移除硬编码的中文字符串，使用多语言键值 "now_replaying" 替换，保持完美的三行显示
+    NSString *multiLineMsg = [NSString stringWithFormat:@"%@\n%@\n%@", LocalizedString(@"now_replaying"), displayTime, program.title];
     [self.overlayView showStatusMessage:multiLineMsg];
     
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(3.0 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
