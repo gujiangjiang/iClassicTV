@@ -47,26 +47,45 @@
 
 - (void)setupUI {
     self.playBtn = [UIButton buttonWithType:UIButtonTypeCustom];
-    // [优化] 因为是纯图标，宽度调整到更小，释放空间给进度条
-    self.playBtn.frame = CGRectMake(5, 5, 45, 40);
-    // [优化] 彻底移除硬编码文字，改为使用动态图标初始化
-    [self.playBtn setImage:[UIImage dynamicPlaybackIconWithState:NO] forState:UIControlStateNormal];
+    self.fullBtn = [UIButton buttonWithType:UIButtonTypeCustom];
+    
+    // [优化] 动态获取用户设置，决定布局逻辑
+    BOOL isIconStyle = ([PlayerConfigManager playerControlStylePref] == 0);
+    
+    if (isIconStyle) {
+        // [新增] 图标样式布局逻辑：按钮稍窄，进度条更长
+        self.playBtn.frame = CGRectMake(5, 5, 45, 40);
+        [self.playBtn setImage:[UIImage dynamicPlaybackIconWithState:NO] forState:UIControlStateNormal];
+        
+        self.progressBar = [[UISlider alloc] initWithFrame:CGRectMake(50, 10, self.bounds.size.width - 100, 30)];
+        
+        self.fullBtn.frame = CGRectMake(self.bounds.size.width - 50, 5, 45, 40);
+        [self.fullBtn setImage:[UIImage dynamicFullscreenIconWithState:NO] forState:UIControlStateNormal];
+    } else {
+        // [保留] 经典文字样式布局逻辑：文字较宽，挤压进度条
+        self.playBtn.frame = CGRectMake(5, 5, 50, 40);
+        [self.playBtn setTitle:LocalizedString(@"pause") forState:UIControlStateNormal];
+        [self.playBtn setTitleColor:[UIColor whiteColor] forState:UIControlStateNormal];
+        self.playBtn.titleLabel.font = [UIFont systemFontOfSize:14];
+        
+        self.progressBar = [[UISlider alloc] initWithFrame:CGRectMake(60, 10, self.bounds.size.width - 155, 30)];
+        
+        self.fullBtn.frame = CGRectMake(self.bounds.size.width - 85, 5, 80, 40);
+        [self.fullBtn setTitle:LocalizedString(@"fullscreen") forState:UIControlStateNormal];
+        [self.fullBtn setTitleColor:[UIColor whiteColor] forState:UIControlStateNormal];
+        self.fullBtn.titleLabel.font = [UIFont systemFontOfSize:14];
+        self.fullBtn.titleLabel.adjustsFontSizeToFitWidth = YES;
+    }
+    
     [self.playBtn addTarget:self action:@selector(playBtnTapped) forControlEvents:UIControlEventTouchUpInside];
     [self addSubview:self.playBtn];
     
-    // [优化] 进度条在新的左右对称图标布局下（左侧占50宽度，右侧占50宽度），变得更长更对称
-    self.progressBar = [[UISlider alloc] initWithFrame:CGRectMake(50, 10, self.bounds.size.width - 100, 30)];
     self.progressBar.autoresizingMask = UIViewAutoresizingFlexibleWidth;
     [self.progressBar addTarget:self action:@selector(sliderValueChanged:) forControlEvents:UIControlEventValueChanged];
     [self.progressBar addTarget:self action:@selector(sliderTouchDown) forControlEvents:UIControlEventTouchDown];
     [self.progressBar addTarget:self action:@selector(sliderTouchRelease) forControlEvents:UIControlEventTouchUpInside | UIControlEventTouchUpOutside | UIControlEventTouchCancel];
     [self addSubview:self.progressBar];
     
-    self.fullBtn = [UIButton buttonWithType:UIButtonTypeCustom];
-    // [优化] 全屏按钮也缩小宽度，对称布局
-    self.fullBtn.frame = CGRectMake(self.bounds.size.width - 50, 5, 45, 40);
-    // [优化] 彻底移除硬编码文字，改为使用动态图标初始化
-    [self.fullBtn setImage:[UIImage dynamicFullscreenIconWithState:NO] forState:UIControlStateNormal];
     self.fullBtn.autoresizingMask = UIViewAutoresizingFlexibleLeftMargin;
     [self.fullBtn addTarget:self action:@selector(fullscreenBtnTapped) forControlEvents:UIControlEventTouchUpInside];
     [self addSubview:self.fullBtn];
@@ -74,14 +93,22 @@
 
 - (void)updateProgressWithValue:(float)value { self.progressBar.value = value; }
 
-// [修改] 更新播放按钮状态时，刷新图标而不是文字
+// [优化] 根据用户的控件样式偏好，动态决定更新图标还是文字
 - (void)updatePlayButtonState:(BOOL)isPlaying {
-    [self.playBtn setImage:[UIImage dynamicPlaybackIconWithState:isPlaying] forState:UIControlStateNormal];
+    if ([PlayerConfigManager playerControlStylePref] == 0) {
+        [self.playBtn setImage:[UIImage dynamicPlaybackIconWithState:isPlaying] forState:UIControlStateNormal];
+    } else {
+        [self.playBtn setTitle:(isPlaying ? LocalizedString(@"pause") : LocalizedString(@"play")) forState:UIControlStateNormal];
+    }
 }
 
-// [修改] 更新全屏按钮状态时，刷新图标而不是文字
+// [优化] 根据用户的控件样式偏好，动态决定更新图标还是文字
 - (void)updateFullscreenButtonState:(BOOL)isFullscreen {
-    [self.fullBtn setImage:[UIImage dynamicFullscreenIconWithState:isFullscreen] forState:UIControlStateNormal];
+    if ([PlayerConfigManager playerControlStylePref] == 0) {
+        [self.fullBtn setImage:[UIImage dynamicFullscreenIconWithState:isFullscreen] forState:UIControlStateNormal];
+    } else {
+        [self.fullBtn setTitle:(isFullscreen ? LocalizedString(@"exit_fullscreen") : LocalizedString(@"fullscreen")) forState:UIControlStateNormal];
+    }
 }
 
 - (void)playBtnTapped { if ([self.delegate respondsToSelector:@selector(bottomBarDidTapPlayPause)]) [self.delegate bottomBarDidTapPlayPause]; }

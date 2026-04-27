@@ -35,6 +35,20 @@
     [[NSUserDefaults standardUserDefaults] synchronize];
 }
 
+// [新增] 存储与读取控件样式设置（0:图标，1:文字）
++ (NSInteger)playerControlStylePref {
+    NSUserDefaults *defs = [NSUserDefaults standardUserDefaults];
+    if ([defs objectForKey:@"PlayerControlStylePref"] == nil) {
+        return 0; // 默认 0: 图标
+    }
+    return [defs integerForKey:@"PlayerControlStylePref"];
+}
+
++ (void)setPlayerControlStylePref:(NSInteger)style {
+    [[NSUserDefaults standardUserDefaults] setInteger:style forKey:@"PlayerControlStylePref"];
+    [[NSUserDefaults standardUserDefaults] synchronize];
+}
+
 + (BOOL)showEPGInFullscreen {
     NSUserDefaults *defs = [NSUserDefaults standardUserDefaults];
     if ([defs objectForKey:@"ShowEPGInFullscreenPref"] == nil) {
@@ -61,7 +75,6 @@
     [[NSUserDefaults standardUserDefaults] synchronize];
 }
 
-// [新增] 存储全屏是否显示回放角标的偏好
 + (BOOL)showCatchupBadgeInFullscreen {
     NSUserDefaults *defs = [NSUserDefaults standardUserDefaults];
     if ([defs objectForKey:@"ShowCatchupBadgeInFullscreenPref"] == nil) {
@@ -75,11 +88,10 @@
     [[NSUserDefaults standardUserDefaults] synchronize];
 }
 
-// [新增] 存储全屏是否显示实时网速的偏好
 + (BOOL)showNetworkSpeedInFullscreen {
     NSUserDefaults *defs = [NSUserDefaults standardUserDefaults];
     if ([defs objectForKey:@"ShowNetworkSpeedInFullscreenPref"] == nil) {
-        return NO; // 默认关闭，减少画面遮挡
+        return NO; // 默认关闭
     }
     return [defs boolForKey:@"ShowNetworkSpeedInFullscreenPref"];
 }

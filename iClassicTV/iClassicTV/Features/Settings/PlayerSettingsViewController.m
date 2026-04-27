@@ -36,8 +36,8 @@
 
 - (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section {
     if (section == 0) return 1;
-    // 分区1（仅自定义播放器显示）：包含 1个点击选择单元格(全屏逻辑) + 4个开关单元格 [修改]
-    if (section == 1) return 5;
+    // 分区1（仅自定义播放器显示）：包含 2个点击选择单元格(全屏逻辑, 控件样式) + 4个开关单元格
+    if (section == 1) return 6;
     return 0;
 }
 
@@ -87,6 +87,22 @@
             cell.detailTextLabel.text = titles[[PlayerConfigManager preferredInterfaceOrientationPref]];
             
             return cell;
+        } else if (indexPath.row == 1) {
+            // [新增] 第二行：播放器控件样式
+            static NSString *Value1CellId = @"Value1Cell_ControlStyle";
+            UITableViewCell *cell = [tableView dequeueReusableCellWithIdentifier:Value1CellId];
+            if (!cell) {
+                cell = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleValue1 reuseIdentifier:Value1CellId];
+            }
+            
+            cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
+            cell.textLabel.textColor = [UIColor blackColor];
+            
+            cell.textLabel.text = LocalizedString(@"player_control_style");
+            NSArray *titles = @[LocalizedString(@"style_icon"), LocalizedString(@"style_text")];
+            cell.detailTextLabel.text = titles[[PlayerConfigManager playerControlStylePref]];
+            
+            return cell;
         } else {
             // 后四行：全屏显示小部件的开关
             static NSString *SwitchCellId = @"SwitchCell";
@@ -100,19 +116,19 @@
             cell.accessoryType = UITableViewCellAccessoryNone;
             
             UISwitch *switchView = [[UISwitch alloc] initWithFrame:CGRectZero];
-            if (indexPath.row == 1) {
+            if (indexPath.row == 2) {
                 cell.textLabel.text = LocalizedString(@"show_epg_in_fullscreen");
                 [switchView setOn:[PlayerConfigManager showEPGInFullscreen] animated:NO];
                 [switchView addTarget:self action:@selector(epgSwitchChanged:) forControlEvents:UIControlEventValueChanged];
-            } else if (indexPath.row == 2) {
+            } else if (indexPath.row == 3) {
                 cell.textLabel.text = LocalizedString(@"show_time_in_fullscreen");
                 [switchView setOn:[PlayerConfigManager showTimeInFullscreen] animated:NO];
                 [switchView addTarget:self action:@selector(timeSwitchChanged:) forControlEvents:UIControlEventValueChanged];
-            } else if (indexPath.row == 3) {
+            } else if (indexPath.row == 4) {
                 cell.textLabel.text = LocalizedString(@"show_catchup_badge_in_fullscreen");
                 [switchView setOn:[PlayerConfigManager showCatchupBadgeInFullscreen] animated:NO];
                 [switchView addTarget:self action:@selector(catchupBadgeSwitchChanged:) forControlEvents:UIControlEventValueChanged];
-            } else if (indexPath.row == 4) { // [新增]
+            } else if (indexPath.row == 5) {
                 cell.textLabel.text = LocalizedString(@"show_network_speed_in_fullscreen");
                 [switchView setOn:[PlayerConfigManager showNetworkSpeedInFullscreen] animated:NO];
                 [switchView addTarget:self action:@selector(networkSpeedSwitchChanged:) forControlEvents:UIControlEventValueChanged];
@@ -147,6 +163,15 @@
                                                   otherButtonTitles:LocalizedString(@"follow_system"), LocalizedString(@"landscape"), LocalizedString(@"portrait"), nil];
         sheet.tag = 101;
         [sheet showInView:self.view];
+    } else if (indexPath.section == 1 && indexPath.row == 1) {
+        // [新增] 弹出样式选择 ActionSheet
+        UIActionSheet *sheet = [[UIActionSheet alloc] initWithTitle:LocalizedString(@"player_control_style")
+                                                           delegate:self
+                                                  cancelButtonTitle:LocalizedString(@"cancel")
+                                             destructiveButtonTitle:nil
+                                                  otherButtonTitles:LocalizedString(@"style_icon"), LocalizedString(@"style_text"), nil];
+        sheet.tag = 102;
+        [sheet showInView:self.view];
     }
 }
 
@@ -162,6 +187,10 @@
         [self.tableView reloadData];
     } else if (actionSheet.tag == 101) {
         [PlayerConfigManager setPreferredInterfaceOrientationPref:buttonIndex];
+        [self.tableView reloadData];
+    } else if (actionSheet.tag == 102) {
+        // [新增] 存储控件样式选择
+        [PlayerConfigManager setPlayerControlStylePref:buttonIndex];
         [self.tableView reloadData];
     }
 }
@@ -180,7 +209,6 @@
     [PlayerConfigManager setShowCatchupBadgeInFullscreen:sender.isOn];
 }
 
-// [新增]
 - (void)networkSpeedSwitchChanged:(UISwitch *)sender {
     [PlayerConfigManager setShowNetworkSpeedInFullscreen:sender.isOn];
 }

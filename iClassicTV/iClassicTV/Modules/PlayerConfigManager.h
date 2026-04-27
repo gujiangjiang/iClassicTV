@@ -23,6 +23,11 @@
 // 设置默认全屏方向
 + (void)setPreferredInterfaceOrientationPref:(NSInteger)pref;
 
+// [新增] 获取播放器控件样式 (0: 图标, 1: 文字)
++ (NSInteger)playerControlStylePref;
+// [新增] 设置播放器控件样式
++ (void)setPlayerControlStylePref:(NSInteger)style;
+
 // 获取全屏状态下是否显示节目单 (默认 YES)
 + (BOOL)showEPGInFullscreen;
 // 设置全屏状态下是否显示节目单
@@ -33,14 +38,14 @@
 // 设置全屏状态下是否显示悬浮时间
 + (void)setShowTimeInFullscreen:(BOOL)show;
 
-// [新增] 获取全屏状态下是否显示回放标识 (默认 YES)
+// 获取全屏状态下是否显示回放标识 (默认 YES)
 + (BOOL)showCatchupBadgeInFullscreen;
-// [新增] 设置全屏状态下是否显示回放标识
+// 设置全屏状态下是否显示回放标识
 + (void)setShowCatchupBadgeInFullscreen:(BOOL)show;
 
-// [新增] 获取全屏状态下是否显示实时网速 (默认 NO)
+// 获取全屏状态下是否显示实时网速 (默认 NO)
 + (BOOL)showNetworkSpeedInFullscreen;
-// [新增] 设置全屏状态下是否显示实时网速
+// 设置全屏状态下是否显示实时网速
 + (void)setShowNetworkSpeedInFullscreen:(BOOL)show;
 
 @end
