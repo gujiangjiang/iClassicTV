@@ -30,6 +30,11 @@
         [self loadSourcesFromDisk];
         [self loadCacheFromDisk];
         [self startAutoUpdateTimer];
+        
+        // [修复] 延迟1秒后主动执行一次启动更新检测，解决原先因未主动调用而被迫等待30秒定时器触发的延迟问题
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1.0 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+            [self checkAndAutoUpdateEPG];
+        });
     }
     return self;
 }
