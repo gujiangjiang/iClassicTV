@@ -168,12 +168,15 @@
     
     NSString *msg = @"";
     if (supportsPlayback) {
-        msg = [NSString stringWithFormat:@"您预约的【%@】频道的《%@》已过期。\n该频道支持回放，您可以前往频道列表观看回放。", channel, title];
+        // [修复] 移除硬编码，使用多语言键值支持国际化
+        msg = [NSString stringWithFormat:LocalizedString(@"reminder_expired_catchup_msg"), channel, title];
     } else {
-        msg = [NSString stringWithFormat:@"您预约的【%@】频道的《%@》已过期。", channel, title];
+        // [修复] 移除硬编码，使用多语言键值支持国际化
+        msg = [NSString stringWithFormat:LocalizedString(@"reminder_expired_msg"), channel, title];
     }
     
-    UIAlertView *alert = [[UIAlertView alloc] initWithTitle:@"提示" message:msg delegate:nil cancelButtonTitle:@"我知道了" otherButtonTitles:nil];
+    // [修复] 移除硬编码标题和按钮文字，使用多语言键值支持国际化
+    UIAlertView *alert = [[UIAlertView alloc] initWithTitle:LocalizedString(@"tips") message:msg delegate:nil cancelButtonTitle:LocalizedString(@"reminder_expired_ok") otherButtonTitles:nil];
     [alert show];
 }
 

@@ -220,7 +220,10 @@
         "reminder_alert_title": "节目即将开播",
         "reminder_alert_msg": "您预约的节目即将开播：\n频道：%@\n时间：%@\n节目：%@",
         "reminder_ignore": "忽略",
-        "reminder_go": "立即前往"
+        "reminder_go": "立即前往",
+        "reminder_expired_msg": "您预约的【%@】频道的《%@》已过期。",
+        "reminder_expired_catchup_msg": "您预约的【%@】频道的《%@》已过期。\n该频道支持回放，您可以前往频道列表观看回放。",
+        "reminder_expired_ok": "我知道了"
     },
     
     "user_agent": {

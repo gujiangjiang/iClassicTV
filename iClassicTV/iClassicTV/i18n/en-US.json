@@ -220,7 +220,10 @@
         "reminder_alert_title": "Program Starting Soon",
         "reminder_alert_msg": "Your reserved program is starting soon:\nChannel: %@\nTime: %@\nProgram: %@",
         "reminder_ignore": "Ignore",
-        "reminder_go": "Go to View"
+        "reminder_go": "Go to View",
+        "reminder_expired_msg": "Your reservation for channel [%@] program <%@> has expired.",
+        "reminder_expired_catchup_msg": "Your reservation for channel [%@] program <%@> has expired.\nThis channel supports catchup, you can watch the replay.",
+        "reminder_expired_ok": "I Got It"
     },
     
     "user_agent": {
