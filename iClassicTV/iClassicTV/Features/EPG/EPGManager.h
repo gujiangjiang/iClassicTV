@@ -34,6 +34,12 @@
 // 新增：EPG 列表无操作后自动回正到当前节目的延迟时间（秒），0 表示不自动返回
 @property (nonatomic, assign) NSInteger autoScrollTimeout;
 
+// [新增] 标识当前是否正在解析本地缓存，用于 UI 状态提示
+@property (nonatomic, assign) BOOL isLoadingCache;
+
+// [新增] 标识当前是否正在后台更新同步数据，用于 UI 状态提示
+@property (nonatomic, assign) BOOL isUpdatingEPG;
+
 // 当前获取的 EPG 接口 URL（动态计算当前活跃的接口）
 @property (nonatomic, readonly, copy) NSString *epgSourceURL;
 

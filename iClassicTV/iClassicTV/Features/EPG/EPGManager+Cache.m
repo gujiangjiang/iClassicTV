@@ -23,11 +23,17 @@
 }
 
 - (void)loadCacheFromDisk {
+    // [优化] 标记开始解析本地缓存
+    self.isLoadingCache = YES;
+    
     // [修复] EPG数据量极大，在主线程同步解档会导致冷启动黑屏卡顿长达十余秒。改为放入全局并发队列异步加载。
     dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
         NSDictionary *dict = [NSKeyedUnarchiver unarchiveObjectWithFile:[self cacheFilePath]];
         
         dispatch_async(dispatch_get_main_queue(), ^{
+            // [优化] 标记缓存解析完成
+            self.isLoadingCache = NO;
+            
             if (dict) {
                 self.epgCacheDict = dict;
                 // [新增] 缓存异步加载完毕后，通知 UI 刷新最新的 EPG 数据

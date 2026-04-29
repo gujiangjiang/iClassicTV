@@ -179,6 +179,8 @@
         "no_program_data": "No program data",
         "epg_not_enabled": "EPG not enabled",
         "epg_expired": "EPG has expired",
+        "epg_loading_cache": "Parsing local EPG data...",
+        "epg_syncing_latest": "Syncing latest EPG data...",
         "refresh_now": "Refresh Now",
         "today": "Today",
         "tomorrow": "Tomorrow",

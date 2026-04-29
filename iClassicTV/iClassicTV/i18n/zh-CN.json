@@ -179,6 +179,8 @@
         "no_program_data": "暂无节目数据",
         "epg_not_enabled": "未开启电子节目单",
         "epg_expired": "节目单已过期",
+        "epg_loading_cache": "正在解析本地节目单...",
+        "epg_syncing_latest": "正在同步最新节目单...",
         "refresh_now": "立即刷新",
         "today": "今天",
         "tomorrow": "明天",

@@ -30,7 +30,8 @@
 
 @property (nonatomic, strong) NSTimer *autoUpdateTimer;
 @property (nonatomic, assign) BOOL hasTriggeredScheduledUpdateThisMinute;
-@property (nonatomic, assign) BOOL isUpdatingEPG;
+
+// [修复] isUpdatingEPG 和 isLoadingCache 已经作为公开属性移动到了 EPGManager.h 中，此处需删除，避免重复声明导致外部无法访问
 @property (nonatomic, strong) NSDate *lastFailedUpdateTime;
 
 // [优化] 预设字符集，提高 normalizeQueryName 效率

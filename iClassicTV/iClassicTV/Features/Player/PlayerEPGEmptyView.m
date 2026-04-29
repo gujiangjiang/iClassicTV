@@ -99,6 +99,16 @@
             self.tipsLabel.text = LocalizedString(@"loading");
             self.actionButton.hidden = YES;
             break;
+        case EPGEmptyStateTypeLoadingCache:
+            self.emptyIconLabel.text = @"🔄";
+            self.tipsLabel.text = LocalizedString(@"epg_loading_cache");
+            self.actionButton.hidden = YES;
+            break;
+        case EPGEmptyStateTypeUpdating:
+            self.emptyIconLabel.text = @"📡";
+            self.tipsLabel.text = LocalizedString(@"epg_syncing_latest");
+            self.actionButton.hidden = YES;
+            break;
     }
 }
 

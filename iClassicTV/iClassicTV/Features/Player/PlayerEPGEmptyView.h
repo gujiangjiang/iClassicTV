@@ -14,7 +14,9 @@ typedef NS_ENUM(NSInteger, EPGEmptyStateType) {
     EPGEmptyStateTypeNotEnabled,    // EPG 未开启
     EPGEmptyStateTypeNoData,        // 无节目数据
     EPGEmptyStateTypeExpired,       // 节目已过期
-    EPGEmptyStateTypeLoading        // 正在加载中
+    EPGEmptyStateTypeLoading,       // 正在加载中
+    EPGEmptyStateTypeLoadingCache,  // [新增] 正在解析本地缓存
+    EPGEmptyStateTypeUpdating       // [新增] 正在同步最新节目单
 };
 
 @protocol PlayerEPGEmptyViewDelegate <NSObject>

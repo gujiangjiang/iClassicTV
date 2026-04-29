@@ -108,7 +108,15 @@
     }
     
     if (allPrograms.count == 0) {
-        [self.emptyView setState:EPGEmptyStateTypeNoData];
+        // [优化] 如果没有数据，先判断是否正在解析本地缓存或同步网络数据，给予更友好的状态提示
+        if ([EPGManager sharedManager].isLoadingCache) {
+            [self.emptyView setState:EPGEmptyStateTypeLoadingCache];
+        } else if ([EPGManager sharedManager].isUpdatingEPG) {
+            [self.emptyView setState:EPGEmptyStateTypeUpdating];
+        } else {
+            [self.emptyView setState:EPGEmptyStateTypeNoData];
+        }
+        
         self.dateBar.hidden = YES;
         self.separatorLine.hidden = YES;
         self.tableView.hidden = YES;
