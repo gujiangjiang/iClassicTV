@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		4805CF382FA2782900C1B18C /* DataCleanupViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 4805CF372FA2782900C1B18C /* DataCleanupViewController.m */; };
 		481612762F9B900D00067C15 /* NSString+EncodingHelper.m in Sources */ = {isa = PBXBuildFile; fileRef = 481612752F9B900D00067C15 /* NSString+EncodingHelper.m */; };
 		4816127C2F9BA82300067C15 /* UIViewController+ScrollToTop.m in Sources */ = {isa = PBXBuildFile; fileRef = 4816127B2F9BA82300067C15 /* UIViewController+ScrollToTop.m */; };
 		4816D5492F9C813800D0A5AE /* EPGManager.m in Sources */ = {isa = PBXBuildFile; fileRef = 4816D5442F9C813800D0A5AE /* EPGManager.m */; };
@@ -90,6 +91,8 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		4805CF362FA2782900C1B18C /* DataCleanupViewController.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = DataCleanupViewController.h; sourceTree = "<group>"; };
+		4805CF372FA2782900C1B18C /* DataCleanupViewController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = DataCleanupViewController.m; sourceTree = "<group>"; };
 		481612742F9B8FFA00067C15 /* NSString+EncodingHelper.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "NSString+EncodingHelper.h"; sourceTree = "<group>"; };
 		481612752F9B900D00067C15 /* NSString+EncodingHelper.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = "NSString+EncodingHelper.m"; sourceTree = "<group>"; };
 		4816127A2F9BA81800067C15 /* UIViewController+ScrollToTop.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "UIViewController+ScrollToTop.h"; sourceTree = "<group>"; };
@@ -389,6 +392,8 @@
 				4895374D2F9C9D0D005D3CA3 /* PlayerSettingsViewController.m */,
 				481EC5752F9F825700673EAB /* FeatureSettingsViewController.h */,
 				481EC5762F9F825700673EAB /* FeatureSettingsViewController.m */,
+				4805CF362FA2782900C1B18C /* DataCleanupViewController.h */,
+				4805CF372FA2782900C1B18C /* DataCleanupViewController.m */,
 			);
 			path = Settings;
 			sourceTree = "<group>";
@@ -659,6 +664,7 @@
 				48B8E58A2F9E6DD700668461 /* EPGManager+Query.m in Sources */,
 				48317BAA2F9A78E9002489FE /* Channel.m in Sources */,
 				48317BA22F9A78E9002489FE /* M3UParser.m in Sources */,
+				4805CF382FA2782900C1B18C /* DataCleanupViewController.m in Sources */,
 				48FBEB262F9BD59800DD08EE /* LanguageManager.m in Sources */,
 				48FB1F802F9F5F5700876245 /* TVSearchManager.m in Sources */,
 				4816D54A2F9C813800D0A5AE /* EPGParser.m in Sources */,
