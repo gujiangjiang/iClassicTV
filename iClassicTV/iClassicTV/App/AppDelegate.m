@@ -62,15 +62,13 @@
     self.tabBarController.viewControllers = @[nav1, nav3];
     self.tabBarController.delegate = self;
     
-    self.window.rootViewController = self.tabBarController;
-    self.window.backgroundColor = [UIColor whiteColor];
-    [self.window makeKeyAndVisible];
-    
+    // [修复] 将通知注册、动态 Tab 显隐计算以及默认启动页选择，全部移动到 makeKeyAndVisible 之前！
+    // 避免因为画面已经绘制出来后，再去更改层级和控制器，导致的瞬间黑屏闪烁问题
     [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(languageDidChange) name:@"LanguageDidChangeNotification" object:nil];
     [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(updateWatchListTabVisibility) name:@"WatchListVisibilityDidChangeNotification" object:nil];
     [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(updateWatchListTabVisibility) name:NSUserDefaultsDidChangeNotification object:nil];
     
-    // 首次加载立即计算标题并决定是否展现“我的电视”Tab
+    // 启动前立即计算标题并决定是否展现“我的电视”Tab
     [self updateWatchListTabVisibility];
     
     // 根据设置决定打开软件默认显示的页面
@@ -80,10 +78,15 @@
         }
     }
     
+    // 最后再配置并渲染窗口（这能够保证 LaunchScreen 顺滑过渡到已经完全构建好的初始页面）
+    self.window.rootViewController = self.tabBarController;
+    self.window.backgroundColor = [UIColor whiteColor];
+    [self.window makeKeyAndVisible];
+    
     // 处理冷启动时用户点击预约通知拉起APP的情况
     UILocalNotification *localNotif = [launchOptions objectForKey:UIApplicationLaunchOptionsLocalNotificationKey];
     if (localNotif) {
-        // [修复] 必须先拷贝 userInfo，防止取消通知后对象被释放
+        // 必须先拷贝 userInfo，防止取消通知后对象被释放
         NSDictionary *userInfo = [localNotif.userInfo copy];
         
         if ([userInfo[@"isEPGReminder"] boolValue]) {
@@ -99,7 +102,7 @@
             NSDate *checkTime = endTime ? endTime : (startTime ? [startTime dateByAddingTimeInterval:2 * 3600] : nil);
             
             if (checkTime && [[NSDate date] compare:checkTime] == NSOrderedDescending) {
-                // [修复] 传参改为安全的 userInfo 字典
+                // 传参改为安全的 userInfo 字典
                 [self performSelector:@selector(showExpiredAlertForUserInfo:) withObject:userInfo afterDelay:0.5];
             } else {
                 // 未过期，稍微延迟跳转，等待根视图初始化完全
@@ -113,7 +116,7 @@
 
 // 接收到本地通知时的代理方法
 - (void)application:(UIApplication *)application didReceiveLocalNotification:(UILocalNotification *)notification {
-    // [修复] 严重内存溢出 Bug：在取消通知前必须先将 userInfo 提取并持有拷贝！
+    // 严重内存溢出 Bug：在取消通知前必须先将 userInfo 提取并持有拷贝！
     // 否则 cancelLocalNotification 可能会导致系统提前释放 notification 指针，后续读取闪退
     NSDictionary *userInfo = [notification.userInfo copy];
     
@@ -129,7 +132,7 @@
         NSDate *checkTime = endTime ? endTime : (startTime ? [startTime dateByAddingTimeInterval:2 * 3600] : nil);
         
         if (checkTime && [[NSDate date] compare:checkTime] == NSOrderedDescending) {
-            // [修复] 增加延迟调用，防止在后台被唤醒转场的过程中同步弹出 Alert 导致被系统视图层级吞掉而无法显示
+            // 增加延迟调用，防止在后台被唤醒转场的过程中同步弹出 Alert 导致被系统视图层级吞掉而无法显示
             [self performSelector:@selector(showExpiredAlertForUserInfo:) withObject:userInfo afterDelay:0.5];
             return;
         }
@@ -162,7 +165,7 @@
     }
 }
 
-// [修复] 将参数类型从 UILocalNotification 变更为 NSDictionary，保证数据的绝对安全
+// 将参数类型从 UILocalNotification 变更为 NSDictionary，保证数据的绝对安全
 - (void)showExpiredAlertForUserInfo:(NSDictionary *)userInfo {
     if (!userInfo) return;
     
