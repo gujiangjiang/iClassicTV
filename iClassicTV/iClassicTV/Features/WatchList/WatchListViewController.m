@@ -188,6 +188,13 @@
     if (targetIndex != NSNotFound) {
         self.segmentedControl.selectedSegmentIndex = targetIndex;
         [self showCurrentSelectedVC];
+    } else {
+        // [修复] 增加兜底逻辑：如果在极速冷启动情况下，EPG源尚未加载完成导致预约 Tab 按钮还没出现，
+        // 则强制在视觉层面先切换到预约列表子页面
+        self.favVC.view.hidden = YES;
+        self.recentVC.view.hidden = YES;
+        self.reminderVC.view.hidden = NO;
+        [self.view bringSubviewToFront:self.reminderVC.view];
     }
 }
 

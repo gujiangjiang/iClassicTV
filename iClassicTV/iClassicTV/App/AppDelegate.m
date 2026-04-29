@@ -84,6 +84,11 @@
     UILocalNotification *localNotif = [launchOptions objectForKey:UIApplicationLaunchOptionsLocalNotificationKey];
     if (localNotif) {
         if ([localNotif.userInfo[@"isEPGReminder"] boolValue]) {
+            // [修复] 冷启动点击通知时，清零角标并取消通知，以将其从通知中心彻底移除
+            application.applicationIconBadgeNumber = 1;
+            application.applicationIconBadgeNumber = 0;
+            [application cancelLocalNotification:localNotif];
+            
             // 稍微延迟跳转，等待根视图初始化完全
             [self performSelector:@selector(jumpToAppointmentsTab) withObject:nil afterDelay:0.5];
         }
@@ -94,6 +99,11 @@
 
 // [新增] 接收到本地通知时的代理方法
 - (void)application:(UIApplication *)application didReceiveLocalNotification:(UILocalNotification *)notification {
+    // [修复] 收到或点击通知进入前台时，清零角标并取消该通知，以将其从系统通知中心移除
+    application.applicationIconBadgeNumber = 1;
+    application.applicationIconBadgeNumber = 0;
+    [application cancelLocalNotification:notification];
+    
     NSDictionary *userInfo = notification.userInfo;
     if ([userInfo[@"isEPGReminder"] boolValue]) {
         // 如果 App 处于前台运行状态，则不走系统的顶部推送，直接由 App 内部弹窗提醒
@@ -130,8 +140,14 @@
     [self updateWatchListTabVisibility];
     if ([self.tabBarController.viewControllers containsObject:self.navWatchList]) {
         self.tabBarController.selectedViewController = self.navWatchList;
-        // 如果 WatchListViewController 中有多个子 Tab（如最近、收藏、预约），可以使用通知触发切换
-        [[NSNotificationCenter defaultCenter] postNotificationName:@"JumpToAppointmentsTabNotification" object:nil];
+        
+        // [修复] 强制触发视图控制器的 view 加载，防止其尚未初始化（viewDidLoad未执行）导致漏接后续通知
+        [self.navWatchList.topViewController view];
+        
+        // [修复] 将发送跳转通知的操作放到主队列异步执行，确保视图已完全准备好接收并在正确的生命周期响应
+        dispatch_async(dispatch_get_main_queue(), ^{
+            [[NSNotificationCenter defaultCenter] postNotificationName:@"JumpToAppointmentsTabNotification" object:nil];
+        });
     }
 }
 
