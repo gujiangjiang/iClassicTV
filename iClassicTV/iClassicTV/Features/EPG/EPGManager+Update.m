@@ -125,25 +125,11 @@
     
     __block NSDate *maxEndTime = [[NSUserDefaults standardUserDefaults] objectForKey:kEPGMaxEndTimeKey];
     
-    // 如果因某种原因缓存不存在，做一次全量扫描保底，并重新写入缓存
+    // [修复] 移除会导致主线程严重卡顿的全局遍历保底代码。由于缓存解析已转为异步，
+    // 如果这里获取不到持久化的时间戳，直接返回 YES 触发一次后台静默更新，
+    // 后台更新完毕后会自动重新计算并写入正确的时间戳，性能远优于在主线程进行百万级对象的遍历。
     if (!maxEndTime) {
-        maxEndTime = [NSDate distantPast];
-        [self.epgCacheDict enumerateKeysAndObjectsUsingBlock:^(id key, NSArray *programs, BOOL *stop) {
-            EPGProgram *lastProgram = [programs lastObject]; // 节目通常按时间排序，只需取最后一个判断即可
-            if (lastProgram && lastProgram.endTime) {
-                if ([lastProgram.endTime compare:maxEndTime] == NSOrderedDescending) {
-                    maxEndTime = lastProgram.endTime;
-                }
-            } else {
-                for (EPGProgram *p in programs) {
-                    if (p.endTime && [p.endTime compare:maxEndTime] == NSOrderedDescending) {
-                        maxEndTime = p.endTime;
-                    }
-                }
-            }
-        }];
-        [[NSUserDefaults standardUserDefaults] setObject:maxEndTime forKey:kEPGMaxEndTimeKey];
-        [[NSUserDefaults standardUserDefaults] synchronize];
+        return YES;
     }
     
     NSDate *threshold = [[NSDate date] dateByAddingTimeInterval:7200];
@@ -267,7 +253,6 @@
             
             dispatch_async(dispatch_get_main_queue(), ^{
                 self.isUpdatingEPG = NO;
-                // [修复] 复用已有的 epg_update_complete 多语言键值，不再使用多余的新增键值
                 [ToastHelper dismissGlobalProgressHUDWithKey:taskKey text:LocalizedString(@"epg_update_complete") delay:3.0];
                 if (completion) completion(YES, nil);
                 [[NSNotificationCenter defaultCenter] postNotificationName:@"EPGDataDidUpdateNotification" object:nil];

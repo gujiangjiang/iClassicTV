@@ -8,6 +8,7 @@
 
 #import "EPGManager+Cache.h"
 #import "EPGManager+Internal.h"
+#import "EPGManager+Update.h" // [新增] 引入Update分类以回调启动更新检测
 
 @implementation EPGManager (Cache)
 
@@ -22,10 +23,23 @@
 }
 
 - (void)loadCacheFromDisk {
-    NSDictionary *dict = [NSKeyedUnarchiver unarchiveObjectWithFile:[self cacheFilePath]];
-    if (dict) {
-        self.epgCacheDict = dict;
-    }
+    // [修复] EPG数据量极大，在主线程同步解档会导致冷启动黑屏卡顿长达十余秒。改为放入全局并发队列异步加载。
+    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
+        NSDictionary *dict = [NSKeyedUnarchiver unarchiveObjectWithFile:[self cacheFilePath]];
+        
+        dispatch_async(dispatch_get_main_queue(), ^{
+            if (dict) {
+                self.epgCacheDict = dict;
+                // [新增] 缓存异步加载完毕后，通知 UI 刷新最新的 EPG 数据
+                [[NSNotificationCenter defaultCenter] postNotificationName:@"EPGDataDidUpdateNotification" object:nil];
+            }
+            
+            // [修复] 等待缓存真正加载完后，再进行开机更新过期检测，防止把未加载完的缓存当成空数据触发全量下载
+            if ([self respondsToSelector:@selector(checkAndAutoUpdateEPG)]) {
+                [self checkAndAutoUpdateEPG];
+            }
+        });
+    });
 }
 
 - (void)clearEPGCache {
@@ -35,6 +49,9 @@
     // [优化] 清理缓存时，同步移除最大结束时间的持久化记录
     [[NSUserDefaults standardUserDefaults] removeObjectForKey:kEPGMaxEndTimeKey];
     [[NSUserDefaults standardUserDefaults] synchronize];
+    
+    // [新增] 缓存被清理后，主动发送通知，让 UI 立即变回无数据状态
+    [[NSNotificationCenter defaultCenter] postNotificationName:@"EPGDataDidUpdateNotification" object:nil];
 }
 
 @end
