@@ -10,6 +10,7 @@
 #import "EPGManager+Internal.h"
 #import "EPGManager+Cache.h"
 #import "LanguageManager.h"
+#import "ToastHelper.h" // [新增] 引入ToastHelper用于切换时清理浮窗
 
 @implementation EPGManager (Sources)
 
@@ -142,6 +143,9 @@
         }
         [self saveSourcesToDisk];
         if (changed) {
+            // [修复] 切换EPG接口时，强制重置更新状态并立刻移除可能卡住的全局进度浮窗
+            self.isUpdatingEPG = NO;
+            [ToastHelper dismissGlobalProgressHUDWithKey:@"epg_update_task" text:nil delay:0.0];
             [self clearEPGCache];
         }
     }

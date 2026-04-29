@@ -192,6 +192,9 @@
         
         for (NSString *rawUrl in urls) {
             @autoreleasepool {
+                // [修复] 每次处理新的URL前，检查是否因为用户切换接口而被中止了更新任务
+                if (!self.isUpdatingEPG) return;
+                
                 currentUrlIndex++;
                 
                 CGFloat prog = 0.05 + 0.6 * ((CGFloat)currentUrlIndex / (CGFloat)totalUrls);
@@ -206,6 +209,9 @@
                 
                 // [优化] 移除硬编码的 User-Agent 和冗余的原生请求代码，统一调用 NetworkManager 进行同步下载
                 NSData *xmlData = [[NetworkManager sharedManager] downloadDataSyncFromURL:url];
+                
+                // [修复] 网络请求耗时较长，结束后再次检查更新是否已被中止，防止错误数据覆盖新接口缓存
+                if (!self.isUpdatingEPG) return;
                 
                 if (!xmlData || xmlData.length == 0) {
                     lastErrorMsg = LocalizedString(@"epg_no_data");
@@ -237,6 +243,9 @@
                 }
             }
         }
+        
+        // 最后提交缓存前做最后一次防误伤拦截
+        if (!self.isUpdatingEPG) return;
         
         if (atLeastOneSuccess) {
             self.epgCacheDict = mergedDict;
