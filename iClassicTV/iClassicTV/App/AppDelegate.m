@@ -89,8 +89,19 @@
             application.applicationIconBadgeNumber = 0;
             [application cancelLocalNotification:localNotif];
             
-            // 稍微延迟跳转，等待根视图初始化完全
-            [self performSelector:@selector(jumpToAppointmentsTab) withObject:nil afterDelay:0.5];
+            // [新增] 检查预约是否已过期
+            NSDate *endTime = localNotif.userInfo[@"endTime"];
+            NSDate *startTime = localNotif.userInfo[@"startTime"];
+            // 如果没有传入 endTime，作为 fallback，默认节目开播后 2 小时视为过期
+            NSDate *checkTime = endTime ? endTime : (startTime ? [startTime dateByAddingTimeInterval:2 * 3600] : nil);
+            
+            if (checkTime && [[NSDate date] compare:checkTime] == NSOrderedDescending) {
+                // 已过期，稍微延迟弹窗，防止被启动画面覆盖
+                [self performSelector:@selector(showExpiredAlertForNotification:) withObject:localNotif afterDelay:0.5];
+            } else {
+                // 未过期，稍微延迟跳转，等待根视图初始化完全
+                [self performSelector:@selector(jumpToAppointmentsTab) withObject:nil afterDelay:0.5];
+            }
         }
     }
     
@@ -106,6 +117,17 @@
     
     NSDictionary *userInfo = notification.userInfo;
     if ([userInfo[@"isEPGReminder"] boolValue]) {
+        // [新增] 检查预约是否已过期
+        NSDate *endTime = userInfo[@"endTime"];
+        NSDate *startTime = userInfo[@"startTime"];
+        NSDate *checkTime = endTime ? endTime : (startTime ? [startTime dateByAddingTimeInterval:2 * 3600] : nil);
+        
+        if (checkTime && [[NSDate date] compare:checkTime] == NSOrderedDescending) {
+            // 节目已过期，直接弹出提示并 return，拦截后续导致黑屏卡死的跳转逻辑
+            [self showExpiredAlertForNotification:notification];
+            return;
+        }
+        
         // 如果 App 处于前台运行状态，则不走系统的顶部推送，直接由 App 内部弹窗提醒
         if (application.applicationState == UIApplicationStateActive) {
             NSString *channel = userInfo[@"channelName"];
@@ -133,6 +155,26 @@
     if (alertView.tag == 1001 && buttonIndex == 1) {
         [self jumpToAppointmentsTab];
     }
+}
+
+// [新增] 显示预约过期提醒的辅助方法
+- (void)showExpiredAlertForNotification:(UILocalNotification *)notification {
+    NSDictionary *userInfo = notification.userInfo;
+    NSString *channel = userInfo[@"channelName"] ?: @"";
+    NSString *title = userInfo[@"title"] ?: @"";
+    
+    // 取出 userInfo 中的回放标志位（兼容不同命名习惯）
+    BOOL supportsPlayback = [userInfo[@"supportsPlayback"] boolValue] || [userInfo[@"supportPlayback"] boolValue] || [userInfo[@"catchup"] boolValue];
+    
+    NSString *msg = @"";
+    if (supportsPlayback) {
+        msg = [NSString stringWithFormat:@"您预约的【%@】频道的《%@》已过期。\n该频道支持回放，您可以前往频道列表观看回放。", channel, title];
+    } else {
+        msg = [NSString stringWithFormat:@"您预约的【%@】频道的《%@》已过期。", channel, title];
+    }
+    
+    UIAlertView *alert = [[UIAlertView alloc] initWithTitle:@"提示" message:msg delegate:nil cancelButtonTitle:@"我知道了" otherButtonTitles:nil];
+    [alert show];
 }
 
 // [新增] 跳转至“我的电视”预约页的辅助方法
