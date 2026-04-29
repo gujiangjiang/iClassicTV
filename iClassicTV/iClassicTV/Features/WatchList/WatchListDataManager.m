@@ -308,12 +308,25 @@
         notification.soundName = UILocalNotificationDefaultSoundName;
         // [修复] 为本地通知添加角标属性，解决触发通知时不显示应用角标的问题
         notification.applicationIconBadgeNumber = 1;
-        notification.userInfo = @{
-                                  @"isEPGReminder": @YES,
-                                  @"channelName": info[@"channelName"],
-                                  @"title": info[@"title"],
-                                  @"startTime": startTime
-                                  };
+        
+        // [修复] 将 userInfo 的构造提取出来，并增加安全判断
+        NSMutableDictionary *mutUserInfo = [NSMutableDictionary dictionaryWithDictionary:@{
+                                                                                           @"isEPGReminder": @YES,
+                                                                                           @"channelName": info[@"channelName"] ?: @"",
+                                                                                           @"title": info[@"title"] ?: @"",
+                                                                                           @"startTime": startTime ?: [NSDate date]
+                                                                                           }];
+        
+        // [新增] 存入结束时间
+        if (info[@"endTime"]) {
+            mutUserInfo[@"endTime"] = info[@"endTime"];
+        }
+        
+        // [新增] 判断并存入是否支持回放（通过检查 catchupSource 字符串是否有内容）
+        BOOL supportsPlayback = (info[@"catchupSource"] && [info[@"catchupSource"] length] > 0);
+        mutUserInfo[@"supportsPlayback"] = @(supportsPlayback);
+        
+        notification.userInfo = [mutUserInfo copy];
         
         [[UIApplication sharedApplication] scheduleLocalNotification:notification];
     }
