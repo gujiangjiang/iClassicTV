@@ -150,9 +150,15 @@
     return ([maxEndTime compare:threshold] == NSOrderedAscending);
 }
 
+// [优化] 分离并完善应用启动时的自动更新逻辑，使得“打开软件自动更新”和“过期自动更新”不冲突
 - (void)checkAndAutoUpdateEPG {
-    if (!self.isEPGEnabled || !self.autoUpdateOnLaunch || self.isDynamicEPGSource) return;
-    if ([self needsUpdate]) {
+    if (!self.isEPGEnabled || self.isDynamicEPGSource) return;
+    
+    if (self.autoUpdateOnLaunch) {
+        // 如果开启了“打开软件自动更新”：无论数据是否过期，只要启动了就直接刷新 EPG
+        [self performSilentBackgroundUpdate];
+    } else if (self.autoUpdateOnExpire && [self needsUpdate]) {
+        // 如果开启了“过期自动更新”：当启动时判断到数据确已过期，也会触发刷新 EPG
         [self performSilentBackgroundUpdate];
     }
 }
