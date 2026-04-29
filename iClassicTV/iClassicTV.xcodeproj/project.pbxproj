@@ -533,6 +533,7 @@
 				48D63F212F97DE1F002AD06E /* Sources */,
 				48D63F222F97DE1F002AD06E /* Frameworks */,
 				48D63F232F97DE1F002AD06E /* Resources */,
+				4805B3B02FA259280033C8B3 /* ShellScript */,
 			);
 			buildRules = (
 			);
@@ -614,6 +615,22 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXResourcesBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		4805B3B02FA259280033C8B3 /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "INFOPLIST_PATH=\"${PROJECT_DIR}/${INFOPLIST_FILE}\"\n\n# 生成时间戳，格式为 年月日时分 (例如：202604291059)\nbuildNumber=$(date +%Y%m%d%H%M)\n\n/usr/libexec/PlistBuddy -c \"Set :CFBundleVersion $buildNumber\" \"${INFOPLIST_PATH}\"\necho \"✅ 自动更新 Build 号为时间戳: $buildNumber\"";
+		};
+/* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		48D63F212F97DE1F002AD06E /* Sources */ = {
