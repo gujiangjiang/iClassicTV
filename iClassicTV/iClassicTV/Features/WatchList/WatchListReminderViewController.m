@@ -41,6 +41,8 @@
     
     self.tableView = [[UITableView alloc] initWithFrame:self.view.bounds style:UITableViewStylePlain];
     self.tableView.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+    self.tableView.backgroundColor = [UIColor whiteColor]; // [修复] 显式设置TableView背景色为白色，防止在iOS6点击时列表变黑
+    self.tableView.backgroundView = nil;                   // [修复] 清除默认背景视图，防止iOS6下出现黑色背景
     self.tableView.delegate = self;
     self.tableView.dataSource = self;
     self.tableView.tableFooterView = [[UIView alloc] init];
@@ -116,6 +118,10 @@
         // [修复] 将样式改为 Subtitle，以支持副标题显示 URL
         cell = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleSubtitle reuseIdentifier:cellId];
         cell.selectionStyle = UITableViewCellSelectionStyleDefault;
+        cell.backgroundColor = [UIColor whiteColor];           // [修复] 设置cell默认背景色为白色，避免iOS6下点击发黑
+        cell.textLabel.backgroundColor = [UIColor clearColor]; // [修复] 标签背景设为透明，防止选中时文字背景变黑
+        cell.detailTextLabel.backgroundColor = [UIColor clearColor]; // [修复] 标签背景设为透明，防止选中时文字背景变黑
+        
         cell.textLabel.font = [UIFont systemFontOfSize:15];
         cell.detailTextLabel.textColor = [UIColor grayColor];
         cell.detailTextLabel.font = [UIFont systemFontOfSize:12.0f];
