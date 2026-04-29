@@ -88,7 +88,18 @@
 
 - (void)viewDidLoad {
     [super viewDidLoad];
+    
+    // [修复] 适配 iOS 7+ 视图布局，防止 contentInset 自动偏移导致冷启动搜索栏半露
+    if ([self respondsToSelector:@selector(setEdgesForExtendedLayout:)]) {
+        self.edgesForExtendedLayout = UIRectEdgeNone;
+    }
+    if ([self respondsToSelector:@selector(setAutomaticallyAdjustsScrollViewInsets:)]) {
+        self.automaticallyAdjustsScrollViewInsets = NO;
+    }
+    
     self.tableView = [[UITableView alloc] initWithFrame:self.view.bounds style:UITableViewStyleGrouped];
+    // [修复] 增加自动调整掩码，保证在关闭边缘延伸后 frame 依然能正确适配屏幕宽高
+    self.tableView.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
     
     [self enableNavigationBarDoubleTapToScrollTop];
     
