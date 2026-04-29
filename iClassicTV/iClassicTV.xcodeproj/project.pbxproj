@@ -533,7 +533,7 @@
 				48D63F212F97DE1F002AD06E /* Sources */,
 				48D63F222F97DE1F002AD06E /* Frameworks */,
 				48D63F232F97DE1F002AD06E /* Resources */,
-				4805B3B02FA259280033C8B3 /* ShellScript */,
+				4805B3B02FA259280033C8B3 /* Run Script */,
 			);
 			buildRules = (
 			);
@@ -617,18 +617,19 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXShellScriptBuildPhase section */
-		4805B3B02FA259280033C8B3 /* ShellScript */ = {
+		4805B3B02FA259280033C8B3 /* Run Script */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
 			);
 			inputPaths = (
 			);
+			name = "Run Script";
 			outputPaths = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "INFOPLIST_PATH=\"${PROJECT_DIR}/${INFOPLIST_FILE}\"\n\n# 生成时间戳，格式为 年月日时分 (例如：202604291059)\nbuildNumber=$(date +%Y%m%d%H%M)\n\n/usr/libexec/PlistBuddy -c \"Set :CFBundleVersion $buildNumber\" \"${INFOPLIST_PATH}\"\necho \"✅ 自动更新 Build 号为时间戳: $buildNumber\"";
+			shellScript = "#!/bin/bash\n\n# 获取 Info.plist 的完整路径\nPLIST_PATH=\"${PROJECT_DIR}/${INFOPLIST_FILE}\"\n\n# ==========================================\n# 1. 更新编译号 (CFBundleVersion) 为当前时间戳\n# ==========================================\n# 无论 Build 还是 Run，都会执行这一步\nTIMESTAMP=$(date \"+%Y%m%d%H%M%S\")\n/usr/libexec/PlistBuddy -c \"Set :CFBundleVersion $TIMESTAMP\" \"${PLIST_PATH}\"\n\necho \"编译号已更新为: $TIMESTAMP\"\n\n# ==========================================\n# 2. 更新版本号 (CFBundleShortVersionString)\n# ==========================================\n# 仅当构建配置为 Release 时才执行版本号递增逻辑\n# （日常开发 Run 时通常是 Debug 配置，故不会触发）\n\nif [ \"${CONFIGURATION}\" = \"Release\" ]; then\n\n# 读取当前的版本号\nVERSION=$(/usr/libexec/PlistBuddy -c \"Print :CFBundleShortVersionString\" \"${PLIST_PATH}\")\n\n# 如果读取为空，则赋予默认值 1.0.0\nif [ -z \"$VERSION\" ]; then\nVERSION=\"1.0.0\"\nfi\n\n# 使用点号分割版本号 (假设格式为 x.y.z)\nIFS='.' read -r -a VERSION_PARTS <<< \"$VERSION\"\nMAJOR=\"${VERSION_PARTS[0]:-1}\"\nMINOR=\"${VERSION_PARTS[1]:-0}\"\nPATCH=\"${VERSION_PARTS[2]:-0}\"\n\n# 实现最后一位（PATCH）递增\nPATCH=$((PATCH + 1))\n\n# 实现“逢10进1”逻辑\nif [ \"$PATCH\" -gt 9 ]; then\nPATCH=0\nMINOR=$((MINOR + 1))\n# 注: 如果中间位也需要逢10进1，可在此处继续嵌套 if [ \"$MINOR\" -gt 9 ]; then ...\nfi\n\n# 组合新版本号\nNEW_VERSION=\"$MAJOR.$MINOR.$PATCH\"\n\n# 将新版本号写入 Info.plist\n/usr/libexec/PlistBuddy -c \"Set :CFBundleShortVersionString $NEW_VERSION\" \"${PLIST_PATH}\"\n\necho \"版本号已更新为: $NEW_VERSION (Release 模式)\"\nelse\necho \"当前为 ${CONFIGURATION} 模式，不提升版本号。\"\nfi";
 		};
 /* End PBXShellScriptBuildPhase section */
 

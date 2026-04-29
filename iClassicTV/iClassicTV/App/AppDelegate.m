@@ -93,7 +93,11 @@
             // 冷启动点击通知时，清零角标并取消通知，以将其从通知中心彻底移除
             application.applicationIconBadgeNumber = 1;
             application.applicationIconBadgeNumber = 0;
-            [application cancelLocalNotification:localNotif];
+            
+            // [优化] 同样改为异步取消，保持代码逻辑的健壮性，防止任何生命周期突变
+            dispatch_async(dispatch_get_main_queue(), ^{
+                [application cancelLocalNotification:localNotif];
+            });
             
             // 检查预约是否已过期
             NSDate *endTime = userInfo[@"endTime"];
@@ -123,7 +127,12 @@
     // 收到或点击通知进入前台时，清零角标并取消该通知，以将其从系统通知中心移除
     application.applicationIconBadgeNumber = 1;
     application.applicationIconBadgeNumber = 0;
-    [application cancelLocalNotification:notification];
+    
+    // [修复] 必须异步取消通知！如果在当前委托回调的同一 RunLoop 中直接取消通知，
+    // 会导致系统内部正在遍历的通知数组发生越界突变，从而引起直接闪退！
+    dispatch_async(dispatch_get_main_queue(), ^{
+        [application cancelLocalNotification:notification];
+    });
     
     if ([userInfo[@"isEPGReminder"] boolValue]) {
         // 检查预约是否已过期
@@ -189,6 +198,19 @@
 // 跳转至“我的电视”预约页的辅助方法
 - (void)jumpToAppointmentsTab {
     [self updateWatchListTabVisibility];
+    
+    // [修复] 强制保证“我的电视”Tab被添加到导航中，防止因异步数据未加载完成导致Tab被隐藏从而无法跳转
+    NSMutableArray *vcs = [self.tabBarController.viewControllers mutableCopy];
+    if (![vcs containsObject:self.navWatchList]) {
+        if (vcs.count >= 1) {
+            [vcs insertObject:self.navWatchList atIndex:1];
+        } else {
+            [vcs addObject:self.navWatchList];
+        }
+        self.tabBarController.viewControllers = vcs;
+        self.navWatchList.tabBarItem.title = [self currentWatchListTargetTitle];
+    }
+    
     if ([self.tabBarController.viewControllers containsObject:self.navWatchList]) {
         self.tabBarController.selectedViewController = self.navWatchList;
         
