@@ -41,8 +41,7 @@
     
     self.tableView = [[UITableView alloc] initWithFrame:self.view.bounds style:UITableViewStylePlain];
     self.tableView.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
-    self.tableView.backgroundColor = [UIColor whiteColor]; // [修复] 显式设置TableView背景色为白色，防止在iOS6点击时列表变黑
-    self.tableView.backgroundView = nil;                   // [修复] 清除默认背景视图，防止iOS6下出现黑色背景
+    // [修复] 移除了之前画蛇添足的 tableView backgroundColor 和 backgroundView 设置，与收藏/最近列表保持一致
     self.tableView.delegate = self;
     self.tableView.dataSource = self;
     self.tableView.tableFooterView = [[UIView alloc] init];
@@ -117,10 +116,9 @@
     if (!cell) {
         // [修复] 将样式改为 Subtitle，以支持副标题显示 URL
         cell = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleSubtitle reuseIdentifier:cellId];
-        cell.selectionStyle = UITableViewCellSelectionStyleDefault;
-        cell.backgroundColor = [UIColor whiteColor];           // [修复] 设置cell默认背景色为白色，避免iOS6下点击发黑
-        cell.textLabel.backgroundColor = [UIColor clearColor]; // [修复] 标签背景设为透明，防止选中时文字背景变黑
-        cell.detailTextLabel.backgroundColor = [UIColor clearColor]; // [修复] 标签背景设为透明，防止选中时文字背景变黑
+        
+        // [修复] 移除了之前为解决所谓“发黑”而强制设置的 cell 和 label 背景色
+        // 恢复系统原生渲染，解决点击时出现黑底白字的 Bug
         
         cell.textLabel.font = [UIFont systemFontOfSize:15];
         cell.detailTextLabel.textColor = [UIColor grayColor];
