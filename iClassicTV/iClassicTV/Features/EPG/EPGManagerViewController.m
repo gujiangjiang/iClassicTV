@@ -262,7 +262,6 @@
     self.autoExpireSwitch.on = [EPGManager sharedManager].autoUpdateOnExpire;
     [self.autoExpireSwitch addTarget:self action:@selector(autoExpireSwitchChanged:) forControlEvents:UIControlEventValueChanged];
     
-    // [修改] 仅保留数据解析完毕用于刷新 tableView 的监听
     [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(epgDataDidUpdate) name:@"EPGDataDidUpdateNotification" object:nil];
 }
 
@@ -270,7 +269,6 @@
     [[NSNotificationCenter defaultCenter] removeObserver:self];
 }
 
-// 数据更新后的通知回调
 - (void)epgDataDidUpdate {
     dispatch_async(dispatch_get_main_queue(), ^{
         [self.tableView reloadData];
@@ -320,7 +318,6 @@
         return;
     }
     
-    // [优化] 由于已启用 ToastHelper 全局悬浮窗进度条机制，这里直接调用数据方法，UI 层面完全不阻塞
     [[EPGManager sharedManager] fetchAndParseEPGDataWithCompletion:^(BOOL success, NSString *errorMsg) {
         dispatch_async(dispatch_get_main_queue(), ^{
             if (!success) {
@@ -348,7 +345,7 @@
     if (section == 1) return 1;
     if (section == 2) return 2;
     if (section == 3) return 3;
-    if (section == 4) return 2;
+    if (section == 4) return 1; // [优化] 清理缓存移走后，这里仅剩1个强制更新选项
     return 0;
 }
 
@@ -455,8 +452,6 @@
         if (indexPath.row == 0) {
             cell.textLabel.text = LocalizedString(@"force_update_epg");
             cell.detailTextLabel.text = @"";
-        } else {
-            cell.textLabel.text = LocalizedString(@"clear_epg_cache");
         }
     }
     
@@ -483,11 +478,6 @@
     } else if (indexPath.section == 4) {
         if (indexPath.row == 0) {
             [self fetchEPGData];
-        } else if (indexPath.row == 1) {
-            [[EPGManager sharedManager] clearEPGCache];
-            UIAlertView *alert = [[UIAlertView alloc] initWithTitle:LocalizedString(@"tips") message:LocalizedString(@"epg_cache_cleared") delegate:nil cancelButtonTitle:LocalizedString(@"confirm") otherButtonTitles:nil];
-            [alert show];
-            [self.tableView reloadData];
         }
     }
 }

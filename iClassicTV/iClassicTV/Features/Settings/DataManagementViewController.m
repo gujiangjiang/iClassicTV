@@ -8,6 +8,8 @@
 
 #import "DataManagementViewController.h"
 #import "AppDataManager.h"
+#import "WatchListDataManager.h" // [新增] 引入观看记录管理
+#import "EPGManager.h"           // [新增] 引入 EPG 缓存管理
 #import "AlertHelper.h"
 #import "LanguageManager.h"
 
@@ -26,18 +28,109 @@
 
 - (void)viewDidLoad {
     [super viewDidLoad];
-    // 优化：使用了合并后的 data_management_and_backup 键
     self.title = LocalizedString(@"data_management_and_backup");
     
+    // [优化] 将原本分散在各个设置界面的清理功能进行归并，并利用 Block 模式重构 TableView 驱动数据模型
+    __weak typeof(self) weakSelf = self;
     self.sections = @[
-                      @{@"title": LocalizedString(@"backup_restore_section"), @"rows": @[LocalizedString(@"backup_current"), LocalizedString(@"restore_from_backup"), LocalizedString(@"clear_all_backups")]},
-                      @{@"title": LocalizedString(@"data_cleanup_section"), @"rows": @[LocalizedString(@"clear_all_sources"), LocalizedString(@"clear_all_icons"), LocalizedString(@"clear_all_cache"), LocalizedString(@"clear_preferences"), LocalizedString(@"restore_all_settings")]}
+                      @{
+                          @"title": LocalizedString(@"backup_restore_section"),
+                          @"rows": @[
+                                  @{ @"title": LocalizedString(@"backup_current"), @"isDanger": @NO, @"action": ^{ [weakSelf performExportConfiguration]; } },
+                                  @{ @"title": LocalizedString(@"restore_from_backup"), @"isDanger": @NO, @"action": ^{ [weakSelf scanAndPerformRestore]; } },
+                                  @{ @"title": LocalizedString(@"clear_all_backups"), @"isDanger": @YES, @"action": ^{
+                                      [AlertHelper showConfirmAlertWithTitle:LocalizedString(@"clear_all_backups") message:LocalizedString(@"confirm_clear_backups") confirmTitle:LocalizedString(@"delete") cancelTitle:LocalizedString(@"cancel") confirmBlock:^{
+                                          [weakSelf clearAllBackupFiles];
+                                      } cancelBlock:nil];
+                                  } }
+                                  ]
+                          },
+                      @{
+                          @"title": LocalizedString(@"data_management"), // 用于归纳日常操作产生的记录缓存
+                          @"rows": @[
+                                  @{ @"title": LocalizedString(@"clear_favorites"), @"isDanger": @YES, @"action": ^{
+                                      [AlertHelper showConfirmAlertWithTitle:LocalizedString(@"clear_favorites") message:LocalizedString(@"confirm_clear_favorites_msg") confirmTitle:LocalizedString(@"confirm") cancelTitle:LocalizedString(@"cancel") confirmBlock:^{
+                                          [[WatchListDataManager sharedManager] clearFavorites];
+                                          [weakSelf showSuccessAlert:LocalizedString(@"cleanup_complete")];
+                                      } cancelBlock:nil];
+                                  } },
+                                  @{ @"title": LocalizedString(@"clear_recent_play"), @"isDanger": @YES, @"action": ^{
+                                      [AlertHelper showConfirmAlertWithTitle:LocalizedString(@"clear_recent_play") message:LocalizedString(@"confirm_clear_recent_msg") confirmTitle:LocalizedString(@"confirm") cancelTitle:LocalizedString(@"cancel") confirmBlock:^{
+                                          [[WatchListDataManager sharedManager] clearRecentPlays];
+                                          [weakSelf showSuccessAlert:LocalizedString(@"cleanup_complete")];
+                                      } cancelBlock:nil];
+                                  } },
+                                  @{ @"title": LocalizedString(@"clear_appointments"), @"isDanger": @YES, @"action": ^{
+                                      [AlertHelper showConfirmAlertWithTitle:LocalizedString(@"clear_appointments") message:LocalizedString(@"confirm_clear_appointments_msg") confirmTitle:LocalizedString(@"confirm") cancelTitle:LocalizedString(@"cancel") confirmBlock:^{
+                                          [[WatchListDataManager sharedManager] clearAppointments];
+                                          [weakSelf showSuccessAlert:LocalizedString(@"cleanup_complete")];
+                                      } cancelBlock:nil];
+                                  } },
+                                  @{ @"title": LocalizedString(@"clear_epg_cache"), @"isDanger": @YES, @"action": ^{
+                                      [AlertHelper showConfirmAlertWithTitle:LocalizedString(@"tips") message:LocalizedString(@"clear_epg_cache") confirmTitle:LocalizedString(@"confirm") cancelTitle:LocalizedString(@"cancel") confirmBlock:^{
+                                          [[EPGManager sharedManager] clearEPGCache];
+                                          [weakSelf showSuccessAlert:LocalizedString(@"epg_cache_cleared")];
+                                      } cancelBlock:nil];
+                                  } },
+                                  @{ @"title": LocalizedString(@"clear_all_icons"), @"isDanger": @YES, @"action": ^{
+                                      [AlertHelper showConfirmAlertWithTitle:LocalizedString(@"clear_all_icons") message:LocalizedString(@"confirm_clear_icons") confirmTitle:LocalizedString(@"confirm") cancelTitle:LocalizedString(@"cancel") confirmBlock:^{
+                                          [[AppDataManager sharedManager] clearAllChannelIcons];
+                                          [weakSelf showSuccessAlert:LocalizedString(@"all_icons_cleared")];
+                                      } cancelBlock:nil];
+                                  } },
+                                  @{ @"title": LocalizedString(@"clear_all_cache"), @"isDanger": @YES, @"action": ^{
+                                      [AlertHelper showConfirmAlertWithTitle:LocalizedString(@"clear_all_cache") message:LocalizedString(@"confirm_clear_cache") confirmTitle:LocalizedString(@"confirm") cancelTitle:LocalizedString(@"cancel") confirmBlock:^{
+                                          [[AppDataManager sharedManager] clearAllGeneralCache];
+                                          [weakSelf showSuccessAlert:LocalizedString(@"cache_cleared")];
+                                      } cancelBlock:nil];
+                                  } }
+                                  ]
+                          },
+                      @{
+                          @"title": LocalizedString(@"data_cleanup_section"), // 涉及核心库和重置的危险操作
+                          @"rows": @[
+                                  @{ @"title": LocalizedString(@"clear_all_sources"), @"isDanger": @YES, @"action": ^{
+                                      [AlertHelper showConfirmAlertWithTitle:LocalizedString(@"clear_all_sources") message:LocalizedString(@"confirm_clear_sources") confirmTitle:LocalizedString(@"confirm") cancelTitle:LocalizedString(@"cancel") confirmBlock:^{
+                                          [[AppDataManager sharedManager] clearAllSources];
+                                          [weakSelf showSuccessAlert:LocalizedString(@"all_sources_cleared")];
+                                      } cancelBlock:nil];
+                                  } },
+                                  @{ @"title": LocalizedString(@"clear_preferences"), @"isDanger": @YES, @"action": ^{
+                                      [AlertHelper showConfirmAlertWithTitle:LocalizedString(@"clear_preferences") message:LocalizedString(@"confirm_clear_prefs") confirmTitle:LocalizedString(@"confirm") cancelTitle:LocalizedString(@"cancel") confirmBlock:^{
+                                          [[AppDataManager sharedManager] clearAllPreferencesCache];
+                                          [weakSelf showSuccessAlert:LocalizedString(@"prefs_cleared")];
+                                      } cancelBlock:nil];
+                                  } },
+                                  @{ @"title": LocalizedString(@"restore_all_settings"), @"isDanger": @YES, @"action": ^{
+                                      [AlertHelper showConfirmAlertWithTitle:LocalizedString(@"restore_all_settings") message:LocalizedString(@"confirm_restore_settings") confirmTitle:LocalizedString(@"confirm") cancelTitle:LocalizedString(@"cancel") confirmBlock:^{
+                                          [[AppDataManager sharedManager] restoreAllSettings];
+                                          [weakSelf showSuccessAlert:LocalizedString(@"settings_restored")];
+                                      } cancelBlock:nil];
+                                  } }
+                                  ]
+                          }
                       ];
 }
 
-- (NSInteger)numberOfSectionsInTableView:(UITableView *)tableView { return self.sections.count; }
-- (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section { return [self.sections[section][@"rows"] count]; }
-- (NSString *)tableView:(UITableView *)tableView titleForHeaderInSection:(NSInteger)section { return self.sections[section][@"title"]; }
+- (void)showSuccessAlert:(NSString *)message {
+    UIAlertView *successAlert = [[UIAlertView alloc] initWithTitle:LocalizedString(@"tips") message:message delegate:nil cancelButtonTitle:LocalizedString(@"confirm") otherButtonTitles:nil];
+    [successAlert show];
+}
+
+#pragma mark - Table view data source
+
+- (NSInteger)numberOfSectionsInTableView:(UITableView *)tableView {
+    return self.sections.count;
+}
+
+- (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section {
+    return [self.sections[section][@"rows"] count];
+}
+
+- (NSString *)tableView:(UITableView *)tableView titleForHeaderInSection:(NSInteger)section {
+    return self.sections[section][@"title"];
+}
+
 - (NSString *)tableView:(UITableView *)tableView titleForFooterInSection:(NSInteger)section {
     if (section == 0) {
         return LocalizedString(@"backup_footer_desc");
@@ -48,11 +141,15 @@
 - (UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath {
     static NSString *CellIdentifier = @"DataManageCell";
     UITableViewCell *cell = [tableView dequeueReusableCellWithIdentifier:CellIdentifier];
-    if (!cell) cell = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleDefault reuseIdentifier:CellIdentifier];
+    if (!cell) {
+        cell = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleDefault reuseIdentifier:CellIdentifier];
+    }
     
-    cell.textLabel.text = self.sections[indexPath.section][@"rows"][indexPath.row];
+    NSDictionary *rowData = self.sections[indexPath.section][@"rows"][indexPath.row];
+    cell.textLabel.text = rowData[@"title"];
     
-    if (indexPath.section == 1 || (indexPath.section == 0 && indexPath.row == 2)) {
+    // 根据数据模型自动控制样式
+    if ([rowData[@"isDanger"] boolValue]) {
         cell.accessoryType = UITableViewCellAccessoryNone;
         cell.textLabel.textAlignment = NSTextAlignmentCenter;
         cell.textLabel.textColor = [UIColor redColor];
@@ -67,67 +164,12 @@
 
 - (void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath {
     [tableView deselectRowAtIndexPath:indexPath animated:YES];
-    __weak typeof(self) weakSelf = self;
     
-    if (indexPath.section == 0) {
-        if (indexPath.row == 0) {
-            [self performExportConfiguration];
-        } else if (indexPath.row == 1) {
-            [self scanAndPerformRestore];
-        } else if (indexPath.row == 2) {
-            // 优化：删除了专门的删除标题和删除确认词，合并使用了清空列表项词和全局 delete 词汇
-            [AlertHelper showConfirmAlertWithTitle:LocalizedString(@"clear_all_backups")
-                                           message:LocalizedString(@"confirm_clear_backups")
-                                      confirmTitle:LocalizedString(@"delete")
-                                       cancelTitle:LocalizedString(@"cancel")
-                                      confirmBlock:^{
-                                          [weakSelf clearAllBackupFiles];
-                                      } cancelBlock:nil];
-        }
-    } else if (indexPath.section == 1) {
-        switch (indexPath.row) {
-            case 0: {
-                [AlertHelper showConfirmAlertWithTitle:LocalizedString(@"clear_all_sources") message:LocalizedString(@"confirm_clear_sources") confirmTitle:LocalizedString(@"confirm") cancelTitle:LocalizedString(@"cancel") confirmBlock:^{
-                    [[AppDataManager sharedManager] clearAllSources];
-                    UIAlertView *successAlert = [[UIAlertView alloc] initWithTitle:LocalizedString(@"cleared") message:LocalizedString(@"all_sources_cleared") delegate:nil cancelButtonTitle:LocalizedString(@"confirm") otherButtonTitles:nil];
-                    [successAlert show];
-                } cancelBlock:nil];
-                break;
-            }
-            case 1: {
-                // 优化：弹窗标题直接复用对应的清空列表词汇
-                [AlertHelper showConfirmAlertWithTitle:LocalizedString(@"clear_all_icons") message:LocalizedString(@"confirm_clear_icons") confirmTitle:LocalizedString(@"confirm") cancelTitle:LocalizedString(@"cancel") confirmBlock:^{
-                    [[AppDataManager sharedManager] clearAllChannelIcons];
-                    UIAlertView *successAlert = [[UIAlertView alloc] initWithTitle:LocalizedString(@"cleared") message:LocalizedString(@"all_icons_cleared") delegate:nil cancelButtonTitle:LocalizedString(@"confirm") otherButtonTitles:nil];
-                    [successAlert show];
-                } cancelBlock:nil];
-                break;
-            }
-            case 2: {
-                [AlertHelper showConfirmAlertWithTitle:LocalizedString(@"clear_all_cache") message:LocalizedString(@"confirm_clear_cache") confirmTitle:LocalizedString(@"confirm") cancelTitle:LocalizedString(@"cancel") confirmBlock:^{
-                    [[AppDataManager sharedManager] clearAllGeneralCache];
-                    UIAlertView *successAlert = [[UIAlertView alloc] initWithTitle:LocalizedString(@"cleared") message:LocalizedString(@"cache_cleared") delegate:nil cancelButtonTitle:LocalizedString(@"confirm") otherButtonTitles:nil];
-                    [successAlert show];
-                } cancelBlock:nil];
-                break;
-            }
-            case 3: {
-                [AlertHelper showConfirmAlertWithTitle:LocalizedString(@"clear_preferences") message:LocalizedString(@"confirm_clear_prefs") confirmTitle:LocalizedString(@"confirm") cancelTitle:LocalizedString(@"cancel") confirmBlock:^{
-                    [[AppDataManager sharedManager] clearAllPreferencesCache];
-                    UIAlertView *successAlert = [[UIAlertView alloc] initWithTitle:LocalizedString(@"cleared") message:LocalizedString(@"prefs_cleared") delegate:nil cancelButtonTitle:LocalizedString(@"confirm") otherButtonTitles:nil];
-                    [successAlert show];
-                } cancelBlock:nil];
-                break;
-            }
-            case 4: {
-                [AlertHelper showConfirmAlertWithTitle:LocalizedString(@"restore_all_settings") message:LocalizedString(@"confirm_restore_settings") confirmTitle:LocalizedString(@"confirm") cancelTitle:LocalizedString(@"cancel") confirmBlock:^{
-                    [[AppDataManager sharedManager] restoreAllSettings];
-                    UIAlertView *successAlert = [[UIAlertView alloc] initWithTitle:LocalizedString(@"restored") message:LocalizedString(@"settings_restored") delegate:nil cancelButtonTitle:LocalizedString(@"confirm") otherButtonTitles:nil];
-                    [successAlert show];
-                } cancelBlock:nil];
-                break;
-            }
-        }
+    // 取出对应的 Block 直接执行对应逻辑，彻底消除 switch 的硬编码
+    NSDictionary *rowData = self.sections[indexPath.section][@"rows"][indexPath.row];
+    void(^actionBlock)(void) = rowData[@"action"];
+    if (actionBlock) {
+        actionBlock();
     }
 }
 
@@ -147,8 +189,7 @@
     }
     
     NSString *msg = count > 0 ? [NSString stringWithFormat:LocalizedString(@"cleared_n_backups"), count] : LocalizedString(@"no_backups_to_clear");
-    UIAlertView *alert = [[UIAlertView alloc] initWithTitle:LocalizedString(@"cleanup_complete") message:msg delegate:nil cancelButtonTitle:LocalizedString(@"confirm") otherButtonTitles:nil];
-    [alert show];
+    [self showSuccessAlert:msg];
 }
 
 #pragma mark - 导出与分享逻辑
@@ -280,8 +321,7 @@
     
     [[NSNotificationCenter defaultCenter] postNotificationName:@"M3UDataUpdated" object:nil];
     
-    UIAlertView *successAlert = [[UIAlertView alloc] initWithTitle:LocalizedString(@"restore_success") message:LocalizedString(@"config_restored") delegate:nil cancelButtonTitle:LocalizedString(@"confirm") otherButtonTitles:nil];
-    [successAlert show];
+    [self showSuccessAlert:LocalizedString(@"config_restored")];
 }
 
 - (void)actionSheet:(UIActionSheet *)actionSheet clickedButtonAtIndex:(NSInteger)buttonIndex {
