@@ -306,6 +306,8 @@
         
         notification.alertBody = [NSString stringWithFormat:LocalizedString(@"reminder_alert_msg"), info[@"channelName"], timeStr, info[@"title"]];
         notification.soundName = UILocalNotificationDefaultSoundName;
+        // [修复] 为本地通知添加角标属性，解决触发通知时不显示应用角标的问题
+        notification.applicationIconBadgeNumber = 1;
         notification.userInfo = @{
                                   @"isEPGReminder": @YES,
                                   @"channelName": info[@"channelName"],
