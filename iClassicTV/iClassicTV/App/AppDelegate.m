@@ -80,24 +80,27 @@
         }
     }
     
-    // [新增] 处理冷启动时用户点击预约通知拉起APP的情况
+    // 处理冷启动时用户点击预约通知拉起APP的情况
     UILocalNotification *localNotif = [launchOptions objectForKey:UIApplicationLaunchOptionsLocalNotificationKey];
     if (localNotif) {
-        if ([localNotif.userInfo[@"isEPGReminder"] boolValue]) {
-            // [修复] 冷启动点击通知时，清零角标并取消通知，以将其从通知中心彻底移除
+        // [修复] 必须先拷贝 userInfo，防止取消通知后对象被释放
+        NSDictionary *userInfo = [localNotif.userInfo copy];
+        
+        if ([userInfo[@"isEPGReminder"] boolValue]) {
+            // 冷启动点击通知时，清零角标并取消通知，以将其从通知中心彻底移除
             application.applicationIconBadgeNumber = 1;
             application.applicationIconBadgeNumber = 0;
             [application cancelLocalNotification:localNotif];
             
-            // [新增] 检查预约是否已过期
-            NSDate *endTime = localNotif.userInfo[@"endTime"];
-            NSDate *startTime = localNotif.userInfo[@"startTime"];
+            // 检查预约是否已过期
+            NSDate *endTime = userInfo[@"endTime"];
+            NSDate *startTime = userInfo[@"startTime"];
             // 如果没有传入 endTime，作为 fallback，默认节目开播后 2 小时视为过期
             NSDate *checkTime = endTime ? endTime : (startTime ? [startTime dateByAddingTimeInterval:2 * 3600] : nil);
             
             if (checkTime && [[NSDate date] compare:checkTime] == NSOrderedDescending) {
-                // 已过期，稍微延迟弹窗，防止被启动画面覆盖
-                [self performSelector:@selector(showExpiredAlertForNotification:) withObject:localNotif afterDelay:0.5];
+                // [修复] 传参改为安全的 userInfo 字典
+                [self performSelector:@selector(showExpiredAlertForUserInfo:) withObject:userInfo afterDelay:0.5];
             } else {
                 // 未过期，稍微延迟跳转，等待根视图初始化完全
                 [self performSelector:@selector(jumpToAppointmentsTab) withObject:nil afterDelay:0.5];
@@ -108,35 +111,37 @@
     return YES;
 }
 
-// [新增] 接收到本地通知时的代理方法
+// 接收到本地通知时的代理方法
 - (void)application:(UIApplication *)application didReceiveLocalNotification:(UILocalNotification *)notification {
-    // [修复] 收到或点击通知进入前台时，清零角标并取消该通知，以将其从系统通知中心移除
+    // [修复] 严重内存溢出 Bug：在取消通知前必须先将 userInfo 提取并持有拷贝！
+    // 否则 cancelLocalNotification 可能会导致系统提前释放 notification 指针，后续读取闪退
+    NSDictionary *userInfo = [notification.userInfo copy];
+    
+    // 收到或点击通知进入前台时，清零角标并取消该通知，以将其从系统通知中心移除
     application.applicationIconBadgeNumber = 1;
     application.applicationIconBadgeNumber = 0;
     [application cancelLocalNotification:notification];
     
-    NSDictionary *userInfo = notification.userInfo;
     if ([userInfo[@"isEPGReminder"] boolValue]) {
-        // [新增] 检查预约是否已过期
+        // 检查预约是否已过期
         NSDate *endTime = userInfo[@"endTime"];
         NSDate *startTime = userInfo[@"startTime"];
         NSDate *checkTime = endTime ? endTime : (startTime ? [startTime dateByAddingTimeInterval:2 * 3600] : nil);
         
         if (checkTime && [[NSDate date] compare:checkTime] == NSOrderedDescending) {
-            // 节目已过期，直接弹出提示并 return，拦截后续导致黑屏卡死的跳转逻辑
-            [self showExpiredAlertForNotification:notification];
+            // [修复] 增加延迟调用，防止在后台被唤醒转场的过程中同步弹出 Alert 导致被系统视图层级吞掉而无法显示
+            [self performSelector:@selector(showExpiredAlertForUserInfo:) withObject:userInfo afterDelay:0.5];
             return;
         }
         
         // 如果 App 处于前台运行状态，则不走系统的顶部推送，直接由 App 内部弹窗提醒
         if (application.applicationState == UIApplicationStateActive) {
-            NSString *channel = userInfo[@"channelName"];
-            NSString *title = userInfo[@"title"];
-            NSDate *startTime = userInfo[@"startTime"];
+            NSString *channel = userInfo[@"channelName"] ?: @"";
+            NSString *title = userInfo[@"title"] ?: @"";
             
             NSDateFormatter *df = [[NSDateFormatter alloc] init];
             [df setDateFormat:@"MM-dd HH:mm"];
-            NSString *timeStr = [df stringFromDate:startTime];
+            NSString *timeStr = startTime ? [df stringFromDate:startTime] : @"";
             
             NSString *msg = [NSString stringWithFormat:LocalizedString(@"reminder_alert_msg"), channel, timeStr, title];
             
@@ -150,16 +155,17 @@
     }
 }
 
-// [新增] 处理内部应用弹窗点击“立即前往”跳转预约界面的逻辑
+// 处理内部应用弹窗点击“立即前往”跳转预约界面的逻辑
 - (void)alertView:(UIAlertView *)alertView clickedButtonAtIndex:(NSInteger)buttonIndex {
     if (alertView.tag == 1001 && buttonIndex == 1) {
         [self jumpToAppointmentsTab];
     }
 }
 
-// [新增] 显示预约过期提醒的辅助方法
-- (void)showExpiredAlertForNotification:(UILocalNotification *)notification {
-    NSDictionary *userInfo = notification.userInfo;
+// [修复] 将参数类型从 UILocalNotification 变更为 NSDictionary，保证数据的绝对安全
+- (void)showExpiredAlertForUserInfo:(NSDictionary *)userInfo {
+    if (!userInfo) return;
+    
     NSString *channel = userInfo[@"channelName"] ?: @"";
     NSString *title = userInfo[@"title"] ?: @"";
     
@@ -168,28 +174,25 @@
     
     NSString *msg = @"";
     if (supportsPlayback) {
-        // [修复] 移除硬编码，使用多语言键值支持国际化
         msg = [NSString stringWithFormat:LocalizedString(@"reminder_expired_catchup_msg"), channel, title];
     } else {
-        // [修复] 移除硬编码，使用多语言键值支持国际化
         msg = [NSString stringWithFormat:LocalizedString(@"reminder_expired_msg"), channel, title];
     }
     
-    // [修复] 移除硬编码标题和按钮文字，使用多语言键值支持国际化
     UIAlertView *alert = [[UIAlertView alloc] initWithTitle:LocalizedString(@"tips") message:msg delegate:nil cancelButtonTitle:LocalizedString(@"reminder_expired_ok") otherButtonTitles:nil];
     [alert show];
 }
 
-// [新增] 跳转至“我的电视”预约页的辅助方法
+// 跳转至“我的电视”预约页的辅助方法
 - (void)jumpToAppointmentsTab {
     [self updateWatchListTabVisibility];
     if ([self.tabBarController.viewControllers containsObject:self.navWatchList]) {
         self.tabBarController.selectedViewController = self.navWatchList;
         
-        // [修复] 强制触发视图控制器的 view 加载，防止其尚未初始化（viewDidLoad未执行）导致漏接后续通知
+        // 强制触发视图控制器的 view 加载，防止其尚未初始化（viewDidLoad未执行）导致漏接后续通知
         [self.navWatchList.topViewController view];
         
-        // [修复] 将发送跳转通知的操作放到主队列异步执行，确保视图已完全准备好接收并在正确的生命周期响应
+        // 将发送跳转通知的操作放到主队列异步执行，确保视图已完全准备好接收并在正确的生命周期响应
         dispatch_async(dispatch_get_main_queue(), ^{
             [[NSNotificationCenter defaultCenter] postNotificationName:@"JumpToAppointmentsTabNotification" object:nil];
         });
